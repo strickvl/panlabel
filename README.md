@@ -24,7 +24,7 @@ If you wish to use the library in your own project, you can add it to your
 
 ## Usage
 
-You can use the following commands to get more information about panlabel:
+You can use the following commands to get more information about `panlabel`:
 
 - `panlabel -V` or `panlabel --version`: Displays the current version of panlabel.
 - `panlabel -h` or `panlabel --help`: Shows the full CLI help, including available commands and options.

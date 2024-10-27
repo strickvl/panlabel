@@ -2,5 +2,23 @@
 name = "panlabel"
 version = "0.1.0"
 edition = "2021"
+authors = ["Alex Strick van Linschoten <panlabel@realemail.net>"]
+description = "The universal annotation converter"
+license = "MIT"
+repository = "https://github.com/strickvl/panlabel"
+documentation = "https://docs.rs/panlabel"
+keywords = ["cli", "annotation", "converter"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+
+# Enables the code to be used as a library
+[lib]
+name = "panlabel"
+path = "src/lib.rs"
+
+# Enables the CLI binary
+[[bin]]
+name = "panlabel"
+path = "src/main.rs"
 
 [dependencies]

@@ -1,3 +1,6 @@
+use panlabel;
+
 fn main() {
-    println!("Hello, world!");
+    // Your CLI implementation
+    panlabel::your_function();
 }

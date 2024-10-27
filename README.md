@@ -29,6 +29,9 @@ You can use the following commands to get more information about panlabel:
 - `panlabel -V` or `panlabel --version`: Displays the current version of panlabel.
 - `panlabel -h` or `panlabel --help`: Shows the full CLI help, including available commands and options.
 
+<!-- ## Benchmarks
+
+![Benchmarking panlabel vs Python conversion tools](benchmark.png) -->
 
 ## Contributing
 

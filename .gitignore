@@ -28,4 +28,4 @@ Cargo.lock
 .venv
 
 # custom gitignores during development
-/assets
+assets/

@@ -13,11 +13,22 @@ and a command-line tool that uses this library.
 
 ## Installation
 
-TKTKTKTKTK
+You can install `panlabel` from [crates.io](https://crates.io/crates/panlabel) using cargo:
 
-## Documentation
+```sh
+cargo install panlabel
+```
 
-TKTKTKTKTK
+If you wish to use the library in your own project, you can add it to your
+`Cargo.toml` with `cargo add panlabel`.
+
+## Usage
+
+You can use the following commands to get more information about panlabel:
+
+- `panlabel -V` or `panlabel --version`: Displays the current version of panlabel.
+- `panlabel -h` or `panlabel --help`: Shows the full CLI help, including available commands and options.
+
 
 ## Contributing
 

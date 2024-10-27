@@ -26,3 +26,6 @@ Cargo.lock
 
 # Python ignores
 .venv
+
+# custom gitignores during development
+/assets

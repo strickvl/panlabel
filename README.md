@@ -1,7 +1,10 @@
 # Panlabel
 
+![Crates.io Version](https://img.shields.io/crates/v/panlabel)
 ![GitHub License](https://img.shields.io/github/license/strickvl/panlabel)
 ![GitHub Repo stars](https://img.shields.io/github/stars/strickvl/panlabel)
+![Crates.io Total Downloads](https://img.shields.io/crates/d/panlabel)
+![Crates.io Size](https://img.shields.io/crates/size/panlabel)
 
 ## The universal annotation converter
 

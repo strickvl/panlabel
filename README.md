@@ -11,6 +11,10 @@
 Panlabel is a Rust library for converting between different annotation formats,
 and a command-line tool that uses this library.
 
+> ⚠️ **Warning**: This library is in active development and breaking changes
+> should be expected between versions. Please pin to specific versions in
+> production.
+
 ## Installation
 
 You can install `panlabel` from [crates.io](https://crates.io/crates/panlabel) using cargo:

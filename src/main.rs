@@ -1,6 +1,6 @@
-use panlabel;
-
 fn main() {
-    // Your CLI implementation
-    panlabel::your_function();
+    if let Err(e) = panlabel::run() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
 }

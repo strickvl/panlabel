@@ -1,15 +1,12 @@
-// This is where your library code goes
-pub fn your_function() {
-    println!("Hello, world!");
-}
+use clap::Command;
+use std::env;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let _matches = Command::new("panlabel")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
+        .get_matches();
 
-    #[test]
-    fn it_works() {
-        // Your tests
-        assert_eq!(2 + 2, 4);
-    }
+    Ok(())
 }

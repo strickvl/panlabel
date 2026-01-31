@@ -1,0 +1,25 @@
+[package]
+name = "panlabel-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.panlabel]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "coco_json_parse"
+path = "fuzz_targets/coco_json_parse.rs"
+test = false
+doc = false
+bench = false

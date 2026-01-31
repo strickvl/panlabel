@@ -1,0 +1,1 @@
+{"images":[{"id":1,"width":100,"height":100,"file_name":"a.jpg"}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":1,"image_id":1,"category_id":1,"bbox":[0,0,10,10]}]}

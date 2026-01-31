@@ -1,0 +1,4 @@
+# Fuzz artifacts
+target/
+artifacts/
+Cargo.lock

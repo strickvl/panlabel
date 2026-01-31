@@ -192,6 +192,14 @@ pub fn from_coco_str(json: &str) -> Result<Dataset, serde_json::Error> {
     Ok(coco_to_ir(coco))
 }
 
+/// Reads a dataset from a COCO JSON byte slice.
+///
+/// Useful for fuzzing and processing raw bytes without UTF-8 validation overhead.
+pub fn from_coco_slice(bytes: &[u8]) -> Result<Dataset, serde_json::Error> {
+    let coco: CocoDataset = serde_json::from_slice(bytes)?;
+    Ok(coco_to_ir(coco))
+}
+
 /// Writes a dataset to a COCO JSON string.
 ///
 /// Useful for testing without file I/O.

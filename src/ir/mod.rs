@@ -40,6 +40,7 @@ mod coord;
 mod ids;
 pub mod io_coco_json;
 pub mod io_json;
+pub mod io_tfod_csv;
 mod model;
 mod space;
 

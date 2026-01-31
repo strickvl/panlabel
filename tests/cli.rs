@@ -147,6 +147,50 @@ fn validate_coco_json_alias_works() {
         .stdout(predicates::str::contains("Validation passed"));
 }
 
+// TFOD CSV format tests
+
+#[test]
+fn validate_tfod_valid_dataset_succeeds() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "assets/tfod_annotations_small.csv",
+        "--format",
+        "tfod",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_tfod_csv_alias_works() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "assets/tfod_annotations_small.csv",
+        "--format",
+        "tfod-csv",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_tfod_large_dataset_succeeds() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "assets/tfod_annotations.csv",
+        "--format",
+        "tfod",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
 // Unsupported format test (uses a truly unsupported format now)
 
 #[test]

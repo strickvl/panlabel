@@ -44,7 +44,7 @@ struct ValidateArgs {
     /// Input file to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json' or 'coco').
+    /// Input format ('ir-json', 'coco', or 'tfod').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -84,9 +84,10 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
     let dataset = match args.format.as_str() {
         "ir-json" => ir::io_json::read_ir_json(&args.input)?,
         "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
+        "tfod" | "tfod-csv" => ir::io_tfod_csv::read_tfod_csv(&args.input)?,
         other => {
             return Err(PanlabelError::UnsupportedFormat(format!(
-                "'{}' (supported: ir-json, coco)",
+                "'{}' (supported: ir-json, coco, tfod)",
                 other
             )));
         }

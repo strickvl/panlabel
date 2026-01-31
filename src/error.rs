@@ -37,6 +37,23 @@ pub enum PanlabelError {
         source: serde_json::Error,
     },
 
+    #[error("Failed to parse TFOD CSV from {path}: {source}")]
+    TfodCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write TFOD CSV to {path}: {source}")]
+    TfodCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid TFOD CSV: {path}: {message}")]
+    TfodCsvInvalid { path: PathBuf, message: String },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

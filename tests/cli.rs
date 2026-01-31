@@ -154,7 +154,7 @@ fn validate_tfod_valid_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
-        "assets/tfod_annotations_small.csv",
+        "tests/fixtures/sample_valid.tfod.csv",
         "--format",
         "tfod",
     ]);
@@ -168,7 +168,7 @@ fn validate_tfod_csv_alias_works() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
-        "assets/tfod_annotations_small.csv",
+        "tests/fixtures/sample_valid.tfod.csv",
         "--format",
         "tfod-csv",
     ]);
@@ -178,6 +178,7 @@ fn validate_tfod_csv_alias_works() {
 }
 
 #[test]
+#[ignore] // Requires large generated dataset in assets/ (not committed)
 fn validate_tfod_large_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([

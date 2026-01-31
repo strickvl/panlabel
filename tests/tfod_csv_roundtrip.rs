@@ -1,7 +1,8 @@
-//! Integration tests for TFOD CSV format using assets files.
+//! Integration tests for TFOD CSV format.
 //!
-//! These tests verify that the TFOD CSV reader and writer work correctly
-//! with real-world data from the assets directory.
+//! These tests verify that the TFOD CSV reader and writer work correctly.
+//! Tests using fixture files run in CI; tests using large generated assets
+//! are marked `#[ignore]` and run locally only.
 
 use std::path::Path;
 
@@ -10,7 +11,7 @@ use panlabel::ir::io_tfod_csv::{from_tfod_csv_str, read_tfod_csv, to_tfod_csv_st
 /// Test that we can read the small TFOD CSV asset file.
 #[test]
 fn read_tfod_small_asset() {
-    let path = Path::new("assets/tfod_annotations_small.csv");
+    let path = Path::new("tests/fixtures/sample_valid.tfod.csv");
     let dataset = read_tfod_csv(path).expect("Failed to read TFOD CSV");
 
     // The small dataset should have some images, categories, and annotations
@@ -46,6 +47,7 @@ fn read_tfod_small_asset() {
 
 /// Test that we can read the large TFOD CSV asset file.
 #[test]
+#[ignore] // Requires large generated dataset in assets/ (not committed)
 fn read_tfod_large_asset() {
     let path = Path::new("assets/tfod_annotations.csv");
     let dataset = read_tfod_csv(path).expect("Failed to read large TFOD CSV");
@@ -64,7 +66,7 @@ fn read_tfod_large_asset() {
 /// Test roundtrip: read -> write -> read preserves semantic content.
 #[test]
 fn tfod_roundtrip_small_asset() {
-    let path = Path::new("assets/tfod_annotations_small.csv");
+    let path = Path::new("tests/fixtures/sample_valid.tfod.csv");
     let original = read_tfod_csv(path).expect("Failed to read TFOD CSV");
 
     // Write to string
@@ -135,7 +137,7 @@ fn tfod_roundtrip_small_asset() {
 /// Test that bbox coordinates are within valid bounds after reading.
 #[test]
 fn tfod_bbox_bounds_valid() {
-    let path = Path::new("assets/tfod_annotations_small.csv");
+    let path = Path::new("tests/fixtures/sample_valid.tfod.csv");
     let dataset = read_tfod_csv(path).expect("Failed to read TFOD CSV");
 
     for ann in &dataset.annotations {

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use super::bbox::BBoxXYXY;
-use super::ids::{AnnotationId, CategoryId, ImageId};
+use super::ids::{AnnotationId, CategoryId, ImageId, LicenseId};
 use super::space::Pixel;
 
 /// A complete object detection dataset in the panlabel IR format.
@@ -21,6 +21,10 @@ pub struct Dataset {
     /// Metadata about the dataset (name, version, license, etc.)
     #[serde(default)]
     pub info: DatasetInfo,
+
+    /// License definitions for the dataset.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub licenses: Vec<License>,
 
     /// All images in the dataset.
     pub images: Vec<Image>,
@@ -50,6 +54,56 @@ pub struct DatasetInfo {
     /// Optional URL for more information.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+
+    /// Optional year the dataset was created.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub year: Option<u32>,
+
+    /// Optional contributor name or organization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contributor: Option<String>,
+
+    /// Optional date the dataset was created (ISO 8601 or similar).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_created: Option<String>,
+}
+
+/// A license that can be associated with images in the dataset.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct License {
+    /// Unique identifier for this license.
+    pub id: LicenseId,
+
+    /// Name of the license (e.g., "CC BY 4.0").
+    pub name: String,
+
+    /// Optional URL to the license text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+impl License {
+    /// Creates a new license with the given properties.
+    pub fn new(id: impl Into<LicenseId>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            url: None,
+        }
+    }
+
+    /// Creates a new license with a URL.
+    pub fn with_url(
+        id: impl Into<LicenseId>,
+        name: impl Into<String>,
+        url: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            url: Some(url.into()),
+        }
+    }
 }
 
 /// An image in the dataset.
@@ -66,6 +120,14 @@ pub struct Image {
 
     /// Height of the image in pixels.
     pub height: u32,
+
+    /// Optional license ID for this image.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub license_id: Option<LicenseId>,
+
+    /// Optional date the image was captured (ISO 8601 or similar).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_captured: Option<String>,
 }
 
 impl Image {
@@ -81,7 +143,21 @@ impl Image {
             file_name: file_name.into(),
             width,
             height,
+            license_id: None,
+            date_captured: None,
         }
+    }
+
+    /// Sets the license ID for this image.
+    pub fn with_license(mut self, license_id: impl Into<LicenseId>) -> Self {
+        self.license_id = Some(license_id.into());
+        self
+    }
+
+    /// Sets the date captured for this image.
+    pub fn with_date_captured(mut self, date: impl Into<String>) -> Self {
+        self.date_captured = Some(date.into());
+        self
     }
 }
 
@@ -207,6 +283,7 @@ mod tests {
                 name: Some("Test Dataset".into()),
                 ..Default::default()
             },
+            licenses: vec![],
             images: vec![Image::new(1u64, "image001.jpg", 640, 480)],
             categories: vec![Category::new(1u64, "person")],
             annotations: vec![Annotation::new(

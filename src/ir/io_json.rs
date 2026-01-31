@@ -74,7 +74,11 @@ mod tests {
                 version: Some("1.0".into()),
                 description: Some("A test dataset".into()),
                 url: None,
+                year: None,
+                contributor: None,
+                date_created: None,
             },
+            licenses: vec![],
             images: vec![
                 Image::new(1u64, "image001.jpg", 640, 480),
                 Image::new(2u64, "image002.jpg", 1920, 1080),

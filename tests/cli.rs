@@ -74,6 +74,81 @@ fn validate_nonexistent_file_fails() {
     cmd.assert().failure();
 }
 
+// COCO format tests
+
+#[test]
+fn validate_coco_valid_dataset_succeeds() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.coco.json",
+        "--format",
+        "coco",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_coco_invalid_dataset_fails() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_invalid.coco.json",
+        "--format",
+        "coco",
+    ]);
+    cmd.assert()
+        .failure()
+        .stdout(predicates::str::contains("error(s)"));
+}
+
+#[test]
+fn validate_coco_reports_duplicate_ids() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_invalid.coco.json",
+        "--format",
+        "coco",
+    ]);
+    cmd.assert()
+        .failure()
+        .stdout(predicates::str::contains("DuplicateImageId"));
+}
+
+#[test]
+fn validate_coco_reports_missing_refs() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_invalid.coco.json",
+        "--format",
+        "coco",
+    ]);
+    cmd.assert()
+        .failure()
+        .stdout(predicates::str::contains("MissingImageRef"))
+        .stdout(predicates::str::contains("MissingCategoryRef"));
+}
+
+#[test]
+fn validate_coco_json_alias_works() {
+    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.coco.json",
+        "--format",
+        "coco-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+// Unsupported format test (uses a truly unsupported format now)
+
 #[test]
 fn validate_unsupported_format_fails() {
     let mut cmd = Command::cargo_bin("panlabel").unwrap();
@@ -81,7 +156,7 @@ fn validate_unsupported_format_fails() {
         "validate",
         "tests/fixtures/sample_valid.ir.json",
         "--format",
-        "coco",
+        "not-a-format",
     ]);
     cmd.assert()
         .failure()

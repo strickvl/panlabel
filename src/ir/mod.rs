@@ -38,6 +38,7 @@
 mod bbox;
 mod coord;
 mod ids;
+pub mod io_coco_json;
 pub mod io_json;
 mod model;
 mod space;
@@ -45,6 +46,6 @@ mod space;
 // Re-export core types for convenient access
 pub use bbox::BBoxXYXY;
 pub use coord::Coord;
-pub use ids::{AnnotationId, CategoryId, ImageId};
-pub use model::{Annotation, Category, Dataset, DatasetInfo, Image};
+pub use ids::{AnnotationId, CategoryId, ImageId, LicenseId};
+pub use model::{Annotation, Category, Dataset, DatasetInfo, Image, License};
 pub use space::{Normalized, Pixel};

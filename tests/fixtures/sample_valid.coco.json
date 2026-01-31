@@ -1,0 +1,68 @@
+{
+  "info": {
+    "year": 2024,
+    "version": "1.0",
+    "description": "Test COCO dataset"
+  },
+  "licenses": [
+    {
+      "id": 1,
+      "name": "CC BY 4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+    }
+  ],
+  "images": [
+    {
+      "id": 1,
+      "width": 640,
+      "height": 480,
+      "file_name": "image001.jpg",
+      "license": 1
+    },
+    {
+      "id": 2,
+      "width": 800,
+      "height": 600,
+      "file_name": "image002.jpg",
+      "license": 1
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "person",
+      "supercategory": "human"
+    },
+    {
+      "id": 2,
+      "name": "dog",
+      "supercategory": "animal"
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [10.0, 20.0, 90.0, 60.0],
+      "area": 5400.0,
+      "iscrowd": 0
+    },
+    {
+      "id": 2,
+      "image_id": 1,
+      "category_id": 2,
+      "bbox": [200.0, 100.0, 150.0, 200.0],
+      "area": 30000.0,
+      "iscrowd": 0
+    },
+    {
+      "id": 3,
+      "image_id": 2,
+      "category_id": 1,
+      "bbox": [50.0, 50.0, 100.0, 150.0],
+      "area": 15000.0,
+      "iscrowd": 0
+    }
+  ]
+}

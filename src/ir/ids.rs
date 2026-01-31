@@ -99,6 +99,43 @@ impl fmt::Display for CategoryId {
     }
 }
 
+/// A unique identifier for a license in the dataset.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct LicenseId(pub u64);
+
+impl LicenseId {
+    /// Creates a new LicenseId.
+    #[inline]
+    pub fn new(id: u64) -> Self {
+        Self(id)
+    }
+
+    /// Returns the underlying u64 value.
+    #[inline]
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+}
+
+impl fmt::Debug for LicenseId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "LicenseId({})", self.0)
+    }
+}
+
+impl fmt::Display for LicenseId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<u64> for LicenseId {
+    fn from(id: u64) -> Self {
+        LicenseId::new(id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

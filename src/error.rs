@@ -23,6 +23,20 @@ pub enum PanlabelError {
         source: serde_json::Error,
     },
 
+    #[error("Failed to parse COCO JSON from {path}: {source}")]
+    CocoJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write COCO JSON to {path}: {source}")]
+    CocoJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

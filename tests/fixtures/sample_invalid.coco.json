@@ -1,0 +1,53 @@
+{
+  "info": {
+    "year": 2024,
+    "description": "Invalid COCO dataset for testing"
+  },
+  "licenses": [],
+  "images": [
+    {
+      "id": 1,
+      "width": 640,
+      "height": 480,
+      "file_name": "image001.jpg"
+    },
+    {
+      "id": 1,
+      "width": 800,
+      "height": 600,
+      "file_name": "duplicate_id.jpg"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "person"
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [10.0, 20.0, 90.0, 60.0],
+      "area": 5400.0,
+      "iscrowd": 0
+    },
+    {
+      "id": 2,
+      "image_id": 999,
+      "category_id": 1,
+      "bbox": [50.0, 50.0, 100.0, 150.0],
+      "area": 15000.0,
+      "iscrowd": 0
+    },
+    {
+      "id": 3,
+      "image_id": 1,
+      "category_id": 999,
+      "bbox": [100.0, 100.0, 50.0, 50.0],
+      "area": 2500.0,
+      "iscrowd": 0
+    }
+  ]
+}

@@ -44,7 +44,7 @@ struct ValidateArgs {
     /// Input file to validate.
     input: PathBuf,
 
-    /// Input format (currently only 'ir-json' is supported).
+    /// Input format ('ir-json' or 'coco').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -80,16 +80,17 @@ pub fn run() -> Result<(), PanlabelError> {
 
 /// Execute the validate subcommand.
 fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
-    // Check format support
-    if args.format != "ir-json" {
-        return Err(PanlabelError::UnsupportedFormat(format!(
-            "'{}' (supported: ir-json)",
-            args.format
-        )));
-    }
-
-    // Load the dataset
-    let dataset = ir::io_json::read_ir_json(&args.input)?;
+    // Load the dataset based on format
+    let dataset = match args.format.as_str() {
+        "ir-json" => ir::io_json::read_ir_json(&args.input)?,
+        "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
+        other => {
+            return Err(PanlabelError::UnsupportedFormat(format!(
+                "'{}' (supported: ir-json, coco)",
+                other
+            )));
+        }
+    };
 
     // Validate
     let opts = validation::ValidateOptions {

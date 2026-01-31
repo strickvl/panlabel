@@ -1,14 +1,14 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 
 #[test]
 fn runs() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.assert().success();
 }
 
 #[test]
 fn outputs_tool_name() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.arg("-V");
     cmd.assert().success().stdout("panlabel 0.1.0\n");
 }
@@ -17,7 +17,7 @@ fn outputs_tool_name() {
 
 #[test]
 fn validate_valid_dataset_succeeds() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args(["validate", "tests/fixtures/sample_valid.ir.json"]);
     cmd.assert()
         .success()
@@ -26,7 +26,7 @@ fn validate_valid_dataset_succeeds() {
 
 #[test]
 fn validate_invalid_dataset_fails() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args(["validate", "tests/fixtures/sample_invalid.ir.json"]);
     cmd.assert()
         .failure()
@@ -35,7 +35,7 @@ fn validate_invalid_dataset_fails() {
 
 #[test]
 fn validate_reports_duplicate_ids() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args(["validate", "tests/fixtures/sample_invalid.ir.json"]);
     cmd.assert()
         .failure()
@@ -44,7 +44,7 @@ fn validate_reports_duplicate_ids() {
 
 #[test]
 fn validate_reports_missing_refs() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args(["validate", "tests/fixtures/sample_invalid.ir.json"]);
     cmd.assert()
         .failure()
@@ -54,7 +54,7 @@ fn validate_reports_missing_refs() {
 
 #[test]
 fn validate_json_output_format() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_valid.ir.json",
@@ -69,7 +69,7 @@ fn validate_json_output_format() {
 
 #[test]
 fn validate_nonexistent_file_fails() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args(["validate", "nonexistent_file.json"]);
     cmd.assert().failure();
 }
@@ -78,7 +78,7 @@ fn validate_nonexistent_file_fails() {
 
 #[test]
 fn validate_coco_valid_dataset_succeeds() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_valid.coco.json",
@@ -92,7 +92,7 @@ fn validate_coco_valid_dataset_succeeds() {
 
 #[test]
 fn validate_coco_invalid_dataset_fails() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_invalid.coco.json",
@@ -106,7 +106,7 @@ fn validate_coco_invalid_dataset_fails() {
 
 #[test]
 fn validate_coco_reports_duplicate_ids() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_invalid.coco.json",
@@ -120,7 +120,7 @@ fn validate_coco_reports_duplicate_ids() {
 
 #[test]
 fn validate_coco_reports_missing_refs() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_invalid.coco.json",
@@ -135,7 +135,7 @@ fn validate_coco_reports_missing_refs() {
 
 #[test]
 fn validate_coco_json_alias_works() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_valid.coco.json",
@@ -151,7 +151,7 @@ fn validate_coco_json_alias_works() {
 
 #[test]
 fn validate_tfod_valid_dataset_succeeds() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "assets/tfod_annotations_small.csv",
@@ -165,7 +165,7 @@ fn validate_tfod_valid_dataset_succeeds() {
 
 #[test]
 fn validate_tfod_csv_alias_works() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "assets/tfod_annotations_small.csv",
@@ -179,7 +179,7 @@ fn validate_tfod_csv_alias_works() {
 
 #[test]
 fn validate_tfod_large_dataset_succeeds() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "assets/tfod_annotations.csv",
@@ -195,7 +195,7 @@ fn validate_tfod_large_dataset_succeeds() {
 
 #[test]
 fn validate_unsupported_format_fails() {
-    let mut cmd = Command::cargo_bin("panlabel").unwrap();
+    let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "validate",
         "tests/fixtures/sample_valid.ir.json",

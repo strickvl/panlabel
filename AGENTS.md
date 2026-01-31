@@ -1,9 +1,13 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/lib.rs` is the library entry point and should hold all business logic.
+- `src/lib.rs` is the library entry point with CLI command dispatch.
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
+- `src/ir/` contains the Intermediate Representation module (model, bbox, converters).
+- `src/validation/` contains dataset validation logic.
 - `tests/cli.rs` contains CLI integration tests using `assert_cmd`.
+- `benches/` contains Criterion benchmarks.
+- `fuzz/` contains cargo-fuzz targets for parser fuzzing.
 - `scripts/dataset_generator.py` generates synthetic datasets for testing.
 - `assets/` is for generated test data and is gitignored.
 
@@ -20,6 +24,9 @@ cargo test               # All tests (unit + integration)
 cargo test --test cli    # CLI integration tests only
 cargo test runs          # Run a single test by name
 cargo doc --open         # Build and view docs
+cargo bench              # Run Criterion benchmarks
+cargo bench -- --test    # Smoke test benchmarks
+cargo +nightly fuzz run coco_json_parse  # Fuzz COCO parser (requires nightly)
 
 python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10 --output_dir ./assets
 ```

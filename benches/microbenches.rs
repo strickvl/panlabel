@@ -13,7 +13,15 @@ use panlabel::ir::io_tfod_csv::{from_tfod_csv_str, to_tfod_csv_string};
 
 // Include test fixtures at compile time (no file I/O during benchmark)
 const COCO_FIXTURE: &str = include_str!("../tests/fixtures/sample_valid.coco.json");
-const TFOD_FIXTURE: &str = include_str!("../assets/tfod_annotations_small.csv");
+
+// Small inline TFOD CSV for benchmarking (assets/ is gitignored, not available in CI)
+const TFOD_FIXTURE: &str = "filename,width,height,class,xmin,ymin,xmax,ymax
+image001.jpg,640,480,person,0.1,0.2,0.5,0.8
+image001.jpg,640,480,car,0.3,0.1,0.7,0.4
+image002.jpg,800,600,dog,0.2,0.3,0.6,0.9
+image002.jpg,800,600,cat,0.1,0.1,0.4,0.5
+image003.jpg,640,480,person,0.0,0.0,0.3,0.6
+";
 
 /// Benchmark COCO JSON parsing from string.
 fn bench_coco_parse_str(c: &mut Criterion) {

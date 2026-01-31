@@ -1,5 +1,6 @@
 # Panlabel
 
+[![CI](https://github.com/strickvl/panlabel/actions/workflows/ci.yml/badge.svg)](https://github.com/strickvl/panlabel/actions/workflows/ci.yml)
 ![Crates.io Version](https://img.shields.io/crates/v/panlabel)
 ![GitHub License](https://img.shields.io/github/license/strickvl/panlabel)
 ![GitHub Repo stars](https://img.shields.io/github/stars/strickvl/panlabel)
@@ -33,9 +34,15 @@ You can use the following commands to get more information about `panlabel`:
 - `panlabel -V` or `panlabel --version`: Displays the current version of panlabel.
 - `panlabel -h` or `panlabel --help`: Shows the full CLI help, including available commands and options.
 
-<!-- ## Benchmarks
+## Benchmarks
 
-![Benchmarking panlabel vs Python conversion tools](benchmark.png) -->
+Run the Criterion benchmarks with:
+
+```sh
+cargo bench
+```
+
+This benchmarks COCO JSON parsing and TFOD CSV writing performance.
 
 ## Synthetic Data for Benchmarking and Testing
 

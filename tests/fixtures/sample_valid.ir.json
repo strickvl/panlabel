@@ -1,0 +1,72 @@
+{
+  "info": {
+    "name": "Sample Dataset",
+    "version": "1.0",
+    "description": "A valid sample dataset for testing"
+  },
+  "images": [
+    {
+      "id": 1,
+      "file_name": "image001.jpg",
+      "width": 640,
+      "height": 480
+    },
+    {
+      "id": 2,
+      "file_name": "image002.jpg",
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "person"
+    },
+    {
+      "id": 2,
+      "name": "dog",
+      "supercategory": "animal"
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": {
+        "xmin": 10.0,
+        "ymin": 20.0,
+        "xmax": 100.0,
+        "ymax": 200.0
+      }
+    },
+    {
+      "id": 2,
+      "image_id": 1,
+      "category_id": 2,
+      "bbox": {
+        "xmin": 200.0,
+        "ymin": 150.0,
+        "xmax": 400.0,
+        "ymax": 350.0
+      },
+      "confidence": 0.95
+    },
+    {
+      "id": 3,
+      "image_id": 2,
+      "category_id": 1,
+      "bbox": {
+        "xmin": 500.0,
+        "ymin": 300.0,
+        "xmax": 1200.0,
+        "ymax": 900.0
+      },
+      "attributes": {
+        "occluded": "false",
+        "truncated": "false"
+      }
+    }
+  ]
+}

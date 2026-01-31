@@ -1,0 +1,82 @@
+{
+  "info": {
+    "name": "Invalid Sample Dataset",
+    "description": "A dataset with various validation issues for testing"
+  },
+  "images": [
+    {
+      "id": 1,
+      "file_name": "image001.jpg",
+      "width": 640,
+      "height": 480
+    },
+    {
+      "id": 1,
+      "file_name": "duplicate_id.jpg",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": 3,
+      "file_name": "",
+      "width": 0,
+      "height": 480
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "person"
+    },
+    {
+      "id": 2,
+      "name": ""
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": {
+        "xmin": 10.0,
+        "ymin": 20.0,
+        "xmax": 100.0,
+        "ymax": 200.0
+      }
+    },
+    {
+      "id": 2,
+      "image_id": 999,
+      "category_id": 1,
+      "bbox": {
+        "xmin": 50.0,
+        "ymin": 60.0,
+        "xmax": 150.0,
+        "ymax": 160.0
+      }
+    },
+    {
+      "id": 3,
+      "image_id": 1,
+      "category_id": 999,
+      "bbox": {
+        "xmin": 100.0,
+        "ymin": 100.0,
+        "xmax": 200.0,
+        "ymax": 200.0
+      }
+    },
+    {
+      "id": 4,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": {
+        "xmin": 500.0,
+        "ymin": 400.0,
+        "xmax": 800.0,
+        "ymax": 600.0
+      }
+    }
+  ]
+}

@@ -37,6 +37,16 @@ You can use the following commands to get more information about `panlabel`:
 
 ![Benchmarking panlabel vs Python conversion tools](benchmark.png) -->
 
+## Synthetic Data for Benchmarking and Testing
+
+To generate synthetic data, first install `numpy` into a fresh Python virtual environment and then run the following command:
+
+```sh
+python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10 --output_dir ./assets
+```
+
+Feel free to tweak the parameters to generate more or less data.
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to

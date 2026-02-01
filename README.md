@@ -27,12 +27,61 @@ cargo install panlabel
 If you wish to use the library in your own project, you can add it to your
 `Cargo.toml` with `cargo add panlabel`.
 
+## Supported Formats
+
+| Format | Extension | Description | Lossiness |
+|--------|-----------|-------------|-----------|
+| `ir-json` | `.json` | Panlabel's intermediate representation | Lossless |
+| `coco` | `.json` | COCO object detection format | Conditional |
+| `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
+
+Run `panlabel list-formats` for details on format capabilities and lossiness.
+
 ## Usage
 
-You can use the following commands to get more information about `panlabel`:
+### Quick Start
 
-- `panlabel -V` or `panlabel --version`: Displays the current version of panlabel.
-- `panlabel -h` or `panlabel --help`: Shows the full CLI help, including available commands and options.
+```sh
+# Convert COCO to TFOD (auto-detects input format)
+panlabel convert --from auto --to tfod -i annotations.json -o annotations.csv --allow-lossy
+
+# Validate a dataset
+panlabel validate --format coco annotations.json
+
+# Inspect dataset statistics
+panlabel inspect --format coco annotations.json
+
+# List supported formats
+panlabel list-formats
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `convert` | Convert between annotation formats |
+| `validate` | Validate a dataset for errors and warnings |
+| `inspect` | Display dataset statistics (counts, label histogram, bbox stats) |
+| `list-formats` | Show supported formats and their capabilities |
+
+### Convert Examples
+
+```sh
+# COCO to IR JSON (lossless)
+panlabel convert -f coco -t ir-json -i input.json -o output.json
+
+# IR JSON to TFOD (lossy - requires --allow-lossy)
+panlabel convert -f ir-json -t tfod -i input.json -o output.csv --allow-lossy
+
+# Auto-detect input format
+panlabel convert --from auto -t coco -i input.csv -o output.json
+```
+
+### Help
+
+- `panlabel --help`: Shows available commands
+- `panlabel <command> --help`: Shows help for a specific command
+- `panlabel -V`: Displays version
 
 ## Benchmarks
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Early development (v0.1.0) - IR module, COCO JSON, and TFOD CSV converters implemented. Validation and benchmarking in place.
+**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, TFOD CSV, and IR JSON formats with lossiness tracking.
 
 ## Common Commands
 
@@ -66,10 +66,16 @@ src/
 │   ├── ids.rs          # Strongly-typed IDs (ImageId, AnnotationId, etc.)
 │   ├── io_coco_json.rs # COCO JSON reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
-│   └── io_json.rs      # IR JSON format (for debugging/testing)
-└── validation/         # Dataset validation
-    ├── mod.rs          # validate_dataset() function
-    └── report.rs       # ValidationReport formatting
+│   └── io_json.rs      # IR JSON format (canonical serialization)
+├── validation/         # Dataset validation
+│   ├── mod.rs          # validate_dataset() function
+│   └── report.rs       # ValidationReport formatting
+├── conversion/         # Format conversion reporting
+│   ├── mod.rs          # build_conversion_report(), Format enum, IrLossiness
+│   └── report.rs       # ConversionReport with lossiness warnings
+└── inspect/            # Dataset inspection and statistics
+    ├── mod.rs          # inspect_dataset() function
+    └── report.rs       # InspectReport with terminal formatting
 
 tests/
 ├── cli.rs              # CLI integration tests using assert_cmd
@@ -86,17 +92,41 @@ scripts/
 └── dataset_generator.py  # Generates COCO and TFOD synthetic datasets
 ```
 
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `validate` | Check dataset for errors (duplicate IDs, missing refs, invalid bboxes) |
+| `convert` | Convert between formats with lossiness tracking |
+| `inspect` | Display statistics (counts, label histogram, bbox quality metrics) |
+| `list-formats` | Show supported formats with read/write and lossiness info |
+
+### Convert with Auto-Detection
+
+The `--from auto` flag detects format from file extension and content:
+- `.csv` → TFOD
+- `.json` → Peek at `annotations[0].bbox`: array = COCO, object = IR JSON
+
 **Key design:** The CLI binary (`main.rs`) is intentionally minimal—it calls `panlabel::run()` from the library and handles errors. All business logic belongs in `lib.rs` (or modules it imports). The IR module uses Rust's type system (phantom types for coordinate spaces, newtypes for IDs) to prevent common annotation bugs at compile time.
 
 ## Annotation Format Reference
 
 The project converts between these formats:
 
-**COCO format** (JSON): `[x, y, width, height]` - absolute pixel coordinates from top-left
+**IR JSON** (Panlabel's canonical format):
+- Bbox: `{"min": {"x": f64, "y": f64}, "max": {"x": f64, "y": f64}}` - absolute pixel coords (xyxy)
+- Lossless: preserves all metadata, licenses, attributes
 
-**TFOD format** (CSV): `xmin, ymin, xmax, ymax` columns - normalized coordinates (0.0-1.0)
+**COCO format** (JSON):
+- Bbox: `[x, y, width, height]` - absolute pixel coordinates from top-left
+- Conditional lossiness: loses `info.name`, some attributes may not roundtrip
 
-See `scripts/dataset_generator.py` for conversion logic between formats.
+**TFOD format** (CSV):
+- Columns: `filename, width, height, class, xmin, ymin, xmax, ymax`
+- Coords: normalized (0.0-1.0)
+- Lossy: no metadata, licenses, confidence scores, or images without annotations
+
+See `scripts/dataset_generator.py` for synthetic data generation.
 
 ## Testing Notes
 

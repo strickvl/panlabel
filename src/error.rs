@@ -63,4 +63,11 @@ pub enum PanlabelError {
 
     #[error("Unsupported format: {0}")]
     UnsupportedFormat(String),
+
+    #[error("Lossy conversion from {from} to {to} would drop information (use --allow-lossy to proceed):\n{}", reasons.iter().map(|r| format!("  - {}", r)).collect::<Vec<_>>().join("\n"))]
+    LossyConversionBlocked {
+        from: String,
+        to: String,
+        reasons: Vec<String>,
+    },
 }

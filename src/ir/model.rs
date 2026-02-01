@@ -68,6 +68,19 @@ pub struct DatasetInfo {
     pub date_created: Option<String>,
 }
 
+impl DatasetInfo {
+    /// Returns true if all fields are None (i.e., no metadata is set).
+    pub fn is_empty(&self) -> bool {
+        self.name.is_none()
+            && self.version.is_none()
+            && self.description.is_none()
+            && self.url.is_none()
+            && self.year.is_none()
+            && self.contributor.is_none()
+            && self.date_created.is_none()
+    }
+}
+
 /// A license that can be associated with images in the dataset.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct License {

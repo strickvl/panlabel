@@ -207,3 +207,225 @@ fn validate_unsupported_format_fails() {
         .failure()
         .stderr(predicates::str::contains("Unsupported format"));
 }
+
+// Convert subcommand tests
+
+#[test]
+fn convert_coco_to_ir_json_succeeds() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_coco_to_ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"))
+        .stdout(predicates::str::contains("2 images"))
+        .stdout(predicates::str::contains("3 annotations"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_ir_json_to_coco_succeeds() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_ir_to_coco.json");
+
+    // IR JSON may have info.name and attributes that COCO doesn't preserve
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_tfod_to_coco_succeeds() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_tfod_to_coco.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "tfod",
+        "-t",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.tfod.csv",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_coco_to_tfod_fails_without_allow_lossy() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_coco_to_tfod.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "tfod",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Lossy conversion"))
+        .stderr(predicates::str::contains("--allow-lossy"));
+}
+
+#[test]
+fn convert_coco_to_tfod_succeeds_with_allow_lossy() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_coco_to_tfod_lossy.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "tfod",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_invalid_input_fails_validation() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_invalid.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_invalid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Validation failed"));
+}
+
+#[test]
+fn convert_invalid_input_succeeds_with_no_validate() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_no_validate.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_invalid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--no-validate",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_format_aliases_work() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_aliases.csv");
+
+    // Test "coco-json" alias and "tfod-csv" alias
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco-json",
+        "-t",
+        "tfod-csv",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_nonexistent_file_fails() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "nonexistent_file.json",
+        "-o",
+        "/tmp/output.json",
+    ]);
+    cmd.assert().failure();
+}

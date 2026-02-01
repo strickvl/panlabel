@@ -652,3 +652,117 @@ fn inspect_nonexistent_file_fails() {
     ]);
     cmd.assert().failure();
 }
+
+// list-formats subcommand tests
+
+#[test]
+fn list_formats_shows_all_formats() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["list-formats"]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("ir-json"))
+        .stdout(predicates::str::contains("coco"))
+        .stdout(predicates::str::contains("tfod"))
+        .stdout(predicates::str::contains("Supported formats"));
+}
+
+#[test]
+fn list_formats_shows_lossiness() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["list-formats"]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("lossless"))
+        .stdout(predicates::str::contains("conditional"))
+        .stdout(predicates::str::contains("lossy"));
+}
+
+#[test]
+fn list_formats_shows_read_write_capability() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["list-formats"]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("READ"))
+        .stdout(predicates::str::contains("WRITE"));
+}
+
+// Auto-detection tests
+
+#[test]
+fn convert_auto_detects_coco_format() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        "/tmp/auto_detect_coco.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(coco)"));
+}
+
+#[test]
+fn convert_auto_detects_tfod_format() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.tfod.csv",
+        "-o",
+        "/tmp/auto_detect_tfod.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(tfod)"));
+}
+
+#[test]
+fn convert_auto_detects_ir_json_format() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        "/tmp/auto_detect_ir.json",
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(ir-json)"));
+}
+
+#[test]
+fn convert_auto_fails_on_unknown_extension() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        "Cargo.toml",
+        "-o",
+        "/tmp/test.json",
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("unrecognized file extension"));
+}

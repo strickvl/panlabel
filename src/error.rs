@@ -65,6 +65,16 @@ pub enum PanlabelError {
     #[error("Unsupported format: {0}")]
     UnsupportedFormat(String),
 
+    #[error("Failed to detect format for {path}: {reason}")]
+    FormatDetectionFailed { path: PathBuf, reason: String },
+
+    #[error("Failed to parse JSON while detecting format for {path}: {source}")]
+    FormatDetectionJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
     #[error("Lossy conversion from {from} to {to} would drop information (use --allow-lossy to proceed):\n{}", format_lossy_messages(report))]
     LossyConversionBlocked {
         from: String,

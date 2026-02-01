@@ -43,6 +43,8 @@ enum Commands {
     Convert(ConvertArgs),
     /// Inspect a dataset and display summary statistics.
     Inspect(InspectArgs),
+    /// List supported formats and their capabilities.
+    ListFormats(ListFormatsArgs),
 }
 
 /// Supported formats for conversion.
@@ -66,6 +68,35 @@ impl ConvertFormat {
             ConvertFormat::IrJson => conversion::Format::IrJson,
             ConvertFormat::Coco => conversion::Format::Coco,
             ConvertFormat::Tfod => conversion::Format::Tfod,
+        }
+    }
+}
+
+/// Source format for conversion (allows 'auto' for detection).
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum ConvertFromFormat {
+    /// Auto-detect format from file extension and content.
+    #[value(name = "auto")]
+    Auto,
+    /// Panlabel's intermediate representation (JSON).
+    #[value(name = "ir-json")]
+    IrJson,
+    /// COCO object detection format (JSON).
+    #[value(name = "coco", alias = "coco-json")]
+    Coco,
+    /// TensorFlow Object Detection format (CSV).
+    #[value(name = "tfod", alias = "tfod-csv")]
+    Tfod,
+}
+
+impl ConvertFromFormat {
+    /// Convert to a concrete format, returning None for Auto.
+    fn as_concrete(self) -> Option<ConvertFormat> {
+        match self {
+            ConvertFromFormat::Auto => None,
+            ConvertFromFormat::IrJson => Some(ConvertFormat::IrJson),
+            ConvertFromFormat::Coco => Some(ConvertFormat::Coco),
+            ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
         }
     }
 }
@@ -123,9 +154,9 @@ struct InspectArgs {
 /// Arguments for the convert subcommand.
 #[derive(clap::Args)]
 struct ConvertArgs {
-    /// Source format.
+    /// Source format (use 'auto' for automatic detection).
     #[arg(short = 'f', long = "from", value_enum)]
-    from: ConvertFormat,
+    from: ConvertFromFormat,
 
     /// Target format.
     #[arg(short = 't', long = "to", value_enum)]
@@ -156,6 +187,10 @@ struct ConvertArgs {
     report: ReportFormat,
 }
 
+/// Arguments for the list-formats subcommand.
+#[derive(clap::Args)]
+struct ListFormatsArgs {}
+
 /// Run the panlabel CLI.
 ///
 /// This is the main entry point for the CLI, called from `main.rs`.
@@ -166,6 +201,7 @@ pub fn run() -> Result<(), PanlabelError> {
         Some(Commands::Validate(args)) => run_validate(args),
         Some(Commands::Convert(args)) => run_convert(args),
         Some(Commands::Inspect(args)) => run_inspect(args),
+        Some(Commands::ListFormats(args)) => run_list_formats(args),
         None => {
             // No subcommand: just print help hint and exit successfully
             // This keeps backward compatibility with the existing test
@@ -247,8 +283,14 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
 
 /// Execute the convert subcommand.
 fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
+    // Step 0: Resolve auto-detection if needed
+    let from_format: ConvertFormat = match args.from.as_concrete() {
+        Some(f) => f,
+        None => detect_format(&args.input)?,
+    };
+
     // Step 1: Read the dataset
-    let dataset = read_dataset(args.from, &args.input)?;
+    let dataset = read_dataset(from_format, &args.input)?;
 
     // Step 2: Optionally validate the input
     if !args.no_validate {
@@ -277,13 +319,13 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     // Step 3: Build conversion report and check for lossiness
     let conv_report = conversion::build_conversion_report(
         &dataset,
-        args.from.to_conversion_format(),
+        from_format.to_conversion_format(),
         args.to.to_conversion_format(),
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
         return Err(PanlabelError::LossyConversionBlocked {
-            from: format_name(args.from).to_string(),
+            from: format_name(from_format).to_string(),
             to: format_name(args.to).to_string(),
             report: Box::new(conv_report),
         });
@@ -299,7 +341,7 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
             println!(
                 "Converted {} ({}) -> {} ({})",
                 args.input.display(),
-                format_name(args.from),
+                format_name(from_format),
                 args.output.display(),
                 format_name(args.to)
             );
@@ -345,4 +387,165 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Coco => "coco",
         ConvertFormat::Tfod => "tfod",
     }
+}
+
+/// Execute the list-formats subcommand.
+fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
+    use conversion::IrLossiness;
+
+    println!("Supported formats:");
+    println!();
+    println!(
+        "  {:<12} {:<6} {:<6} {:<12} DESCRIPTION",
+        "FORMAT", "READ", "WRITE", "LOSSINESS"
+    );
+    println!(
+        "  {:<12} {:<6} {:<6} {:<12} -----------",
+        "------", "----", "-----", "---------"
+    );
+
+    // Define format info
+    let formats = [
+        (
+            ConvertFormat::IrJson,
+            "Panlabel's intermediate representation (JSON)",
+        ),
+        (ConvertFormat::Coco, "COCO object detection format (JSON)"),
+        (
+            ConvertFormat::Tfod,
+            "TensorFlow Object Detection format (CSV)",
+        ),
+    ];
+
+    for (fmt, description) in formats {
+        let lossiness = fmt.to_conversion_format().lossiness_relative_to_ir();
+        let lossiness_str = match lossiness {
+            IrLossiness::Lossless => "lossless",
+            IrLossiness::Conditional => "conditional",
+            IrLossiness::Lossy => "lossy",
+        };
+
+        println!(
+            "  {:<12} {:<6} {:<6} {:<12} {}",
+            format_name(fmt),
+            "yes",
+            "yes",
+            lossiness_str,
+            description
+        );
+    }
+
+    println!();
+    println!("Lossiness key:");
+    println!("  lossless    - Format preserves all IR information");
+    println!("  conditional - Format may lose info depending on dataset content");
+    println!("  lossy       - Format always loses some IR information");
+    println!();
+    println!("Tip: Use '--from auto' with 'convert' for automatic format detection.");
+
+    Ok(())
+}
+
+/// Detect the format of a file based on extension and content.
+fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    // First try extension-based detection
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        match ext.to_lowercase().as_str() {
+            "csv" => return Ok(ConvertFormat::Tfod),
+            "json" => return detect_json_format(path),
+            _ => {}
+        }
+    }
+
+    // No recognized extension
+    Err(PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: "unrecognized file extension (expected .json or .csv). Use --from to specify format explicitly.".to_string(),
+    })
+}
+
+/// Detect whether a JSON file is COCO or IR JSON format.
+///
+/// Heuristic: peek at `annotations[0].bbox`:
+/// - If `bbox` is an array of 4 numbers → COCO
+/// - If `bbox` is an object with xmin/ymin/xmax/ymax → IR JSON
+fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    use std::fs::File;
+    use std::io::BufReader;
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let value: serde_json::Value =
+        serde_json::from_reader(reader).map_err(|source| PanlabelError::FormatDetectionJsonParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+    // Get annotations array
+    let annotations = value.get("annotations").and_then(|v| v.as_array());
+
+    let Some(annotations) = annotations else {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "missing or invalid 'annotations' array. Cannot determine format.".to_string(),
+        });
+    };
+
+    if annotations.is_empty() {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "empty 'annotations' array. Cannot determine format from empty dataset. Use --from to specify format explicitly.".to_string(),
+        });
+    }
+
+    // Inspect the first annotation's bbox
+    let first_ann = &annotations[0];
+    let bbox = first_ann.get("bbox");
+
+    let Some(bbox) = bbox else {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "first annotation has no 'bbox' field. Cannot determine format.".to_string(),
+        });
+    };
+
+    // Check if bbox is an array (COCO) or object (IR JSON)
+    if let Some(arr) = bbox.as_array() {
+        // COCO uses [x, y, width, height] - array of 4 numbers
+        if arr.len() == 4 && arr.iter().all(|v| v.is_number()) {
+            return Ok(ConvertFormat::Coco);
+        }
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!(
+                "bbox is an array but not [x,y,w,h] format (found {} elements). Cannot determine format.",
+                arr.len()
+            ),
+        });
+    }
+
+    if let Some(obj) = bbox.as_object() {
+        // IR JSON uses {min: {x, y}, max: {x, y}} or {xmin, ymin, xmax, ymax}
+        // Check for the serialized format from our bbox.rs
+        if obj.contains_key("min") && obj.contains_key("max") {
+            return Ok(ConvertFormat::IrJson);
+        }
+        // Alternative flat format
+        if obj.contains_key("xmin")
+            && obj.contains_key("ymin")
+            && obj.contains_key("xmax")
+            && obj.contains_key("ymax")
+        {
+            return Ok(ConvertFormat::IrJson);
+        }
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "bbox is an object but doesn't match IR JSON format (expected min/max or xmin/ymin/xmax/ymax). Cannot determine format.".to_string(),
+        });
+    }
+
+    Err(PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: "bbox has unexpected type (expected array or object). Cannot determine format.".to_string(),
+    })
 }

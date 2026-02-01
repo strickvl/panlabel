@@ -23,6 +23,17 @@ pub enum Format {
     Tfod,
 }
 
+/// Classification of how lossy a format is relative to the IR.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IrLossiness {
+    /// Format can represent everything in the IR (round-trip safe).
+    Lossless,
+    /// Format may lose some information depending on dataset content.
+    Conditional,
+    /// Format always loses some IR information.
+    Lossy,
+}
+
 impl Format {
     /// Human-readable name for the format.
     pub fn name(&self) -> &'static str {
@@ -30,6 +41,19 @@ impl Format {
             Format::IrJson => "ir-json",
             Format::Coco => "coco",
             Format::Tfod => "tfod",
+        }
+    }
+
+    /// How lossy this format is relative to the IR.
+    ///
+    /// - `IrJson`: Lossless (it IS the IR)
+    /// - `Coco`: Conditional (loses dataset name, may lose some attributes)
+    /// - `Tfod`: Lossy (loses metadata, licenses, images without annotations, etc.)
+    pub fn lossiness_relative_to_ir(&self) -> IrLossiness {
+        match self {
+            Format::IrJson => IrLossiness::Lossless,
+            Format::Coco => IrLossiness::Conditional,
+            Format::Tfod => IrLossiness::Lossy,
         }
     }
 }

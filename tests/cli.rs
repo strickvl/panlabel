@@ -1,4 +1,5 @@
 use assert_cmd::cargo::cargo_bin_cmd;
+use predicates::prelude::PredicateBooleanExt;
 
 #[test]
 fn runs() {
@@ -428,4 +429,134 @@ fn convert_nonexistent_file_fails() {
         "/tmp/output.json",
     ]);
     cmd.assert().failure();
+}
+
+// ConversionReport tests
+
+#[test]
+fn convert_report_json_output_format() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_report_json.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--report",
+        "json",
+    ]);
+
+    // JSON report should not contain "Converted" text, only JSON
+    // Note: pretty-printed JSON has spaces after colons
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"from\": \"coco\""))
+        .stdout(predicates::str::contains("\"to\": \"ir-json\""))
+        .stdout(predicates::str::contains("\"input\""))
+        .stdout(predicates::str::contains("\"output\""))
+        .stdout(predicates::str::contains("\"issues\""))
+        .stdout(predicates::str::contains("Converted").not());
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_report_json_includes_lossy_warnings() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_report_lossy.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "tfod",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--report",
+        "json",
+    ]);
+
+    // JSON report should include lossiness warnings
+    // Note: pretty-printed JSON has spaces after colons
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"severity\": \"warning\""))
+        .stdout(predicates::str::contains("\"code\":"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_report_text_shows_counts() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_report_text.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+
+    // Text report should show counts
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"))
+        .stdout(predicates::str::contains("images"))
+        .stdout(predicates::str::contains("categories"))
+        .stdout(predicates::str::contains("annotations"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_tfod_to_coco_shows_policy_notes() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_policy_notes.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "tfod",
+        "-t",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.tfod.csv",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--report",
+        "json",
+    ]);
+
+    // JSON report should include policy notes from TFOD reader
+    // Note: pretty-printed JSON has spaces after colons
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"severity\": \"info\""))
+        .stdout(predicates::str::contains("tfod_reader_id_assignment"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
 }

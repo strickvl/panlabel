@@ -9,13 +9,14 @@
 //!
 //! - [`ir`]: Intermediate representation types (Dataset, Image, Annotation, etc.)
 //! - [`validation`]: Dataset validation and error reporting
+//! - [`conversion`]: Conversion reporting and lossiness tracking
 //! - [`error`]: Error types for panlabel operations
 
+pub mod conversion;
 pub mod error;
 pub mod ir;
 pub mod validation;
 
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -53,6 +54,29 @@ enum ConvertFormat {
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+}
+
+impl ConvertFormat {
+    /// Convert CLI format to conversion module format.
+    fn to_conversion_format(self) -> conversion::Format {
+        match self {
+            ConvertFormat::IrJson => conversion::Format::IrJson,
+            ConvertFormat::Coco => conversion::Format::Coco,
+            ConvertFormat::Tfod => conversion::Format::Tfod,
+        }
+    }
+}
+
+/// Output format for conversion reports.
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum ReportFormat {
+    /// Human-readable text output.
+    #[default]
+    #[value(name = "text")]
+    Text,
+    /// Machine-readable JSON output.
+    #[value(name = "json")]
+    Json,
 }
 
 /// Arguments for the validate subcommand.
@@ -104,6 +128,10 @@ struct ConvertArgs {
     /// Allow conversions that drop information (e.g., metadata, images without annotations).
     #[arg(long = "allow-lossy")]
     allow_lossy: bool,
+
+    /// Output format for the conversion report ('text' or 'json').
+    #[arg(long, value_enum, default_value = "text")]
+    report: ReportFormat,
 }
 
 /// Run the panlabel CLI.
@@ -203,64 +231,63 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
         let opts = validation::ValidateOptions {
             strict: args.strict,
         };
-        let report = validation::validate_dataset(&dataset, &opts);
+        let validation_report = validation::validate_dataset(&dataset, &opts);
 
-        let has_errors = report.error_count() > 0;
-        let has_warnings = report.warning_count() > 0;
+        let has_errors = validation_report.error_count() > 0;
+        let has_warnings = validation_report.warning_count() > 0;
 
         // Print validation issues if any
         if has_errors || has_warnings {
-            eprintln!("{}", report);
+            eprintln!("{}", validation_report);
         }
 
         if has_errors || (args.strict && has_warnings) {
             return Err(PanlabelError::ValidationFailed {
-                error_count: report.error_count(),
-                warning_count: report.warning_count(),
-                report,
+                error_count: validation_report.error_count(),
+                warning_count: validation_report.warning_count(),
+                report: validation_report,
             });
         }
     }
 
-    // Step 3: Check for lossiness
-    let reasons = lossy_reasons(&dataset, args.to);
-    if !reasons.is_empty() && !args.allow_lossy {
+    // Step 3: Build conversion report and check for lossiness
+    let conv_report = conversion::build_conversion_report(
+        &dataset,
+        args.from.to_conversion_format(),
+        args.to.to_conversion_format(),
+    );
+
+    if conv_report.is_lossy() && !args.allow_lossy {
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(args.from).to_string(),
             to: format_name(args.to).to_string(),
-            reasons,
+            report: Box::new(conv_report),
         });
-    }
-
-    // Print warnings if lossy but allowed
-    if !reasons.is_empty() {
-        eprintln!(
-            "Warning: Lossy conversion from {} to {}:",
-            format_name(args.from),
-            format_name(args.to)
-        );
-        for reason in &reasons {
-            eprintln!("  - {}", reason);
-        }
     }
 
     // Step 4: Write the dataset
     write_dataset(args.to, &args.output, &dataset)?;
 
-    // Success message
-    println!(
-        "Converted {} ({}) -> {} ({})",
-        args.input.display(),
-        format_name(args.from),
-        args.output.display(),
-        format_name(args.to)
-    );
-    println!(
-        "  {} images, {} categories, {} annotations",
-        dataset.images.len(),
-        dataset.categories.len(),
-        dataset.annotations.len()
-    );
+    // Step 5: Output the report
+    match args.report {
+        ReportFormat::Text => {
+            // Success message with conversion report
+            println!(
+                "Converted {} ({}) -> {} ({})",
+                args.input.display(),
+                format_name(args.from),
+                args.output.display(),
+                format_name(args.to)
+            );
+            print!("{}", conv_report);
+        }
+        ReportFormat::Json => {
+            // JSON-only output for machine consumption
+            serde_json::to_writer_pretty(std::io::stdout(), &conv_report)
+                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+            println!(); // trailing newline
+        }
+    }
 
     Ok(())
 }
@@ -294,112 +321,4 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Coco => "coco",
         ConvertFormat::Tfod => "tfod",
     }
-}
-
-/// Compute reasons why a conversion would be lossy for the given target format.
-fn lossy_reasons(dataset: &ir::Dataset, to: ConvertFormat) -> Vec<String> {
-    let mut reasons = Vec::new();
-
-    match to {
-        ConvertFormat::Tfod => {
-            // TFOD CSV cannot represent:
-            // - Dataset info/metadata
-            if !dataset.info.is_empty() {
-                reasons.push("dataset info/metadata will be dropped".to_string());
-            }
-            // - Licenses
-            if !dataset.licenses.is_empty() {
-                reasons.push(format!(
-                    "{} license(s) will be dropped",
-                    dataset.licenses.len()
-                ));
-            }
-            // - Image license_id and date_captured
-            let images_with_metadata = dataset
-                .images
-                .iter()
-                .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
-                .count();
-            if images_with_metadata > 0 {
-                reasons.push(format!(
-                    "{} image(s) have license_id/date_captured that will be dropped",
-                    images_with_metadata
-                ));
-            }
-            // - Category supercategory
-            let cats_with_supercategory = dataset
-                .categories
-                .iter()
-                .filter(|cat| cat.supercategory.is_some())
-                .count();
-            if cats_with_supercategory > 0 {
-                reasons.push(format!(
-                    "{} category(s) have supercategory that will be dropped",
-                    cats_with_supercategory
-                ));
-            }
-            // - Annotation confidence
-            let anns_with_confidence = dataset
-                .annotations
-                .iter()
-                .filter(|ann| ann.confidence.is_some())
-                .count();
-            if anns_with_confidence > 0 {
-                reasons.push(format!(
-                    "{} annotation(s) have confidence scores that will be dropped",
-                    anns_with_confidence
-                ));
-            }
-            // - Annotation attributes
-            let anns_with_attributes = dataset
-                .annotations
-                .iter()
-                .filter(|ann| !ann.attributes.is_empty())
-                .count();
-            if anns_with_attributes > 0 {
-                reasons.push(format!(
-                    "{} annotation(s) have attributes that will be dropped",
-                    anns_with_attributes
-                ));
-            }
-            // - Images with no annotations (will not appear in output)
-            let image_ids_with_annotations: HashSet<_> =
-                dataset.annotations.iter().map(|a| a.image_id).collect();
-            let images_without_annotations = dataset
-                .images
-                .iter()
-                .filter(|img| !image_ids_with_annotations.contains(&img.id))
-                .count();
-            if images_without_annotations > 0 {
-                reasons.push(format!(
-                    "{} image(s) have no annotations and will not appear in output",
-                    images_without_annotations
-                ));
-            }
-        }
-        ConvertFormat::Coco => {
-            // COCO doesn't have a dataset name field (only info.description, version, etc.)
-            if dataset.info.name.is_some() {
-                reasons.push("dataset info.name has no COCO equivalent".to_string());
-            }
-            // COCO round-trips area/iscrowd via attributes, but other attributes may be lost
-            // depending on COCO tools consuming the output
-            let anns_with_other_attributes = dataset
-                .annotations
-                .iter()
-                .filter(|ann| ann.attributes.keys().any(|k| k != "area" && k != "iscrowd"))
-                .count();
-            if anns_with_other_attributes > 0 {
-                reasons.push(format!(
-                    "{} annotation(s) have attributes (other than area/iscrowd) that may not be preserved by COCO tools",
-                    anns_with_other_attributes
-                ));
-            }
-        }
-        ConvertFormat::IrJson => {
-            // IR JSON is the canonical format - no lossiness
-        }
-    }
-
-    reasons
 }

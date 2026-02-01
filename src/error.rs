@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
+use crate::conversion::ConversionReport;
 use crate::validation::ValidationReport;
 
 /// The main error type for panlabel operations.
@@ -64,10 +65,25 @@ pub enum PanlabelError {
     #[error("Unsupported format: {0}")]
     UnsupportedFormat(String),
 
-    #[error("Lossy conversion from {from} to {to} would drop information (use --allow-lossy to proceed):\n{}", reasons.iter().map(|r| format!("  - {}", r)).collect::<Vec<_>>().join("\n"))]
+    #[error("Lossy conversion from {from} to {to} would drop information (use --allow-lossy to proceed):\n{}", format_lossy_messages(report))]
     LossyConversionBlocked {
         from: String,
         to: String,
-        reasons: Vec<String>,
+        report: Box<ConversionReport>,
     },
+
+    #[error("Failed to write conversion report as JSON: {source}")]
+    ReportJsonWrite {
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
+/// Format lossy warning messages for error display.
+fn format_lossy_messages(report: &ConversionReport) -> String {
+    report
+        .lossy_messages()
+        .map(|msg| format!("  - {}", msg))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

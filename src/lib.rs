@@ -180,25 +180,10 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
     // Output results
     match args.output.as_str() {
         "json" => {
-            // Simple JSON output for programmatic use
-            println!("{{");
-            println!("  \"error_count\": {},", report.error_count());
-            println!("  \"warning_count\": {},", report.warning_count());
-            println!("  \"issues\": [");
-            for (i, issue) in report.issues.iter().enumerate() {
-                let comma = if i < report.issues.len() - 1 { "," } else { "" };
-                println!("    {{");
-                println!("      \"severity\": \"{:?}\",", issue.severity);
-                println!("      \"code\": \"{:?}\",", issue.code);
-                println!(
-                    "      \"message\": \"{}\",",
-                    issue.message.replace('"', "\\\"")
-                );
-                println!("      \"context\": \"{}\"", issue.context);
-                println!("    }}{}", comma);
-            }
-            println!("  ]");
-            println!("}}");
+            // JSON output for programmatic use (using serde for proper escaping)
+            serde_json::to_writer_pretty(std::io::stdout(), &report.as_json())
+                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+            println!(); // trailing newline
         }
         _ => {
             // Default text output

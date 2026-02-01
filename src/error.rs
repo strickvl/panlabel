@@ -72,7 +72,7 @@ pub enum PanlabelError {
         report: Box<ConversionReport>,
     },
 
-    #[error("Failed to write conversion report as JSON: {source}")]
+    #[error("Failed to write report as JSON: {source}")]
     ReportJsonWrite {
         #[source]
         source: serde_json::Error,

@@ -3,12 +3,13 @@
 //! This module provides rich, structured validation results that can be
 //! displayed to users, written to files, or processed programmatically.
 
+use serde::Serialize;
 use std::fmt;
 
 /// The result of validating a dataset.
 ///
 /// Contains all issues found during validation, categorized by severity.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ValidationReport {
     /// All issues found during validation.
     pub issues: Vec<ValidationIssue>,
@@ -55,6 +56,27 @@ impl ValidationReport {
     pub fn is_ok_strict(&self) -> bool {
         self.issues.is_empty()
     }
+
+    /// Returns a serializable representation for JSON output.
+    ///
+    /// This wrapper includes `error_count` and `warning_count` at the top level,
+    /// matching the expected JSON schema for programmatic consumption.
+    pub fn as_json(&self) -> impl Serialize + '_ {
+        ValidationReportJson {
+            error_count: self.error_count(),
+            warning_count: self.warning_count(),
+            report: self,
+        }
+    }
+}
+
+/// Internal wrapper for JSON serialization that includes counts at top level.
+#[derive(Serialize)]
+struct ValidationReportJson<'a> {
+    error_count: usize,
+    warning_count: usize,
+    #[serde(flatten)]
+    report: &'a ValidationReport,
 }
 
 impl fmt::Display for ValidationReport {
@@ -80,7 +102,7 @@ impl fmt::Display for ValidationReport {
 }
 
 /// A single validation issue (error or warning).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ValidationIssue {
     /// The severity of the issue.
     pub severity: Severity,
@@ -137,7 +159,8 @@ impl fmt::Display for ValidationIssue {
 }
 
 /// The severity of a validation issue.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Severity {
     /// A warning that doesn't prevent conversion but may indicate problems.
     Warning,
@@ -149,7 +172,8 @@ pub enum Severity {
 ///
 /// These codes can be used for filtering, ignoring specific issues,
 /// or programmatic handling of validation results.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum IssueCode {
     // ID uniqueness issues
     /// Multiple images have the same ID.
@@ -189,7 +213,8 @@ pub enum IssueCode {
 }
 
 /// Context about where a validation issue occurred.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum IssueContext {
     /// Issue with the dataset as a whole.
     Dataset,

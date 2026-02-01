@@ -14,6 +14,7 @@
 
 pub mod conversion;
 pub mod error;
+pub mod inspect;
 pub mod ir;
 pub mod validation;
 
@@ -40,6 +41,8 @@ enum Commands {
     Validate(ValidateArgs),
     /// Convert a dataset between formats.
     Convert(ConvertArgs),
+    /// Inspect a dataset and display summary statistics.
+    Inspect(InspectArgs),
 }
 
 /// Supported formats for conversion.
@@ -98,6 +101,25 @@ struct ValidateArgs {
     output: String,
 }
 
+/// Arguments for the inspect subcommand.
+#[derive(clap::Args)]
+struct InspectArgs {
+    /// Input file to inspect.
+    input: PathBuf,
+
+    /// Input format ('ir-json', 'coco', or 'tfod').
+    #[arg(long, value_enum, default_value = "ir-json")]
+    format: ConvertFormat,
+
+    /// Number of top labels to show in the histogram.
+    #[arg(long, default_value_t = 10)]
+    top: usize,
+
+    /// Tolerance in pixels for out-of-bounds checks.
+    #[arg(long, default_value_t = 0.5)]
+    tolerance: f64,
+}
+
 /// Arguments for the convert subcommand.
 #[derive(clap::Args)]
 struct ConvertArgs {
@@ -143,6 +165,7 @@ pub fn run() -> Result<(), PanlabelError> {
     match cli.command {
         Some(Commands::Validate(args)) => run_validate(args),
         Some(Commands::Convert(args)) => run_convert(args),
+        Some(Commands::Inspect(args)) => run_inspect(args),
         None => {
             // No subcommand: just print help hint and exit successfully
             // This keeps backward compatibility with the existing test
@@ -154,6 +177,22 @@ pub fn run() -> Result<(), PanlabelError> {
             Ok(())
         }
     }
+}
+
+/// Execute the inspect subcommand.
+fn run_inspect(args: InspectArgs) -> Result<(), PanlabelError> {
+    let dataset = read_dataset(args.format, &args.input)?;
+
+    let opts = inspect::InspectOptions {
+        top_labels: args.top,
+        oob_tolerance_px: args.tolerance,
+        bar_width: 20,
+    };
+
+    let report = inspect::inspect_dataset(&dataset, &opts);
+
+    print!("{}", report);
+    Ok(())
 }
 
 /// Execute the validate subcommand.

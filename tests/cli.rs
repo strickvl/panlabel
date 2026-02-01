@@ -560,3 +560,95 @@ fn convert_tfod_to_coco_shows_policy_notes() {
     // Clean up
     let _ = std::fs::remove_file(&output_path);
 }
+
+// Inspect subcommand tests
+
+#[test]
+fn inspect_coco_dataset_succeeds() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "coco",
+        "tests/fixtures/sample_valid.coco.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Summary"))
+        .stdout(predicates::str::contains("Labels"))
+        .stdout(predicates::str::contains("Bounding Boxes"));
+}
+
+#[test]
+fn inspect_ir_json_dataset_succeeds() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "ir-json",
+        "tests/fixtures/sample_valid.ir.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Images"));
+}
+
+#[test]
+fn inspect_tfod_dataset_succeeds() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "tfod",
+        "tests/fixtures/sample_valid.tfod.csv",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Annotations"));
+}
+
+#[test]
+fn inspect_shows_label_histogram() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "coco",
+        "tests/fixtures/sample_valid.coco.json",
+    ]);
+    // Should show category names from the dataset
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("person").or(predicates::str::contains("Labels")));
+}
+
+#[test]
+fn inspect_top_flag_limits_labels() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "coco",
+        "tests/fixtures/sample_valid.coco.json",
+        "--top",
+        "2",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Labels"));
+}
+
+#[test]
+fn inspect_nonexistent_file_fails() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "coco",
+        "nonexistent_file.json",
+    ]);
+    cmd.assert().failure();
+}

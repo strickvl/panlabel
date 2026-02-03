@@ -687,6 +687,9 @@ fn list_formats_shows_read_write_capability() {
 
 #[test]
 fn convert_auto_detects_coco_format() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("auto_detect_coco.json");
+
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "convert",
@@ -697,15 +700,21 @@ fn convert_auto_detects_coco_format() {
         "-i",
         "tests/fixtures/sample_valid.coco.json",
         "-o",
-        "/tmp/auto_detect_coco.json",
+        output_path.to_str().unwrap(),
     ]);
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(coco)"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
 }
 
 #[test]
 fn convert_auto_detects_tfod_format() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("auto_detect_tfod.json");
+
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "convert",
@@ -716,15 +725,21 @@ fn convert_auto_detects_tfod_format() {
         "-i",
         "tests/fixtures/sample_valid.tfod.csv",
         "-o",
-        "/tmp/auto_detect_tfod.json",
+        output_path.to_str().unwrap(),
     ]);
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(tfod)"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
 }
 
 #[test]
 fn convert_auto_detects_ir_json_format() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("auto_detect_ir.json");
+
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "convert",
@@ -735,16 +750,22 @@ fn convert_auto_detects_ir_json_format() {
         "-i",
         "tests/fixtures/sample_valid.ir.json",
         "-o",
-        "/tmp/auto_detect_ir.json",
+        output_path.to_str().unwrap(),
         "--allow-lossy",
     ]);
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(ir-json)"));
+
+    // Clean up
+    let _ = std::fs::remove_file(&output_path);
 }
 
 #[test]
 fn convert_auto_fails_on_unknown_extension() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_unknown_ext.json");
+
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "convert",
@@ -755,7 +776,7 @@ fn convert_auto_fails_on_unknown_extension() {
         "-i",
         "Cargo.toml",
         "-o",
-        "/tmp/test.json",
+        output_path.to_str().unwrap(),
     ]);
     cmd.assert()
         .failure()

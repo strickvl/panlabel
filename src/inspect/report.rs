@@ -88,9 +88,18 @@ impl fmt::Display for InspectReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Header
         writeln!(f)?;
-        writeln!(f, "╭─────────────────────────────────────────────────────────────╮")?;
-        writeln!(f, "│              📊  Dataset Inspection Report                  │")?;
-        writeln!(f, "╰─────────────────────────────────────────────────────────────╯")?;
+        writeln!(
+            f,
+            "╭─────────────────────────────────────────────────────────────╮"
+        )?;
+        writeln!(
+            f,
+            "│              📊  Dataset Inspection Report                  │"
+        )?;
+        writeln!(
+            f,
+            "╰─────────────────────────────────────────────────────────────╯"
+        )?;
         writeln!(f)?;
 
         // Summary section
@@ -112,8 +121,14 @@ impl InspectReport {
     fn fmt_summary(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = &self.summary;
 
-        writeln!(f, "┌─ Summary ─────────────────────────────────────────────────┐")?;
-        writeln!(f, "│                                                           │")?;
+        writeln!(
+            f,
+            "┌─ Summary ─────────────────────────────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
         writeln!(
             f,
             "│   Images:        {:>8}                                  │",
@@ -136,7 +151,10 @@ impl InspectReport {
                 format_number(s.licenses)
             )?;
         }
-        writeln!(f, "│                                                           │")?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
 
         // Show annotated vs total images
         let pct = if s.images > 0 {
@@ -150,10 +168,21 @@ impl InspectReport {
             format_number(s.annotated_images),
             format_number(s.images),
             pct,
-            " ".repeat(59 - 28 - format_number(s.annotated_images).len() - format_number(s.images).len() - format!("{:.1}", pct).len())
+            " ".repeat(
+                59 - 28
+                    - format_number(s.annotated_images).len()
+                    - format_number(s.images).len()
+                    - format!("{:.1}", pct).len()
+            )
         )?;
-        writeln!(f, "│                                                           │")?;
-        writeln!(f, "└───────────────────────────────────────────────────────────┘")?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
 
         Ok(())
     }
@@ -168,10 +197,16 @@ impl InspectReport {
         };
 
         writeln!(f, "┌─ {} {}┐", header, "─".repeat(57 - header.len()))?;
-        writeln!(f, "│                                                           │")?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
 
         if l.entries.is_empty() {
-            writeln!(f, "│   No annotations found.                                   │")?;
+            writeln!(
+                f,
+                "│   No annotations found.                                   │"
+            )?;
         } else {
             // Find max count for bar scaling
             let max_count = l.entries.iter().map(|e| e.count).max().unwrap_or(1);
@@ -215,8 +250,14 @@ impl InspectReport {
             }
         }
 
-        writeln!(f, "│                                                           │")?;
-        writeln!(f, "└───────────────────────────────────────────────────────────┘")?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
 
         Ok(())
     }
@@ -224,11 +265,20 @@ impl InspectReport {
     fn fmt_bboxes(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let b = &self.bboxes;
 
-        writeln!(f, "┌─ Bounding Boxes ──────────────────────────────────────────┐")?;
-        writeln!(f, "│                                                           │")?;
+        writeln!(
+            f,
+            "┌─ Bounding Boxes ──────────────────────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
 
         if b.total == 0 {
-            writeln!(f, "│   No bounding boxes found.                                │")?;
+            writeln!(
+                f,
+                "│   No bounding boxes found.                                │"
+            )?;
         } else {
             // Dimensions
             if let (Some(min_w), Some(max_w), Some(min_h), Some(max_h)) =
@@ -245,13 +295,22 @@ impl InspectReport {
                     min_h, max_h
                 )?;
             } else {
-                writeln!(f, "│   Width/Height:   No valid bounding boxes to measure      │")?;
+                writeln!(
+                    f,
+                    "│   Width/Height:   No valid bounding boxes to measure      │"
+                )?;
             }
 
-            writeln!(f, "│                                                           │")?;
+            writeln!(
+                f,
+                "│                                                           │"
+            )?;
 
             // Quality metrics
-            writeln!(f, "│   Quality metrics:                                        │")?;
+            writeln!(
+                f,
+                "│   Quality metrics:                                        │"
+            )?;
 
             // Finite coordinates
             let finite_pct = fmt_percent(b.finite, b.total);
@@ -273,7 +332,10 @@ impl InspectReport {
                 ordered_pct
             )?;
 
-            writeln!(f, "│                                                           │")?;
+            writeln!(
+                f,
+                "│                                                           │"
+            )?;
 
             // Issues (if any)
             let has_issues = b.degenerate_area > 0
@@ -282,7 +344,10 @@ impl InspectReport {
                 || b.finite < b.total;
 
             if has_issues {
-                writeln!(f, "│   Issues found:                                           │")?;
+                writeln!(
+                    f,
+                    "│   Issues found:                                           │"
+                )?;
 
                 if b.degenerate_area > 0 {
                     let pct = fmt_percent(b.degenerate_area, b.total);
@@ -329,12 +394,21 @@ impl InspectReport {
                     )?;
                 }
             } else {
-                writeln!(f, "│   ✓ No issues detected                                    │")?;
+                writeln!(
+                    f,
+                    "│   ✓ No issues detected                                    │"
+                )?;
             }
         }
 
-        writeln!(f, "│                                                           │")?;
-        writeln!(f, "└───────────────────────────────────────────────────────────┘")?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
 
         Ok(())
     }

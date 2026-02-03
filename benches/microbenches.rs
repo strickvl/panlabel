@@ -6,7 +6,8 @@
 //! - COCO JSON parsing (from_coco_str, from_coco_slice)
 //! - TFOD CSV writing (to_tfod_csv_string)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
 
 use panlabel::ir::io_coco_json::{from_coco_slice, from_coco_str};
 use panlabel::ir::io_tfod_csv::{from_tfod_csv_str, to_tfod_csv_string};

@@ -644,12 +644,7 @@ fn inspect_top_flag_limits_labels() {
 #[test]
 fn inspect_nonexistent_file_fails() {
     let mut cmd = cargo_bin_cmd!("panlabel");
-    cmd.args([
-        "inspect",
-        "--format",
-        "coco",
-        "nonexistent_file.json",
-    ]);
+    cmd.args(["inspect", "--format", "coco", "nonexistent_file.json"]);
     cmd.assert().failure();
 }
 

@@ -475,11 +475,12 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
 
     let file = File::open(path)?;
     let reader = BufReader::new(file);
-    let value: serde_json::Value =
-        serde_json::from_reader(reader).map_err(|source| PanlabelError::FormatDetectionJsonParse {
+    let value: serde_json::Value = serde_json::from_reader(reader).map_err(|source| {
+        PanlabelError::FormatDetectionJsonParse {
             path: path.to_path_buf(),
             source,
-        })?;
+        }
+    })?;
 
     // Get annotations array
     let annotations = value.get("annotations").and_then(|v| v.as_array());
@@ -546,6 +547,7 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
 
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "bbox has unexpected type (expected array or object). Cannot determine format.".to_string(),
+        reason: "bbox has unexpected type (expected array or object). Cannot determine format."
+            .to_string(),
     })
 }

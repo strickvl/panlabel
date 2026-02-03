@@ -73,11 +73,8 @@ pub fn inspect_dataset(dataset: &Dataset, opts: &InspectOptions) -> InspectRepor
 /// Compute summary section counts.
 fn compute_summary(dataset: &Dataset) -> SummarySection {
     // Count images that have at least one annotation
-    let annotated_image_ids: HashSet<ImageId> = dataset
-        .annotations
-        .iter()
-        .map(|ann| ann.image_id)
-        .collect();
+    let annotated_image_ids: HashSet<ImageId> =
+        dataset.annotations.iter().map(|ann| ann.image_id).collect();
 
     SummarySection {
         images: dataset.images.len(),
@@ -164,7 +161,8 @@ fn compute_bbox_stats(
         let xmax = bbox.max.x;
         let ymax = bbox.max.y;
 
-        let is_finite = xmin.is_finite() && ymin.is_finite() && xmax.is_finite() && ymax.is_finite();
+        let is_finite =
+            xmin.is_finite() && ymin.is_finite() && xmax.is_finite() && ymax.is_finite();
 
         if is_finite {
             stats.finite += 1;

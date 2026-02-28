@@ -158,6 +158,27 @@ impl<TSpace> BBoxXYXY<TSpace> {
     pub fn to_xywh(&self) -> (f64, f64, f64, f64) {
         (self.xmin(), self.ymin(), self.width(), self.height())
     }
+
+    /// Creates from center-based XYWH format (center_x, center_y, width, height).
+    ///
+    /// This is the format used by YOLO annotations.
+    #[inline]
+    pub fn from_cxcywh(cx: f64, cy: f64, w: f64, h: f64) -> Self {
+        let half_w = w / 2.0;
+        let half_h = h / 2.0;
+        Self::from_xyxy(cx - half_w, cy - half_h, cx + half_w, cy + half_h)
+    }
+
+    /// Converts to center-based XYWH format (center_x, center_y, width, height).
+    #[inline]
+    pub fn to_cxcywh(&self) -> (f64, f64, f64, f64) {
+        (
+            (self.xmin() + self.xmax()) / 2.0,
+            (self.ymin() + self.ymax()) / 2.0,
+            self.width(),
+            self.height(),
+        )
+    }
 }
 
 /// Conversion between pixel and normalized coordinates.
@@ -241,5 +262,30 @@ mod tests {
         let (x, y, w, h) = original.to_xywh();
         let restored: BBoxXYXY<Pixel> = BBoxXYXY::from_xywh(x, y, w, h);
         assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn test_bbox_from_cxcywh() {
+        let bbox: BBoxXYXY<Pixel> = BBoxXYXY::from_cxcywh(30.0, 40.0, 20.0, 10.0);
+        assert_eq!(bbox.xmin(), 20.0);
+        assert_eq!(bbox.ymin(), 35.0);
+        assert_eq!(bbox.xmax(), 40.0);
+        assert_eq!(bbox.ymax(), 45.0);
+    }
+
+    #[test]
+    fn test_bbox_to_cxcywh_roundtrip() {
+        let original: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(12.0, 18.0, 60.0, 54.0);
+        let (cx, cy, w, h) = original.to_cxcywh();
+        let restored: BBoxXYXY<Pixel> = BBoxXYXY::from_cxcywh(cx, cy, w, h);
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn test_bbox_to_cxcywh_preserves_negative_dimensions() {
+        let malformed: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(30.0, 30.0, 20.0, 10.0);
+        let (_, _, w, h) = malformed.to_cxcywh();
+        assert_eq!(w, -10.0);
+        assert_eq!(h, -20.0);
     }
 }

@@ -55,6 +55,44 @@ pub enum PanlabelError {
     #[error("Invalid TFOD CSV: {path}: {message}")]
     TfodCsvInvalid { path: PathBuf, message: String },
 
+    #[error("Invalid YOLO dataset layout at {path}: {message}")]
+    YoloLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse YOLO data.yaml at {path}: {source}")]
+    YoloDataYamlParse {
+        path: PathBuf,
+        #[source]
+        source: serde_yaml::Error,
+    },
+
+    #[error("Invalid YOLO classes.txt at {path}: {message}")]
+    YoloClassesTxtInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse YOLO label row in {path}:{line}: {message}")]
+    YoloLabelParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error(
+        "No matching image found for label file {label_path} (expected stem: {expected_stem})"
+    )]
+    YoloImageNotFound {
+        label_path: PathBuf,
+        expected_stem: String,
+    },
+
+    #[error("Failed to read YOLO image dimensions from {path}: {source}")]
+    YoloImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to write YOLO dataset at {path}: {message}")]
+    YoloWriteError { path: PathBuf, message: String },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

@@ -41,6 +41,7 @@ mod ids;
 pub mod io_coco_json;
 pub mod io_json;
 pub mod io_tfod_csv;
+pub mod io_yolo;
 mod model;
 mod space;
 

@@ -62,3 +62,7 @@ As the task surface grows, split this file into:
 - etc.
 
 Also add `docs/providers/` when provider-specific execution/training/export docs become real implementation concerns.
+
+## Planning link
+
+For future priorities and sequencing, see [ROADMAP.md](../ROADMAP.md).

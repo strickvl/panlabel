@@ -48,6 +48,7 @@ For deeper reference docs (GitHub-readable):
 - [Tasks and use cases](https://github.com/strickvl/panlabel/blob/HEAD/docs/tasks.md)
 - [Conversion, lossiness, and report JSON](https://github.com/strickvl/panlabel/blob/HEAD/docs/conversion.md)
 - [Contributing guide](https://github.com/strickvl/panlabel/blob/HEAD/docs/contributing.md)
+- [Roadmap](https://github.com/strickvl/panlabel/blob/HEAD/ROADMAP.md)
 
 ## Usage
 

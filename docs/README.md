@@ -25,6 +25,7 @@ Not implemented yet:
 - [Tasks and use cases](./tasks.md)
 - [Conversion and lossiness](./conversion.md)
 - [Contributing and docs rules](./contributing.md)
+- [Roadmap](../ROADMAP.md)
 
 ## Source of truth map (for humans and LLMs)
 

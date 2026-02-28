@@ -106,6 +106,7 @@ docs/
 
 - Root `README.md` is a quick project gateway.
 - User-facing reference docs live in `docs/`.
+- Forward-looking priorities live in `ROADMAP.md`.
 - Source of truth for docs accuracy:
   - CLI and auto-detection: `src/lib.rs`
   - Format adapters: `src/ir/io_*.rs`

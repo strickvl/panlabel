@@ -30,6 +30,7 @@ When behavior changes, update docs in the same change:
    - update `docs/conversion.md`
 
 Also update `AGENTS.md` / `CLAUDE.md` when repository structure or workflow guidance changes.
+Update `ROADMAP.md` when priorities or sequencing decisions change.
 
 ## Keep docs accurate
 

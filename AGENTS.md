@@ -56,6 +56,7 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 - If you change task/use-case support (detection vs segmentation/classification/etc.), update `docs/tasks.md`.
 - If you change conversion/lossiness/report codes, update `docs/conversion.md`.
 - Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`), since user-visible behavior is asserted there.
+- Keep forward-looking priorities in `ROADMAP.md` (separate from current-behavior docs).
 
 ## Configuration & Data Tips
 - For the dataset generator, use a fresh Python virtual environment and install `numpy`.

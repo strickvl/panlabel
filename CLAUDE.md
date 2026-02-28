@@ -97,6 +97,7 @@ docs/
 ├── README.md            # Documentation hub
 ├── cli.md               # CLI contract and examples
 ├── formats.md           # Supported format behavior reference
+├── tasks.md             # Task/use-case support matrix
 ├── conversion.md        # Lossiness + report schema and issue codes
 └── contributing.md      # Docs + contributor maintenance rules
 ```
@@ -137,6 +138,7 @@ Use `docs/formats.md` as the primary format reference.
 
 Quick links:
 - [`docs/formats.md`](docs/formats.md)
+- [`docs/tasks.md`](docs/tasks.md)
 - [`docs/conversion.md`](docs/conversion.md)
 - [`docs/cli.md`](docs/cli.md)
 

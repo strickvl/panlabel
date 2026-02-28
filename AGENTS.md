@@ -53,6 +53,7 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 ## Docs Workflow
 - If you change CLI behavior, update `docs/cli.md` and relevant README examples in the same change.
 - If you change format behavior (COCO/TFOD/YOLO/IR), update `docs/formats.md`.
+- If you change task/use-case support (detection vs segmentation/classification/etc.), update `docs/tasks.md`.
 - If you change conversion/lossiness/report codes, update `docs/conversion.md`.
 - Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`), since user-visible behavior is asserted there.
 

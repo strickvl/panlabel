@@ -22,6 +22,7 @@ Not implemented yet:
 
 - [CLI reference](./cli.md)
 - [Format reference](./formats.md)
+- [Tasks and use cases](./tasks.md)
 - [Conversion and lossiness](./conversion.md)
 - [Contributing and docs rules](./contributing.md)
 
@@ -42,7 +43,7 @@ Not implemented yet:
 
 This docs layout is intentionally small at first. As the project grows, split into:
 - `docs/formats/<format>.md`
-- `docs/providers/<provider>.md`
 - `docs/tasks/<task>.md` (for detection vs segmentation vs classification, etc.)
+- `docs/providers/<provider>.md`
 
-Until then, keep core facts centralized in the four docs pages linked above.
+Until then, keep core facts centralized in the five docs pages linked above.

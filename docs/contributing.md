@@ -24,7 +24,9 @@ When behavior changes, update docs in the same change:
    - update root `README.md` examples if needed
 2. Format behavior changes
    - update `docs/formats.md`
-3. Lossiness/report schema/code changes
+3. Task/use-case support changes
+   - update `docs/tasks.md`
+4. Lossiness/report schema/code changes
    - update `docs/conversion.md`
 
 Also update `AGENTS.md` / `CLAUDE.md` when repository structure or workflow guidance changes.
@@ -39,7 +41,7 @@ Also update `AGENTS.md` / `CLAUDE.md` when repository structure or workflow guid
 
 As docs grow, split by domain:
 - `docs/formats/<format>.md`
-- `docs/providers/<provider>.md`
 - `docs/tasks/<task>.md`
+- `docs/providers/<provider>.md`
 
 Only create these once implementation exists, to avoid stale placeholder docs.

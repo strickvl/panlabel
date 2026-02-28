@@ -45,6 +45,7 @@ For deeper reference docs (GitHub-readable):
 - [Documentation home](https://github.com/strickvl/panlabel/blob/HEAD/docs/README.md)
 - [CLI reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/cli.md)
 - [Format reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/formats.md)
+- [Tasks and use cases](https://github.com/strickvl/panlabel/blob/HEAD/docs/tasks.md)
 - [Conversion, lossiness, and report JSON](https://github.com/strickvl/panlabel/blob/HEAD/docs/conversion.md)
 - [Contributing guide](https://github.com/strickvl/panlabel/blob/HEAD/docs/contributing.md)
 

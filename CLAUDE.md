@@ -92,7 +92,26 @@ fuzz/
 
 scripts/
 └── dataset_generator.py  # Generates COCO and TFOD synthetic datasets
+
+docs/
+├── README.md            # Documentation hub
+├── cli.md               # CLI contract and examples
+├── formats.md           # Supported format behavior reference
+├── conversion.md        # Lossiness + report schema and issue codes
+└── contributing.md      # Docs + contributor maintenance rules
 ```
+
+## Documentation Topology
+
+- Root `README.md` is a quick project gateway.
+- User-facing reference docs live in `docs/`.
+- Source of truth for docs accuracy:
+  - CLI and auto-detection: `src/lib.rs`
+  - Format adapters: `src/ir/io_*.rs`
+  - Lossiness/report codes: `src/conversion/*`
+  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`
+
+If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
 
 ## CLI Commands
 
@@ -114,26 +133,14 @@ The `--from auto` flag detects format from file extension/content for files and 
 
 ## Annotation Format Reference
 
-The project converts between these formats:
+Use `docs/formats.md` as the primary format reference.
 
-**IR JSON** (Panlabel's canonical format):
-- Bbox: `{"min": {"x": f64, "y": f64}, "max": {"x": f64, "y": f64}}` - absolute pixel coords (xyxy)
-- Lossless: preserves all metadata, licenses, attributes
+Quick links:
+- [`docs/formats.md`](docs/formats.md)
+- [`docs/conversion.md`](docs/conversion.md)
+- [`docs/cli.md`](docs/cli.md)
 
-**COCO format** (JSON):
-- Bbox: `[x, y, width, height]` - absolute pixel coordinates from top-left
-- Conditional lossiness: loses `info.name`, some attributes may not roundtrip
-
-**TFOD format** (CSV):
-- Columns: `filename, width, height, class, xmin, ymin, xmax, ymax`
-- Coords: normalized (0.0-1.0)
-- Lossy: no metadata, licenses, confidence scores, or images without annotations
-
-**YOLO format** (Ultralytics directory):
-- Layout: `dataset_root/images/...` + `dataset_root/labels/...` + optional `data.yaml`
-- Label row: `<class_id> <x_center> <y_center> <width> <height>` (normalized)
-- Lossy: no dataset metadata/licenses/supercategory/confidence/attributes
-- Writer creates empty `.txt` files for images without annotations and does not copy image binaries
+Scope reminder: current support is object detection bboxes (not segmentation, keypoints/pose, OBB, or classification-only pipelines).
 
 See `scripts/dataset_generator.py` for synthetic data generation.
 

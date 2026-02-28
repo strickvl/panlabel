@@ -38,6 +38,16 @@ If you wish to use the library in your own project, you can add it to your
 
 Run `panlabel list-formats` for details on format capabilities and lossiness.
 
+## Documentation
+
+For deeper reference docs (GitHub-readable):
+
+- [Documentation home](https://github.com/strickvl/panlabel/blob/HEAD/docs/README.md)
+- [CLI reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/cli.md)
+- [Format reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/formats.md)
+- [Conversion, lossiness, and report JSON](https://github.com/strickvl/panlabel/blob/HEAD/docs/conversion.md)
+- [Contributing guide](https://github.com/strickvl/panlabel/blob/HEAD/docs/contributing.md)
+
 ## Usage
 
 ### Quick Start

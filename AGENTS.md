@@ -3,9 +3,13 @@
 ## Project Structure & Module Organization
 - `src/lib.rs` is the library entry point with CLI command dispatch.
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
-- `src/ir/` contains the Intermediate Representation module (model, bbox, converters).
+- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for Ultralytics-style YOLO.
+- `src/conversion/` contains conversion lossiness analysis and stable report issue codes.
+- `src/inspect/` contains dataset inspection/statistics logic.
 - `src/validation/` contains dataset validation logic.
 - `tests/cli.rs` contains CLI integration tests using `assert_cmd`.
+- `tests/tfod_csv_roundtrip.rs` and `tests/yolo_roundtrip.rs` cover format-specific integration behavior.
+- `docs/` is the durable documentation home for users and contributors.
 - `benches/` contains Criterion benchmarks.
 - `fuzz/` contains cargo-fuzz targets for parser fuzzing.
 - `scripts/dataset_generator.py` generates synthetic datasets for testing.
@@ -46,6 +50,13 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 - Commit messages in this repo are short and imperative (e.g., “Add basic CLI test”, “Update README”). Avoid prefixes unless needed.
 - PRs should include: a clear description, test commands run, and any user-facing changes (help text, README) noted. Link an issue for larger changes.
 
+## Docs Workflow
+- If you change CLI behavior, update `docs/cli.md` and relevant README examples in the same change.
+- If you change format behavior (COCO/TFOD/YOLO/IR), update `docs/formats.md`.
+- If you change conversion/lossiness/report codes, update `docs/conversion.md`.
+- Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`), since user-visible behavior is asserted there.
+
 ## Configuration & Data Tips
 - For the dataset generator, use a fresh Python virtual environment and install `numpy`.
 - Keep generated assets out of git; only commit code and fixtures that are meant to be versioned.
+- Never add anything under `design/` to git history (it is gitignored for a reason).

@@ -1,5 +1,59 @@
+use std::fs;
+use std::path::Path;
+
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::PredicateBooleanExt;
+
+fn bmp_bytes(width: u32, height: u32) -> Vec<u8> {
+    let row_stride = (width * 3).div_ceil(4) * 4;
+    let pixel_array_size = row_stride * height;
+    let file_size = 54 + pixel_array_size;
+
+    let mut bytes = Vec::with_capacity(file_size as usize);
+    bytes.extend_from_slice(b"BM");
+    bytes.extend_from_slice(&file_size.to_le_bytes());
+    bytes.extend_from_slice(&[0, 0, 0, 0]);
+    bytes.extend_from_slice(&54u32.to_le_bytes());
+
+    bytes.extend_from_slice(&40u32.to_le_bytes());
+    bytes.extend_from_slice(&(width as i32).to_le_bytes());
+    bytes.extend_from_slice(&(height as i32).to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&24u16.to_le_bytes());
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    bytes.extend_from_slice(&pixel_array_size.to_le_bytes());
+    bytes.extend_from_slice(&2835u32.to_le_bytes());
+    bytes.extend_from_slice(&2835u32.to_le_bytes());
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+
+    bytes.resize(file_size as usize, 0);
+    bytes
+}
+
+fn write_bmp(path: &Path, width: u32, height: u32) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create parent dir");
+    }
+    fs::write(path, bmp_bytes(width, height)).expect("write bmp file");
+}
+
+fn create_sample_yolo_dataset(root: &Path) {
+    fs::create_dir_all(root.join("images/train")).expect("create images dir");
+    fs::create_dir_all(root.join("labels/train")).expect("create labels dir");
+
+    write_bmp(&root.join("images/train/img1.bmp"), 16, 8);
+    write_bmp(&root.join("images/train/img2.bmp"), 10, 10);
+
+    fs::write(root.join("data.yaml"), "names:\n  - person\n  - car\n").expect("write data yaml");
+
+    fs::write(
+        root.join("labels/train/img1.txt"),
+        "0 0.5 0.5 0.5 0.5\n1 0.2 0.3 0.2 0.2\n",
+    )
+    .expect("write labels for img1");
+    fs::write(root.join("labels/train/img2.txt"), "").expect("write empty label file");
+}
 
 #[test]
 fn runs() {
@@ -179,6 +233,40 @@ fn validate_tfod_csv_alias_works() {
 }
 
 #[test]
+fn validate_yolo_dataset_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_yolo_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        temp.path().to_str().unwrap(),
+        "--format",
+        "yolo",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_yolo_alias_works() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_yolo_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        temp.path().to_str().unwrap(),
+        "--format",
+        "yolov8",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
 #[ignore] // Requires large generated dataset in assets/ (not committed)
 fn validate_tfod_large_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -337,6 +425,77 @@ fn convert_coco_to_tfod_succeeds_with_allow_lossy() {
 
     // Clean up
     let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_ir_json_to_yolo_fails_without_allow_lossy() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("yolo_out");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "yolo",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Lossy conversion"))
+        .stderr(predicates::str::contains("--allow-lossy"));
+}
+
+#[test]
+fn convert_yolo_to_coco_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let yolo_dir = temp.path().join("sample_yolo");
+    create_sample_yolo_dataset(&yolo_dir);
+    let output_path = temp.path().join("yolo_to_coco.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "yolo",
+        "-t",
+        "coco",
+        "-i",
+        yolo_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_from_yolo_alias_works() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let yolo_dir = temp.path().join("sample_yolo");
+    create_sample_yolo_dataset(&yolo_dir);
+    let output_path = temp.path().join("alias_out.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ultralytics",
+        "-t",
+        "coco",
+        "-i",
+        yolo_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
 }
 
 #[test]
@@ -561,6 +720,33 @@ fn convert_tfod_to_coco_shows_policy_notes() {
     let _ = std::fs::remove_file(&output_path);
 }
 
+#[test]
+fn convert_to_yolo_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_yolo");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "yolo",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--report",
+        "json",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"severity\": \"info\""))
+        .stdout(predicates::str::contains("yolo_writer_float_precision"));
+}
+
 // Inspect subcommand tests
 
 #[test]
@@ -659,6 +845,7 @@ fn list_formats_shows_all_formats() {
         .stdout(predicates::str::contains("ir-json"))
         .stdout(predicates::str::contains("coco"))
         .stdout(predicates::str::contains("tfod"))
+        .stdout(predicates::str::contains("yolo"))
         .stdout(predicates::str::contains("Supported formats"));
 }
 
@@ -759,6 +946,55 @@ fn convert_auto_detects_ir_json_format() {
 
     // Clean up
     let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_auto_detects_yolo_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let yolo_dir = temp.path().join("sample_yolo");
+    create_sample_yolo_dataset(&yolo_dir);
+    let output_path = temp.path().join("auto_detect_yolo.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        yolo_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(yolo)"));
+}
+
+#[test]
+fn convert_auto_detects_yolo_labels_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let yolo_dir = temp.path().join("sample_yolo");
+    create_sample_yolo_dataset(&yolo_dir);
+    let labels_dir = yolo_dir.join("labels");
+    let output_path = temp.path().join("auto_detect_yolo_labels.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        labels_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(yolo)"));
 }
 
 #[test]

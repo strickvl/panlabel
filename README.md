@@ -29,11 +29,12 @@ If you wish to use the library in your own project, you can add it to your
 
 ## Supported Formats
 
-| Format | Extension | Description | Lossiness |
-|--------|-----------|-------------|-----------|
+| Format | Extension / Layout | Description | Lossiness |
+|--------|--------------------|-------------|-----------|
 | `ir-json` | `.json` | Panlabel's intermediate representation | Lossless |
 | `coco` | `.json` | COCO object detection format | Conditional |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
+| `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
 
 Run `panlabel list-formats` for details on format capabilities and lossiness.
 
@@ -45,7 +46,10 @@ Run `panlabel list-formats` for details on format capabilities and lossiness.
 # Convert COCO to TFOD (auto-detects input format)
 panlabel convert --from auto --to tfod -i annotations.json -o annotations.csv --allow-lossy
 
-# Validate a dataset
+# Convert IR JSON to YOLO directory (lossy)
+panlabel convert --from ir-json --to yolo -i annotations.ir.json -o ./yolo_out --allow-lossy
+
+# Validate a dataset (file or directory path)
 panlabel validate --format coco annotations.json
 
 # Inspect dataset statistics
@@ -73,8 +77,11 @@ panlabel convert -f coco -t ir-json -i input.json -o output.json
 # IR JSON to TFOD (lossy - requires --allow-lossy)
 panlabel convert -f ir-json -t tfod -i input.json -o output.csv --allow-lossy
 
-# Auto-detect input format
+# Auto-detect input format (file or directory path)
 panlabel convert --from auto -t coco -i input.csv -o output.json
+
+# Convert YOLO directory to COCO JSON
+panlabel convert -f yolo -t coco -i ./dataset_root -o output.json
 ```
 
 ### Help

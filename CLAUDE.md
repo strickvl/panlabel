@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, TFOD CSV, and IR JSON formats with lossiness tracking.
+**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, TFOD CSV, YOLO directory format, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -66,6 +66,7 @@ src/
 │   ├── ids.rs          # Strongly-typed IDs (ImageId, AnnotationId, etc.)
 │   ├── io_coco_json.rs # COCO JSON reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
+│   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
 │   └── io_json.rs      # IR JSON format (canonical serialization)
 ├── validation/         # Dataset validation
 │   ├── mod.rs          # validate_dataset() function
@@ -80,6 +81,7 @@ src/
 tests/
 ├── cli.rs              # CLI integration tests using assert_cmd
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
+├── yolo_roundtrip.rs      # YOLO format roundtrip tests
 └── fixtures/           # Test fixture files
 
 benches/
@@ -103,9 +105,10 @@ scripts/
 
 ### Convert with Auto-Detection
 
-The `--from auto` flag detects format from file extension and content:
+The `--from auto` flag detects format from file extension/content for files and layout markers for directories:
 - `.csv` → TFOD
 - `.json` → Peek at `annotations[0].bbox`: array = COCO, object = IR JSON
+- directory with `labels/` containing `.txt` files (or direct `labels/` dir with `.txt`) → YOLO
 
 **Key design:** The CLI binary (`main.rs`) is intentionally minimal—it calls `panlabel::run()` from the library and handles errors. All business logic belongs in `lib.rs` (or modules it imports). The IR module uses Rust's type system (phantom types for coordinate spaces, newtypes for IDs) to prevent common annotation bugs at compile time.
 
@@ -125,6 +128,12 @@ The project converts between these formats:
 - Columns: `filename, width, height, class, xmin, ymin, xmax, ymax`
 - Coords: normalized (0.0-1.0)
 - Lossy: no metadata, licenses, confidence scores, or images without annotations
+
+**YOLO format** (Ultralytics directory):
+- Layout: `dataset_root/images/...` + `dataset_root/labels/...` + optional `data.yaml`
+- Label row: `<class_id> <x_center> <y_center> <width> <height>` (normalized)
+- Lossy: no dataset metadata/licenses/supercategory/confidence/attributes
+- Writer creates empty `.txt` files for images without annotations and does not copy image binaries
 
 See `scripts/dataset_generator.py` for synthetic data generation.
 

@@ -59,6 +59,14 @@ enum ConvertFormat {
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+    /// Ultralytics-style YOLO object detection format (directory-based).
+    #[value(
+        name = "yolo",
+        alias = "ultralytics",
+        alias = "yolov8",
+        alias = "yolov5"
+    )]
+    Yolo,
 }
 
 impl ConvertFormat {
@@ -68,6 +76,7 @@ impl ConvertFormat {
             ConvertFormat::IrJson => conversion::Format::IrJson,
             ConvertFormat::Coco => conversion::Format::Coco,
             ConvertFormat::Tfod => conversion::Format::Tfod,
+            ConvertFormat::Yolo => conversion::Format::Yolo,
         }
     }
 }
@@ -75,7 +84,7 @@ impl ConvertFormat {
 /// Source format for conversion (allows 'auto' for detection).
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum ConvertFromFormat {
-    /// Auto-detect format from file extension and content.
+    /// Auto-detect format from input path.
     #[value(name = "auto")]
     Auto,
     /// Panlabel's intermediate representation (JSON).
@@ -87,6 +96,14 @@ enum ConvertFromFormat {
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+    /// Ultralytics-style YOLO object detection format (directory-based).
+    #[value(
+        name = "yolo",
+        alias = "ultralytics",
+        alias = "yolov8",
+        alias = "yolov5"
+    )]
+    Yolo,
 }
 
 impl ConvertFromFormat {
@@ -97,6 +114,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::IrJson => Some(ConvertFormat::IrJson),
             ConvertFromFormat::Coco => Some(ConvertFormat::Coco),
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
+            ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
         }
     }
 }
@@ -116,10 +134,10 @@ enum ReportFormat {
 /// Arguments for the validate subcommand.
 #[derive(clap::Args)]
 struct ValidateArgs {
-    /// Input file to validate.
+    /// Input path to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', or 'tfod').
+    /// Input format ('ir-json', 'coco', 'tfod', or 'yolo').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -135,7 +153,7 @@ struct ValidateArgs {
 /// Arguments for the inspect subcommand.
 #[derive(clap::Args)]
 struct InspectArgs {
-    /// Input file to inspect.
+    /// Input path to inspect.
     input: PathBuf,
 
     /// Input format ('ir-json', 'coco', or 'tfod').
@@ -162,11 +180,11 @@ struct ConvertArgs {
     #[arg(short = 't', long = "to", value_enum)]
     to: ConvertFormat,
 
-    /// Input file path.
+    /// Input path.
     #[arg(short = 'i', long = "input")]
     input: PathBuf,
 
-    /// Output file path.
+    /// Output path.
     #[arg(short = 'o', long = "output")]
     output: PathBuf,
 
@@ -190,6 +208,8 @@ struct ConvertArgs {
 /// Arguments for the list-formats subcommand.
 #[derive(clap::Args)]
 struct ListFormatsArgs {}
+
+const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, tfod, yolo";
 
 /// Run the panlabel CLI.
 ///
@@ -238,10 +258,11 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
         "ir-json" => ir::io_json::read_ir_json(&args.input)?,
         "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
         "tfod" | "tfod-csv" => ir::io_tfod_csv::read_tfod_csv(&args.input)?,
+        "yolo" | "ultralytics" | "yolov8" | "yolov5" => ir::io_yolo::read_yolo_dir(&args.input)?,
         other => {
             return Err(PanlabelError::UnsupportedFormat(format!(
-                "'{}' (supported: ir-json, coco, tfod)",
-                other
+                "'{}' (supported: {})",
+                other, SUPPORTED_VALIDATE_FORMATS
             )));
         }
     };
@@ -364,6 +385,7 @@ fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, Panla
         ConvertFormat::IrJson => ir::io_json::read_ir_json(path),
         ConvertFormat::Coco => ir::io_coco_json::read_coco_json(path),
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
+        ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir(path),
     }
 }
 
@@ -377,6 +399,7 @@ fn write_dataset(
         ConvertFormat::IrJson => ir::io_json::write_ir_json(path, dataset),
         ConvertFormat::Coco => ir::io_coco_json::write_coco_json(path, dataset),
         ConvertFormat::Tfod => ir::io_tfod_csv::write_tfod_csv(path, dataset),
+        ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
     }
 }
 
@@ -386,6 +409,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::IrJson => "ir-json",
         ConvertFormat::Coco => "coco",
         ConvertFormat::Tfod => "tfod",
+        ConvertFormat::Yolo => "yolo",
     }
 }
 
@@ -414,6 +438,10 @@ fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
         (
             ConvertFormat::Tfod,
             "TensorFlow Object Detection format (CSV)",
+        ),
+        (
+            ConvertFormat::Yolo,
+            "Ultralytics YOLO .txt (directory-based)",
         ),
     ];
 
@@ -446,8 +474,13 @@ fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
     Ok(())
 }
 
-/// Detect the format of a file based on extension and content.
+/// Detect the format of an input path based on extension/content (files)
+/// or structure (directories).
 fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    if path.is_dir() {
+        return detect_dir_format(path);
+    }
+
     // First try extension-based detection
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext.to_lowercase().as_str() {
@@ -457,11 +490,56 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         }
     }
 
-    // No recognized extension
+    // Keep message stable (existing CLI tests assert this substring).
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
         reason: "unrecognized file extension (expected .json or .csv). Use --from to specify format explicitly.".to_string(),
     })
+}
+
+fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    let labels_subdir = path.join("labels");
+    if labels_subdir.is_dir() && dir_contains_txt_files(&labels_subdir)? {
+        return Ok(ConvertFormat::Yolo);
+    }
+
+    if is_labels_dir(path) && dir_contains_txt_files(path)? {
+        return Ok(ConvertFormat::Yolo);
+    }
+
+    Err(PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files). Use --from to specify format explicitly.".to_string(),
+    })
+}
+
+fn dir_contains_txt_files(path: &Path) -> Result<bool, PanlabelError> {
+    for entry in walkdir::WalkDir::new(path).follow_links(true) {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+
+        if entry.file_type().is_file()
+            && entry
+                .path()
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("txt"))
+                .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn is_labels_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("labels"))
+        .unwrap_or(false)
 }
 
 /// Detect whether a JSON file is COCO or IR JSON format.

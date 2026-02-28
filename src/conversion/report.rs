@@ -202,6 +202,16 @@ pub enum ConversionIssueCode {
     TfodReaderIdAssignment,
     /// TFOD writer orders rows by annotation ID.
     TfodWriterRowOrder,
+    /// YOLO reader assigns IDs by deterministic ordering.
+    YoloReaderIdAssignment,
+    /// YOLO reader class-map precedence/source.
+    YoloReaderClassMapSource,
+    /// YOLO writer assigns class indices by category ID order.
+    YoloWriterClassOrder,
+    /// YOLO writer creates empty label files for images without annotations.
+    YoloWriterEmptyLabelFiles,
+    /// YOLO writer outputs normalized floats at 6 decimal places.
+    YoloWriterFloatPrecision,
 }
 
 #[cfg(test)]

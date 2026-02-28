@@ -21,6 +21,7 @@ pub enum Format {
     IrJson,
     Coco,
     Tfod,
+    Yolo,
 }
 
 /// Classification of how lossy a format is relative to the IR.
@@ -41,6 +42,7 @@ impl Format {
             Format::IrJson => "ir-json",
             Format::Coco => "coco",
             Format::Tfod => "tfod",
+            Format::Yolo => "yolo",
         }
     }
 
@@ -49,11 +51,13 @@ impl Format {
     /// - `IrJson`: Lossless (it IS the IR)
     /// - `Coco`: Conditional (loses dataset name, may lose some attributes)
     /// - `Tfod`: Lossy (loses metadata, licenses, images without annotations, etc.)
+    /// - `Yolo`: Lossy (loses metadata, licenses, attributes, etc.)
     pub fn lossiness_relative_to_ir(&self) -> IrLossiness {
         match self {
             Format::IrJson => IrLossiness::Lossless,
             Format::Coco => IrLossiness::Conditional,
             Format::Tfod => IrLossiness::Lossy,
+            Format::Yolo => IrLossiness::Lossy,
         }
     }
 }
@@ -77,6 +81,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Compute output counts and issues based on target format
     match to {
         Format::Tfod => analyze_to_tfod(dataset, &mut report),
+        Format::Yolo => analyze_to_yolo(dataset, &mut report),
         Format::Coco => analyze_to_coco(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
     }
@@ -84,12 +89,15 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Add policy notes based on source format
     match from {
         Format::Tfod => add_tfod_reader_policy(&mut report),
+        Format::Yolo => add_yolo_reader_policy(&mut report),
         Format::Coco | Format::IrJson => {}
     }
 
     // Add policy notes based on target format
-    if to == Format::Tfod {
-        add_tfod_writer_policy(&mut report);
+    match to {
+        Format::Tfod => add_tfod_writer_policy(&mut report),
+        Format::Yolo => add_yolo_writer_policy(&mut report),
+        Format::Coco | Format::IrJson => {}
     }
 
     report
@@ -208,6 +216,92 @@ fn analyze_to_tfod(dataset: &Dataset, report: &mut ConversionReport) {
     };
 }
 
+/// Analyze conversion to YOLO format.
+fn analyze_to_yolo(dataset: &Dataset, report: &mut ConversionReport) {
+    // YOLO cannot represent dataset info/metadata
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+
+    // YOLO cannot represent licenses
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    // YOLO cannot represent image license_id or date_captured
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have license_id/date_captured that will be dropped",
+                images_with_metadata
+            ),
+        ));
+    }
+
+    // YOLO cannot represent category supercategory
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+
+    // YOLO cannot represent annotation confidence
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+
+    // YOLO cannot represent annotation attributes
+    let anns_with_attributes = dataset
+        .annotations
+        .iter()
+        .filter(|ann| !ann.attributes.is_empty())
+        .count();
+    if anns_with_attributes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes that will be dropped",
+                anns_with_attributes
+            ),
+        ));
+    }
+
+    // YOLO keeps full counts (including images without annotations via empty label files).
+    report.output = report.input.clone();
+}
+
 /// Analyze conversion to COCO format.
 fn analyze_to_coco(dataset: &Dataset, report: &mut ConversionReport) {
     // COCO doesn't have a dataset name field
@@ -259,6 +353,34 @@ fn add_tfod_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::info(
         ConversionIssueCode::TfodWriterRowOrder,
         "TFOD writer orders rows by annotation ID for deterministic output".to_string(),
+    ));
+}
+
+/// Add policy notes for YOLO reader behavior.
+fn add_yolo_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloReaderIdAssignment,
+        "YOLO reader assigns IDs deterministically: images by relative path (lexicographic), categories by class index, annotations by label-file order then line number".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloReaderClassMapSource,
+        "YOLO reader class map source precedence: data.yaml, then classes.txt, then inferred from label files".to_string(),
+    ));
+}
+
+/// Add policy notes for YOLO writer behavior.
+fn add_yolo_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloWriterClassOrder,
+        "YOLO writer assigns class indices by CategoryId order (sorted ascending)".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloWriterEmptyLabelFiles,
+        "YOLO writer creates empty .txt files for images without annotations".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloWriterFloatPrecision,
+        "YOLO writer outputs normalized coordinates with 6 decimal places".to_string(),
     ));
 }
 
@@ -377,5 +499,51 @@ mod tests {
 
         assert_eq!(report.input.images, 2);
         assert_eq!(report.output.images, 1); // Only image with annotations
+    }
+
+    #[test]
+    fn yolo_target_keeps_images_without_annotations() {
+        let dataset = sample_dataset();
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::Yolo);
+
+        assert!(report
+            .issues
+            .iter()
+            .all(|issue| issue.code != ConversionIssueCode::DropImagesWithoutAnnotations));
+        assert_eq!(report.output.images, report.input.images);
+    }
+
+    #[test]
+    fn yolo_source_adds_policy_notes() {
+        let dataset = Dataset::default();
+        let report = build_conversion_report(&dataset, Format::Yolo, Format::Coco);
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::YoloReaderIdAssignment));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::YoloReaderClassMapSource));
+    }
+
+    #[test]
+    fn yolo_target_adds_policy_notes() {
+        let dataset = Dataset::default();
+        let report = build_conversion_report(&dataset, Format::Coco, Format::Yolo);
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::YoloWriterClassOrder));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::YoloWriterEmptyLabelFiles));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::YoloWriterFloatPrecision));
     }
 }

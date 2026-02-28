@@ -9,124 +9,126 @@
 
 ## The universal annotation converter
 
-Panlabel is a Rust library for converting between different annotation formats,
-and a command-line tool that uses this library.
+If you've ever written a one-off Python script to wrangle COCO annotations into
+YOLO format (or vice versa), panlabel is here to save you the trouble. It's a
+fast, single-binary CLI that converts between common object detection annotation
+formats — with built-in validation, clear lossiness warnings, and no Python
+dependencies to manage.
 
-> ⚠️ **Warning**: This library is in active development and breaking changes
-> should be expected between versions. Please pin to specific versions in
+Panlabel is also available as a Rust library if you want to integrate format
+conversion into your own tools.
+
+> **Note**: Panlabel is in active development (v0.1.x). The CLI and library APIs
+> may change between versions, so pin to a specific version if you're using it in
 > production.
 
 ## Installation
 
-You can install `panlabel` from [crates.io](https://crates.io/crates/panlabel) using cargo:
+Install `panlabel` from [crates.io](https://crates.io/crates/panlabel):
 
 ```sh
 cargo install panlabel
 ```
 
-If you wish to use the library in your own project, you can add it to your
-`Cargo.toml` with `cargo add panlabel`.
+Want to use panlabel as a library in your own Rust project? Just run
+`cargo add panlabel`.
 
-## Supported Formats
+## Quick start
+
+```sh
+# Convert COCO annotations to YOLO (auto-detects the input format)
+panlabel convert --from auto --to yolo -i annotations.json -o ./yolo_out --allow-lossy
+
+# Convert a YOLO dataset to COCO JSON
+panlabel convert -f yolo -t coco -i ./my_dataset -o coco_output.json
+
+# Check a dataset for problems before training
+panlabel validate --format coco annotations.json
+
+# Get a quick overview of what's in a dataset
+panlabel inspect --format coco annotations.json
+```
+
+## What can panlabel do?
+
+| Command | What it does |
+|---------|-------------|
+| `convert` | Convert between annotation formats, with clear warnings about what (if anything) gets lost |
+| `validate` | Check your dataset for common problems — duplicate IDs, missing references, invalid bounding boxes |
+| `inspect` | Show dataset statistics: image/annotation counts, label histogram, bounding box quality metrics |
+| `list-formats` | Show which formats are supported and their read/write/lossiness capabilities |
+
+## Supported formats
 
 | Format | Extension / Layout | Description | Lossiness |
 |--------|--------------------|-------------|-----------|
-| `ir-json` | `.json` | Panlabel's intermediate representation | Lossless |
+| `ir-json` | `.json` | Panlabel's own intermediate representation | Lossless |
 | `coco` | `.json` | COCO object detection format | Conditional |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
 | `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
 
-Run `panlabel list-formats` for details on format capabilities and lossiness.
+Run `panlabel list-formats` for the full details.
+
+### More convert examples
+
+```sh
+# COCO to IR JSON (lossless — no data lost)
+panlabel convert -f coco -t ir-json -i input.json -o output.json
+
+# IR JSON to TFOD (lossy — requires explicit opt-in)
+panlabel convert -f ir-json -t tfod -i input.json -o output.csv --allow-lossy
+
+# Auto-detect input format from file extension or directory layout
+panlabel convert --from auto -t coco -i input.csv -o output.json
+```
+
+### Getting help
+
+```sh
+panlabel --help              # See all commands
+panlabel convert --help      # Help for a specific command
+panlabel -V                  # Show version
+```
 
 ## Documentation
 
-For deeper reference docs (GitHub-readable):
+Want to go deeper? The full docs are readable right here on GitHub:
 
-- [Documentation home](https://github.com/strickvl/panlabel/blob/HEAD/docs/README.md)
-- [CLI reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/cli.md)
-- [Format reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/formats.md)
-- [Tasks and use cases](https://github.com/strickvl/panlabel/blob/HEAD/docs/tasks.md)
-- [Conversion, lossiness, and report JSON](https://github.com/strickvl/panlabel/blob/HEAD/docs/conversion.md)
-- [Contributing guide](https://github.com/strickvl/panlabel/blob/HEAD/docs/contributing.md)
-- [Roadmap](https://github.com/strickvl/panlabel/blob/HEAD/ROADMAP.md)
-
-## Usage
-
-### Quick Start
-
-```sh
-# Convert COCO to TFOD (auto-detects input format)
-panlabel convert --from auto --to tfod -i annotations.json -o annotations.csv --allow-lossy
-
-# Convert IR JSON to YOLO directory (lossy)
-panlabel convert --from ir-json --to yolo -i annotations.ir.json -o ./yolo_out --allow-lossy
-
-# Validate a dataset (file or directory path)
-panlabel validate --format coco annotations.json
-
-# Inspect dataset statistics
-panlabel inspect --format coco annotations.json
-
-# List supported formats
-panlabel list-formats
-```
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `convert` | Convert between annotation formats |
-| `validate` | Validate a dataset for errors and warnings |
-| `inspect` | Display dataset statistics (counts, label histogram, bbox stats) |
-| `list-formats` | Show supported formats and their capabilities |
-
-### Convert Examples
-
-```sh
-# COCO to IR JSON (lossless)
-panlabel convert -f coco -t ir-json -i input.json -o output.json
-
-# IR JSON to TFOD (lossy - requires --allow-lossy)
-panlabel convert -f ir-json -t tfod -i input.json -o output.csv --allow-lossy
-
-# Auto-detect input format (file or directory path)
-panlabel convert --from auto -t coco -i input.csv -o output.json
-
-# Convert YOLO directory to COCO JSON
-panlabel convert -f yolo -t coco -i ./dataset_root -o output.json
-```
-
-### Help
-
-- `panlabel --help`: Shows available commands
-- `panlabel <command> --help`: Shows help for a specific command
-- `panlabel -V`: Displays version
+- [Documentation home](https://github.com/strickvl/panlabel/blob/HEAD/docs/README.md) — start here
+- [CLI reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/cli.md) — every flag and option
+- [Format reference](https://github.com/strickvl/panlabel/blob/HEAD/docs/formats.md) — how each format works
+- [Tasks and use cases](https://github.com/strickvl/panlabel/blob/HEAD/docs/tasks.md) — what's supported today
+- [Conversion and lossiness](https://github.com/strickvl/panlabel/blob/HEAD/docs/conversion.md) — understanding what gets lost
+- [Contributing](https://github.com/strickvl/panlabel/blob/HEAD/CONTRIBUTING.md) — we'd love your help
+- [Roadmap](https://github.com/strickvl/panlabel/blob/HEAD/ROADMAP.md) — what's coming next
 
 ## Benchmarks
 
-Run the Criterion benchmarks with:
-
 ```sh
-cargo bench
+cargo bench    # Run Criterion benchmarks (COCO parsing, TFOD writing)
 ```
 
-This benchmarks COCO JSON parsing and TFOD CSV writing performance.
+## Generating synthetic test data
 
-## Synthetic Data for Benchmarking and Testing
-
-To generate synthetic data, first install `numpy` into a fresh Python virtual environment and then run the following command:
+Need test data? The included generator creates realistic COCO and TFOD datasets:
 
 ```sh
+pip install numpy  # or: uv pip install numpy
 python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10 --output_dir ./assets
 ```
 
-Feel free to tweak the parameters to generate more or less data.
+Tweak the numbers to get datasets of whatever size you need.
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to
-discuss what you would like to change.
+Contributions are welcome! Whether it's a bug report, a new format adapter, or
+a documentation fix — we appreciate the help. For major changes, please
+[open an issue](https://github.com/strickvl/panlabel/issues) first so we can
+discuss the approach.
+
+See the [contributing guide](CONTRIBUTING.md) for details on the codebase
+structure and how to make changes.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE) for details.

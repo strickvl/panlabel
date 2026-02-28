@@ -1,6 +1,11 @@
 # Conversion, lossiness, and reports
 
-Panlabel converts via IR and generates a conversion report for every `convert` command.
+Not all annotation formats carry the same information. When you convert between
+formats, some fields may not have an equivalent in the target format — that's
+what panlabel calls "lossiness." Rather than silently dropping data, panlabel
+tells you exactly what would be lost and asks you to opt in with `--allow-lossy`.
+
+Every `convert` command generates a report explaining what happened.
 
 ## Lossiness model
 

@@ -1,10 +1,13 @@
 # Formats
 
-Panlabel converts through a canonical IR:
-- bounding boxes are represented as **pixel-space XYXY** in IR
-- format adapters map each external format into/out of that IR
+This page describes how each annotation format works inside panlabel — what gets
+read, what gets written, and what you should expect.
 
-Current scope: **object detection** only.
+Panlabel converts through a canonical intermediate representation (IR). All
+bounding boxes are represented as **pixel-space XYXY** in the IR, and each
+format adapter handles the mapping to/from its own coordinate system.
+
+Current scope: **object detection** bounding boxes only.
 
 ## Format matrix
 

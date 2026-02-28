@@ -1,6 +1,8 @@
 # CLI reference
 
-This page describes the current command-line contract implemented in `src/lib.rs`.
+Everything you can do with the `panlabel` command line. If you're just getting
+started, the [Quick Start in the README](../README.md#quick-start) is a good
+place to begin — then come back here when you need the full details.
 
 ## Global
 

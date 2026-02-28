@@ -1,6 +1,8 @@
 # Tasks and use cases
 
-This page documents which ML annotation tasks panlabel currently supports, and how that maps to formats.
+Panlabel doesn't try to support everything at once. This page shows what's
+supported today, what's not yet implemented, and what to expect when working
+within those boundaries.
 
 ## Current support snapshot
 
@@ -32,15 +34,16 @@ This page documents which ML annotation tasks panlabel currently supports, and h
 
 For per-format details, see [formats.md](./formats.md).
 
-## Why unsupported tasks are called out explicitly
+## Why panlabel rejects unsupported data instead of silently dropping it
 
-Panlabel intentionally rejects or drops unsupported structures rather than silently pretending support.
+You might wonder why panlabel errors out on YOLO rows with 6+ tokens or ignores
+COCO segmentation payloads. The principle is simple: **no silent surprises**.
+If panlabel can't faithfully represent something, it tells you rather than
+quietly producing incomplete output.
 
 Examples:
-- YOLO rows with more than 5 tokens (often segmentation/pose variants) are rejected.
-- COCO segmentation payloads are not converted into IR task structures.
-
-This keeps conversions explicit and safer.
+- YOLO rows with more than 5 tokens (often segmentation or pose data) are rejected with a clear error.
+- COCO segmentation payloads are accepted during read but not converted into IR — and the conversion report notes this.
 
 ## Adding a new task in the future
 

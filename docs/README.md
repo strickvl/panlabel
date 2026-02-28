@@ -1,37 +1,42 @@
 # Panlabel documentation
 
-This is the main documentation hub for panlabel.
+Welcome! This is the documentation hub for panlabel. Whether you're converting
+your first dataset or integrating panlabel into a larger pipeline, you'll find
+what you need here.
 
-## Supported scope (implemented today)
+## What does panlabel support today?
 
-Panlabel currently supports **object detection bounding boxes** only.
+Panlabel currently supports **object detection bounding boxes**. It can read and
+write these formats:
 
-Implemented formats:
-- `ir-json` (Panlabel IR JSON)
-- `coco` / `coco-json` (COCO JSON)
-- `tfod` / `tfod-csv` (TensorFlow Object Detection CSV)
-- `yolo` / `ultralytics` / `yolov8` / `yolov5` (Ultralytics-style YOLO directory)
+- **IR JSON** (`ir-json`) — panlabel's own lossless intermediate representation
+- **COCO JSON** (`coco` / `coco-json`) — the widely-used COCO format
+- **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
+- **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
 
-Not implemented yet:
-- segmentation
-- keypoints / pose
-- oriented bounding boxes (OBB)
-- classification-only label formats
+Not yet supported: segmentation, keypoints/pose, oriented bounding boxes (OBB),
+or classification-only label formats. See the [roadmap](../ROADMAP.md) for
+what's planned.
 
-## Start here
+## Which page do I need?
 
-- [CLI reference](./cli.md)
-- [Format reference](./formats.md)
-- [Tasks and use cases](./tasks.md)
-- [Conversion and lossiness](./conversion.md)
-- [Contributing and docs rules](./contributing.md)
-- [Roadmap](../ROADMAP.md)
+| I want to... | Go to |
+|---|---|
+| See every CLI flag and command | [CLI reference](./cli.md) |
+| Understand how a specific format works | [Format reference](./formats.md) |
+| Know what tasks/use cases are supported | [Tasks and use cases](./tasks.md) |
+| Understand what gets lost in conversion | [Conversion and lossiness](./conversion.md) |
+| Contribute to panlabel | [Contributing guide](../CONTRIBUTING.md) |
+| See what's coming next | [Roadmap](../ROADMAP.md) |
 
-## Source of truth map (for humans and LLMs)
+## For contributors: source of truth map
+
+If you're working on panlabel's code or docs, here's where the authoritative
+behavior lives:
 
 | Topic | Primary source |
 |---|---|
-| CLI commands/flags/auto-detect | `src/lib.rs` |
+| CLI commands, flags, auto-detection | `src/lib.rs` |
 | COCO format behavior | `src/ir/io_coco_json.rs` |
 | TFOD format behavior | `src/ir/io_tfod_csv.rs` |
 | YOLO format behavior | `src/ir/io_yolo.rs` |
@@ -39,12 +44,3 @@ Not implemented yet:
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | User-visible CLI behavior tests | `tests/cli.rs` |
 | YOLO roundtrip behavior tests | `tests/yolo_roundtrip.rs` |
-
-## Growth model
-
-This docs layout is intentionally small at first. As the project grows, split into:
-- `docs/formats/<format>.md`
-- `docs/tasks/<task>.md` (for detection vs segmentation vs classification, etc.)
-- `docs/providers/<provider>.md`
-
-Until then, keep core facts centralized in the five docs pages linked above.

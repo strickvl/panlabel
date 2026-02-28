@@ -98,13 +98,13 @@ docs/
 ├── cli.md               # CLI contract and examples
 ├── formats.md           # Supported format behavior reference
 ├── tasks.md             # Task/use-case support matrix
-├── conversion.md        # Lossiness + report schema and issue codes
-└── contributing.md      # Docs + contributor maintenance rules
+└── conversion.md        # Lossiness + report schema and issue codes
 ```
 
 ## Documentation Topology
 
 - Root `README.md` is a quick project gateway.
+- `CONTRIBUTING.md` lives at repo root (GitHub auto-links it in issues/PRs).
 - User-facing reference docs live in `docs/`.
 - Forward-looking priorities live in `ROADMAP.md`.
 - Source of truth for docs accuracy:

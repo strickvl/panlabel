@@ -234,6 +234,7 @@ struct ImageMeta {
 
 #[derive(Clone, Debug)]
 struct YoloLayout {
+    #[cfg_attr(not(test), allow(dead_code))]
     root: PathBuf,
     images_dir: PathBuf,
     labels_dir: PathBuf,

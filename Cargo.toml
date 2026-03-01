@@ -1,10 +1,11 @@
 [package]
 name = "panlabel"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Alex Strick van Linschoten <panlabel@realemail.net>"]
 description = "The universal annotation converter"
 license = "MIT"
+homepage = "https://github.com/strickvl/panlabel"
 repository = "https://github.com/strickvl/panlabel"
 documentation = "https://docs.rs/panlabel"
 keywords = ["cli", "annotation", "converter"]
@@ -46,3 +47,8 @@ tempfile = "3.13"
 [[bench]]
 name = "microbenches"
 harness = false
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

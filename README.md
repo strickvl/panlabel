@@ -18,20 +18,45 @@ dependencies to manage.
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
 
-> **Note**: Panlabel is in active development (v0.1.x). The CLI and library APIs
+> **Note**: Panlabel is in active development (v0.2.x). The CLI and library APIs
 > may change between versions, so pin to a specific version if you're using it in
 > production.
 
 ## Installation
 
-Install `panlabel` from [crates.io](https://crates.io/crates/panlabel):
+### Homebrew (macOS / Linux)
+
+```sh
+brew install strickvl/tap/panlabel
+```
+
+### Shell script (macOS / Linux)
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/strickvl/panlabel/releases/latest/download/panlabel-installer.sh | sh
+```
+
+### PowerShell (Windows)
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/strickvl/panlabel/releases/latest/download/panlabel-installer.ps1 | iex"
+```
+
+### Cargo (from source)
 
 ```sh
 cargo install panlabel
 ```
 
-Want to use panlabel as a library in your own Rust project? Just run
-`cargo add panlabel`.
+### Pre-built binaries
+
+Download from the [latest GitHub Release](https://github.com/strickvl/panlabel/releases/latest). Builds are available for macOS (Intel + Apple Silicon), Linux (x86_64 + ARM64), and Windows.
+
+### As a Rust library
+
+```sh
+cargo add panlabel
+```
 
 ## Quick start
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, Label Studio JSON, TFOD CSV, YOLO directory format, Pascal VOC XML directory format, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.2.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, YOLO directory format, Pascal VOC XML directory format, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -59,6 +59,28 @@ cargo +nightly fuzz run yolo_label_line_parse    # Fuzz YOLO line parser
 ```
 
 `fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the fuzz-only YOLO parser wrapper is available from the fuzz crate.
+
+### Releasing
+```bash
+# Check what dist will build (dry run)
+dist plan
+
+# Regenerate release workflow after config changes
+dist generate
+
+# To release: bump version in Cargo.toml, update CHANGELOG.md, then:
+git tag v0.2.0
+git push && git push --tags
+# The .github/workflows/release.yml workflow handles the rest:
+# - Builds binaries for 5 platforms
+# - Creates GitHub Release with archives + checksums
+# - Publishes Homebrew formula to strickvl/homebrew-tap
+```
+
+Release infrastructure:
+- **cargo-dist** (`dist-workspace.toml`) manages cross-platform binary builds and GitHub Releases
+- **Homebrew tap**: `strickvl/homebrew-tap` — auto-updated by release CI (requires `HOMEBREW_TAP_TOKEN` secret)
+- **Tag convention**: `vX.Y.Z` (e.g., `v0.2.0`) — annotated tags trigger the release workflow
 
 ### Generate Test Data
 ```bash
@@ -149,7 +171,9 @@ If command behavior, format semantics, or conversion issue codes change, update 
 |---------|-------------|
 | `validate` | Check dataset for errors (duplicate IDs, missing refs, invalid bboxes) |
 | `convert` | Convert between formats with lossiness tracking |
-| `inspect` | Display statistics (counts, label histogram, bbox quality metrics) |
+| `stats` | Display statistics (counts, label histogram, bbox quality metrics) |
+| `diff` | Compare two datasets semantically |
+| `sample` | Create subset datasets (random or stratified) |
 | `list-formats` | Show supported formats with read/write and lossiness info |
 
 ### Convert with Auto-Detection

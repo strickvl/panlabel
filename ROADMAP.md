@@ -12,24 +12,30 @@ For current, implemented behavior, use:
 - ✅ Detection task support (axis-aligned bboxes)
 - ✅ Formats: IR JSON, COCO JSON, TFOD CSV, Ultralytics YOLO directory
 - ✅ Conversion lossiness analysis and report JSON output
+- ✅ CLI: convert, validate, inspect, list-formats
 
 ## Near-term priorities
 
-### Task support
+Strategy: complete detection format coverage and add dataset utility commands
+before expanding to new annotation tasks (segmentation, classification).
 
-- ⏳ Improve task docs and boundaries for detection workflows
-- ⏳ Evaluate IR design options for segmentation support
-- ⏳ Evaluate IR design options for classification-only support
+### Format support (detection)
 
-### Format support
-
-- ⏳ Additional multi-file formats (e.g. Pascal VOC family)
+- 🔧 Pascal VOC XML (in progress)
+- ⏳ Label Studio JSON
+- ⏳ CVAT XML
 - ⏳ Broader YOLO family variants only when they fit IR safely
 
-### Provider / workflow support
+### CLI commands
 
-- ⏳ Provider-oriented documentation structure when real provider integrations are added
-- ⏳ Better end-to-end examples for common training/export pipelines
+- ⏳ `panlabel diff` — semantic diff between two datasets
+- ⏳ `panlabel stats` — richer statistics (per-category distributions, bbox quality)
+- ⏳ `panlabel sample` — subset a dataset (random, stratified, by category)
+
+### Testing & robustness
+
+- ⏳ Property-based testing (proptest: random IR → write → read → roundtrip compare)
+- ⏳ Expand fuzz targets for new format parsers
 
 ### UX / CLI
 
@@ -38,8 +44,23 @@ For current, implemented behavior, use:
 
 ### Documentation
 
+- ⏳ Improve task docs and boundaries for detection workflows
 - ⏳ Split docs into per-format/per-task pages when content volume justifies it
 - ⏳ Keep docs tightly aligned with behavior covered by tests
+
+## Later priorities
+
+These are deferred until detection format coverage is solid:
+
+### Task support
+
+- ⏳ Evaluate IR design options for segmentation support
+- ⏳ Evaluate IR design options for classification-only support
+
+### Provider / workflow support
+
+- ⏳ Provider-oriented documentation structure when real provider integrations are added
+- ⏳ Better end-to-end examples for common training/export pipelines
 
 ## Change policy
 

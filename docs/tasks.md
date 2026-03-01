@@ -29,6 +29,7 @@ within those boundaries.
 |---|---|---|---|
 | `ir-json` | yes | yes | canonical/lossless representation |
 | `coco` | yes | yes | bbox `[x,y,w,h]` mapped to/from IR XYXY |
+| `label-studio` | yes | yes | task-export JSON (`rectanglelabels`), percentage coordinates, lossy (rotations flattened to axis-aligned bbox envelopes) |
 | `tfod` | yes | yes | normalized CSV format; lossy |
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
 | `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
@@ -45,6 +46,8 @@ quietly producing incomplete output.
 Examples:
 - YOLO rows with more than 5 tokens (often segmentation or pose data) are rejected with a clear error.
 - COCO segmentation payloads are accepted during read but not converted into IR — and the conversion report notes this.
+- Label Studio result types other than `rectanglelabels` are rejected in the current detection-only adapter.
+- Label Studio `rotation` does not add OBB support: geometry is flattened to axis-aligned envelopes (angle retained as metadata).
 
 ## Adding a new task in the future
 

@@ -21,7 +21,7 @@ Validate a dataset path and print a validation report.
 
 ### Flags
 - `--format <string>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+  - supported values: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
 - `--strict` (treat warnings as errors)
 - `--output <string>` (`text` or `json`, default: `text`)
 
@@ -38,8 +38,8 @@ Convert annotations between formats using IR as the internal hub.
 - `--output`, `-o` output path
 
 ### Format values
-- `--from`: `auto`, `ir-json`, `coco`, `coco-json`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
-- `--to`: `ir-json`, `coco`, `tfod`, `yolo`, `voc` (aliases also accepted by clap where configured)
+- `--from`: `auto`, `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+- `--to`: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
 
 ### Flags
 - `--strict`
@@ -62,7 +62,7 @@ Show dataset summary statistics.
 - Positional: `input` path
 
 ### Flags
-- `--format <ir-json|coco|tfod|yolo|voc>`
+- `--format <ir-json|coco|label-studio|tfod|yolo|voc>` (canonical names shown; aliases like `coco-json`, `ls`, `tfod-csv`, `yolov8`, `voc-xml` are also accepted)
 - `--top <usize>` (default: `10`)
 - `--tolerance <f64>` (default: `0.5`)
 
@@ -78,6 +78,8 @@ The table includes:
 - write support
 - lossiness (`lossless`, `conditional`, `lossy`)
 
+`list-formats` shows canonical names. Command aliases are accepted by other commands (for example `ls` for `label-studio`) but may not be printed in the table.
+
 ## Auto-detection rules (`convert --from auto`)
 
 Implemented detection logic:
@@ -90,11 +92,14 @@ Implemented detection logic:
    - if both YOLO and VOC markers match, detection fails with an ambiguity error (use `--from`)
 2. If input path is a file:
    - `.csv` → `tfod`
-   - `.json` → inspect `annotations[0].bbox`
-     - bbox array `[x,y,w,h]` → `coco`
-     - bbox object (`min/max` or `xmin/ymin/xmax/ymax`) → `ir-json`
+   - `.json`:
+     - if JSON root is an empty array (`[]`) → `label-studio`
+     - else if JSON root is an array and the first element looks like a Label Studio task (`data.image` string) → `label-studio`
+     - else for object-root JSON, inspect `annotations[0].bbox`:
+       - bbox array `[x,y,w,h]` → `coco`
+       - bbox object (`min/max` or `xmin/ymin/xmax/ymax`) → `ir-json`
 
-Auto-detect limitation for JSON: it requires a non-empty `annotations` array and a `bbox` in the first annotation. If these are missing/empty, detection fails; pass `--from` explicitly.
+Auto-detect limitation for JSON: detection is intentionally shallow. For array-root JSON, panlabel only checks the first task shape and does not fully validate Label Studio schema at detection time. If that first-task heuristic fails, detection fails and asks for `--from`. For object-root JSON, detection requires a non-empty `annotations` array and a `bbox` in the first annotation.
 
 ## Examples
 
@@ -110,4 +115,7 @@ panlabel convert -f ir-json -t yolo -i in.ir.json -o out_yolo --allow-lossy
 
 # Convert Pascal VOC -> COCO
 panlabel convert -f voc -t coco -i ./voc_dataset -o out.json
+
+# Convert Label Studio -> COCO
+panlabel convert -f label-studio -t coco -i ./label_studio_export.json -o out.json
 ```

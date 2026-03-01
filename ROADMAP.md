@@ -10,7 +10,7 @@ For current, implemented behavior, use:
 ## Current baseline
 
 - ✅ Detection task support (axis-aligned bboxes)
-- ✅ Formats: IR JSON, COCO JSON, TFOD CSV, Ultralytics YOLO directory
+- ✅ Formats: IR JSON, COCO JSON, Label Studio JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, inspect, list-formats
 
@@ -21,8 +21,8 @@ before expanding to new annotation tasks (segmentation, classification).
 
 ### Format support (detection)
 
-- 🔧 Pascal VOC XML (in progress)
-- ⏳ Label Studio JSON
+- ✅ Pascal VOC XML
+- ✅ Label Studio JSON
 - ⏳ CVAT XML
 - ⏳ Broader YOLO family variants only when they fit IR safely
 
@@ -47,6 +47,7 @@ before expanding to new annotation tasks (segmentation, classification).
 - ⏳ Improve task docs and boundaries for detection workflows
 - ⏳ Split docs into per-format/per-task pages when content volume justifies it
 - ⏳ Keep docs tightly aligned with behavior covered by tests
+- ✅ Keep Label Studio docs aligned with `src/ir/io_label_studio_json.rs` + `tests/label_studio_roundtrip.rs` (strict schema, legacy `completions`, rotation-envelope behavior)
 
 ## Later priorities
 

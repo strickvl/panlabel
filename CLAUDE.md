@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, TFOD CSV, YOLO directory format, Pascal VOC XML directory format, and IR JSON with lossiness tracking.
+**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, Label Studio JSON, TFOD CSV, YOLO directory format, Pascal VOC XML directory format, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -65,6 +65,7 @@ src/
 │   ├── space.rs        # Pixel/Normalized coordinate space markers
 │   ├── ids.rs          # Strongly-typed IDs (ImageId, AnnotationId, etc.)
 │   ├── io_coco_json.rs # COCO JSON reader/writer
+│   ├── io_label_studio_json.rs # Label Studio JSON reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
 │   ├── io_voc_xml.rs   # Pascal VOC XML reader/writer (directory-based)
@@ -84,6 +85,7 @@ tests/
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
+├── label_studio_roundtrip.rs # Label Studio format roundtrip tests
 └── fixtures/           # Test fixture files
 
 benches/
@@ -109,11 +111,12 @@ docs/
 - `CONTRIBUTING.md` lives at repo root (GitHub auto-links it in issues/PRs).
 - User-facing reference docs live in `docs/`.
 - Forward-looking priorities live in `ROADMAP.md`.
+- `design/` documents are historical context only and may be stale after implementation.
 - Source of truth for docs accuracy:
   - CLI and auto-detection: `src/lib.rs`
   - Format adapters: `src/ir/io_*.rs`
   - Lossiness/report codes: `src/conversion/*`
-  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`
+  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`
 
 If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
 
@@ -130,7 +133,10 @@ If command behavior, format semantics, or conversion issue codes change, update 
 
 The `--from auto` flag detects format from file extension/content for files and layout markers for directories:
 - `.csv` → TFOD
-- `.json` → Peek at `annotations[0].bbox`: array = COCO, object = IR JSON
+- `.json`:
+  - empty array-root JSON (`[]`) → Label Studio
+  - non-empty array-root: check only first task for `data.image` string → Label Studio
+  - object-root: requires a non-empty `annotations` array, then peek at `annotations[0].bbox`: array = COCO, object = IR JSON (empty datasets cannot be auto-detected)
 - directory with `labels/` containing `.txt` files (or direct `labels/` dir with `.txt`) → YOLO
 - directory with `Annotations/` containing `.xml` and sibling `JPEGImages/` (or direct `Annotations/` with sibling `JPEGImages/`) → VOC
 

@@ -15,6 +15,7 @@ Current scope: **object detection** bounding boxes only.
 |---|---|---|---|---|
 | `ir-json` | file (`.json`) | yes | yes | lossless |
 | `coco` | file (`.json`) | yes | yes | conditional |
+| `label-studio` | file (`.json`) | yes | yes | lossy |
 | `tfod` | file (`.csv`) | yes | yes | lossy |
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
 | `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
@@ -33,6 +34,47 @@ Current scope: **object detection** bounding boxes only.
 - Writer behavior is deterministic (stable ordering by IDs).
 - COCO `score` can map to IR `confidence` when present.
 - COCO `segmentation` is accepted on read but ignored/dropped (panlabel currently models detection bboxes only). On write, panlabel emits `segmentation` as an empty array.
+
+## Label Studio JSON (`label-studio` / `label-studio-json` / `ls`)
+
+- Path kind: JSON file.
+- Supported shape: Label Studio task export array (empty array is accepted as an empty dataset).
+- Supported annotation type: `rectanglelabels` only.
+- Coordinates are percentages; adapter maps to/from IR pixel XYXY.
+- Reader supports legacy `completions` as fallback when `annotations` is absent.
+- Label Studio result `score` (when present) maps to IR `confidence` (from either `annotations` or `predictions`).
+
+Reader behavior:
+- derives `Image.file_name` from `data.image` basename (normalizes `\` to `/`, strips query/fragment)
+- requires derived basenames to be unique across tasks
+- preserves full image reference in `Image.attributes["ls_image_ref"]`
+- accepts either `annotations` or legacy `completions` per task (both present is an error)
+- supports `predictions` alongside annotation sets
+- each of `annotations` / `completions` / `predictions` may contain at most one result-set entry
+- enforces `type == "rectanglelabels"` and exactly one label per result
+- requires `original_width`/`original_height` on each result; if a task has zero results, falls back to `data.width`/`data.height`
+- requires consistent `from_name`/`to_name` values within a task; when present, stores them in `Image.attributes["ls_from_name"]` and `Image.attributes["ls_to_name"]`
+- stores non-zero rotation as `Annotation.attributes["ls_rotation_deg"]` and uses an axis-aligned envelope bbox in IR
+
+Deterministic policy:
+- reader image IDs: by derived basename (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order then result order
+- writer task order: by image file_name (lexicographic)
+
+Writer behavior:
+- writes Label Studio task export JSON
+- splits results by confidence:
+  - `confidence == None` -> `annotations`
+  - `confidence == Some(_)` -> `predictions` + `score`
+  - this means any IR annotation with confidence is written under `predictions`
+- uses `ls_from_name` / `ls_to_name` image attributes if present, else defaults to `label` / `image`
+- requires unique image basenames (derived from `data.image`) to avoid ambiguous `Image.file_name` mapping
+
+Limitations:
+- currently only rectanglelabels bbox annotations are supported
+- rotation is flattened to axis-aligned geometry (angle retained as `ls_rotation_deg` only)
+- Label Studio-specific metadata outside this mapping is not preserved
 
 ## TFOD CSV (`tfod` / `tfod-csv`)
 

@@ -17,9 +17,12 @@ A conversion report issue has a severity:
 Format-level lossiness relative to IR:
 - `ir-json`: lossless
 - `coco`: conditional
+- `label-studio`: lossy
 - `tfod`: lossy
 - `yolo`: lossy
 - `voc`: lossy
+
+The format-level class is a general capability signal. Conversions are actually blocked only when the report contains one or more `warning` issues.
 
 ## JSON report shape
 
@@ -55,6 +58,7 @@ These codes are designed to be stable for programmatic use.
 | `drop_images_without_annotations` | Images without annotations will not appear (TFOD behavior) |
 | `drop_dataset_info_name` | `info.name` has no COCO equivalent |
 | `coco_attributes_may_not_be_preserved` | Some COCO-tool roundtrips may not preserve nonstandard attributes |
+| `label_studio_rotation_dropped` | Rotated Label Studio boxes are flattened to axis-aligned envelopes; angle is kept as `ls_rotation_deg` attribute |
 
 ### Info codes
 
@@ -74,6 +78,9 @@ These codes are designed to be stable for programmatic use.
 | `voc_writer_file_layout` | VOC writer XML path/layout policy |
 | `voc_writer_no_image_copy` | VOC writer placeholder JPEGImages policy |
 | `voc_writer_bool_normalization` | VOC writer boolean normalization policy |
+| `label_studio_reader_id_assignment` | Label Studio reader deterministic ID assignment policy |
+| `label_studio_reader_image_ref_policy` | Label Studio reader image reference mapping policy |
+| `label_studio_writer_from_to_defaults` | Label Studio writer default `from_name` / `to_name` policy |
 
 ## Practical guidance
 

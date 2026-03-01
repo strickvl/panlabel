@@ -45,6 +45,9 @@ panlabel convert -f yolo -t coco -i ./my_dataset -o coco_output.json
 # Convert a Pascal VOC dataset to COCO JSON
 panlabel convert -f voc -t coco -i ./voc_dataset -o coco_output.json
 
+# Convert Label Studio JSON to COCO JSON
+panlabel convert -f label-studio -t coco -i export.json -o coco_output.json
+
 # Check a dataset for problems before training
 panlabel validate --format coco annotations.json
 
@@ -67,11 +70,14 @@ panlabel inspect --format coco annotations.json
 |--------|--------------------|-------------|-----------|
 | `ir-json` | `.json` | Panlabel's own intermediate representation | Lossless |
 | `coco` | `.json` | COCO object detection format | Conditional |
+| `label-studio` | `.json` | Label Studio task export JSON (`rectanglelabels`) | Lossy |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
 | `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 
 Run `panlabel list-formats` for the full details.
+
+`list-formats` shows canonical names (for example `label-studio`), while commands also accept aliases (for example `ls`, `label-studio-json`).
 
 ### More convert examples
 
@@ -82,7 +88,7 @@ panlabel convert -f coco -t ir-json -i input.json -o output.json
 # IR JSON to TFOD (lossy — requires explicit opt-in)
 panlabel convert -f ir-json -t tfod -i input.json -o output.csv --allow-lossy
 
-# Auto-detect input format from file extension or directory layout
+# Auto-detect input format from file extension/content or directory layout
 panlabel convert --from auto -t coco -i input.csv -o output.json
 ```
 

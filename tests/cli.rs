@@ -992,103 +992,102 @@ fn convert_to_label_studio_report_includes_policy_notes() {
         ));
 }
 
-// Inspect subcommand tests
+// Stats subcommand tests
 
 #[test]
-fn inspect_coco_dataset_succeeds() {
+fn stats_coco_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
-        "inspect",
+        "stats",
         "--format",
         "coco",
         "tests/fixtures/sample_valid.coco.json",
     ]);
     cmd.assert()
         .success()
-        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Dataset Stats Report"))
         .stdout(predicates::str::contains("Summary"))
         .stdout(predicates::str::contains("Labels"))
         .stdout(predicates::str::contains("Bounding Boxes"));
 }
 
 #[test]
-fn inspect_ir_json_dataset_succeeds() {
+fn stats_ir_json_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
-        "inspect",
+        "stats",
         "--format",
         "ir-json",
         "tests/fixtures/sample_valid.ir.json",
     ]);
     cmd.assert()
         .success()
-        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Dataset Stats Report"))
         .stdout(predicates::str::contains("Images"));
 }
 
 #[test]
-fn inspect_tfod_dataset_succeeds() {
+fn stats_tfod_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
-        "inspect",
+        "stats",
         "--format",
         "tfod",
         "tests/fixtures/sample_valid.tfod.csv",
     ]);
     cmd.assert()
         .success()
-        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Dataset Stats Report"))
         .stdout(predicates::str::contains("Annotations"));
 }
 
 #[test]
-fn inspect_voc_dataset_succeeds() {
+fn stats_voc_dataset_succeeds() {
     let temp = tempfile::tempdir().expect("create temp dir");
     create_sample_voc_dataset(temp.path());
 
     let mut cmd = cargo_bin_cmd!("panlabel");
-    cmd.args(["inspect", "--format", "voc", temp.path().to_str().unwrap()]);
+    cmd.args(["stats", "--format", "voc", temp.path().to_str().unwrap()]);
     cmd.assert()
         .success()
-        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Dataset Stats Report"))
         .stdout(predicates::str::contains("Images"));
 }
 
 #[test]
-fn inspect_label_studio_dataset_succeeds() {
+fn stats_label_studio_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
-        "inspect",
+        "stats",
         "--format",
         "label-studio",
         "tests/fixtures/sample_valid.label_studio.json",
     ]);
     cmd.assert()
         .success()
-        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Dataset Stats Report"))
         .stdout(predicates::str::contains("Images"));
 }
 
 #[test]
-fn inspect_shows_label_histogram() {
+fn stats_shows_label_histogram() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
-        "inspect",
+        "stats",
         "--format",
         "coco",
         "tests/fixtures/sample_valid.coco.json",
     ]);
-    // Should show category names from the dataset
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("person").or(predicates::str::contains("Labels")));
 }
 
 #[test]
-fn inspect_top_flag_limits_labels() {
+fn stats_top_flag_limits_labels() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
-        "inspect",
+        "stats",
         "--format",
         "coco",
         "tests/fixtures/sample_valid.coco.json",
@@ -1101,10 +1100,427 @@ fn inspect_top_flag_limits_labels() {
 }
 
 #[test]
-fn inspect_nonexistent_file_fails() {
+fn stats_nonexistent_file_fails() {
     let mut cmd = cargo_bin_cmd!("panlabel");
-    cmd.args(["inspect", "--format", "coco", "nonexistent_file.json"]);
+    cmd.args(["stats", "--format", "coco", "nonexistent_file.json"]);
     cmd.assert().failure();
+}
+
+#[test]
+fn stats_auto_detects_coco_when_format_omitted() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["stats", "tests/fixtures/sample_valid.coco.json"]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Stats Report"));
+}
+
+#[test]
+fn stats_falls_back_to_ir_json_when_detection_fails_for_json_file() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let p = temp.path().join("empty.ir.json");
+    fs::write(
+        &p,
+        r#"{"info":{},"images":[],"categories":[],"annotations":[]}"#,
+    )
+    .expect("write");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["stats", p.to_str().unwrap()]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Stats Report"));
+}
+
+#[test]
+fn stats_directory_detection_errors_without_fallback() {
+    let temp = tempfile::tempdir().expect("tempdir");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["stats", temp.path().to_str().unwrap()]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("unrecognized directory layout"));
+}
+
+#[test]
+fn stats_json_output_contains_expected_keys() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "stats",
+        "--output",
+        "json",
+        "tests/fixtures/sample_valid.coco.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"summary\""))
+        .stdout(predicates::str::contains("\"labels\""))
+        .stdout(predicates::str::contains("\"bboxes\""))
+        .stdout(predicates::str::contains("\"cooccurrence_top_pairs\""));
+}
+
+#[test]
+fn stats_html_output_contains_expected_markers() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "stats",
+        "--output",
+        "html",
+        "tests/fixtures/sample_valid.coco.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("<title>panlabel stats</title>"))
+        .stdout(predicates::str::contains("id=\"stats-data\""))
+        .stdout(predicates::str::contains("id=\"labels-chart\""));
+}
+
+// Diff subcommand tests
+
+#[test]
+fn diff_identical_ir_json_has_no_changes() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let a = temp.path().join("a.ir.json");
+    let b = temp.path().join("b.ir.json");
+    let content = fs::read_to_string("tests/fixtures/sample_valid.ir.json").expect("read fixture");
+    fs::write(&a, &content).expect("write a");
+    fs::write(&b, &content).expect("write b");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "diff",
+        a.to_str().unwrap(),
+        b.to_str().unwrap(),
+        "--format-a",
+        "ir-json",
+        "--format-b",
+        "ir-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Diff"))
+        .stdout(predicates::str::contains("0 only in A, 0 only in B"));
+}
+
+#[test]
+fn diff_id_mode_bbox_change_within_epsilon_is_not_modified() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let a = temp.path().join("a.ir.json");
+    let b = temp.path().join("b.ir.json");
+
+    let a_json = r#"{"info":{},"images":[{"id":1,"file_name":"img.jpg","width":100,"height":100}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":1,"image_id":1,"category_id":1,"bbox":{"xmin":10.0,"ymin":10.0,"xmax":20.0,"ymax":20.0}}]}"#;
+    let b_json = r#"{"info":{},"images":[{"id":1,"file_name":"img.jpg","width":100,"height":100}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":1,"image_id":1,"category_id":1,"bbox":{"xmin":10.0000005,"ymin":10.0,"xmax":20.0,"ymax":20.0}}]}"#;
+
+    fs::write(&a, a_json).expect("write a");
+    fs::write(&b, b_json).expect("write b");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "diff",
+        a.to_str().unwrap(),
+        b.to_str().unwrap(),
+        "--format-a",
+        "ir-json",
+        "--format-b",
+        "ir-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("modified (0)"));
+}
+
+#[test]
+fn diff_id_mode_bbox_change_beyond_epsilon_is_modified() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let a = temp.path().join("a.ir.json");
+    let b = temp.path().join("b.ir.json");
+
+    let a_json = r#"{"info":{},"images":[{"id":1,"file_name":"img.jpg","width":100,"height":100}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":1,"image_id":1,"category_id":1,"bbox":{"xmin":10.0,"ymin":10.0,"xmax":20.0,"ymax":20.0}}]}"#;
+    let b_json = r#"{"info":{},"images":[{"id":1,"file_name":"img.jpg","width":100,"height":100}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":1,"image_id":1,"category_id":1,"bbox":{"xmin":10.0001,"ymin":10.0,"xmax":20.0,"ymax":20.0}}]}"#;
+
+    fs::write(&a, a_json).expect("write a");
+    fs::write(&b, b_json).expect("write b");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "diff",
+        a.to_str().unwrap(),
+        b.to_str().unwrap(),
+        "--format-a",
+        "ir-json",
+        "--format-b",
+        "ir-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("modified (1)"));
+}
+
+#[test]
+fn diff_detail_prints_detail_sections() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let a = temp.path().join("a.ir.json");
+    let b = temp.path().join("b.ir.json");
+
+    let a_json = r#"{"info":{},"images":[{"id":1,"file_name":"a.jpg","width":10,"height":10}],"categories":[{"id":1,"name":"cat"}],"annotations":[]}"#;
+    let b_json = r#"{"info":{},"images":[{"id":1,"file_name":"b.jpg","width":10,"height":10}],"categories":[{"id":1,"name":"cat"}],"annotations":[]}"#;
+    fs::write(&a, a_json).expect("write a");
+    fs::write(&b, b_json).expect("write b");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "diff",
+        a.to_str().unwrap(),
+        b.to_str().unwrap(),
+        "--format-a",
+        "ir-json",
+        "--format-b",
+        "ir-json",
+        "--detail",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Images only in A:"))
+        .stdout(predicates::str::contains("Images only in B:"));
+}
+
+#[test]
+fn diff_json_output_contains_expected_keys() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "diff",
+        "tests/fixtures/sample_valid.ir.json",
+        "tests/fixtures/sample_valid.ir.json",
+        "--format-a",
+        "ir-json",
+        "--format-b",
+        "ir-json",
+        "--output",
+        "json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"images\""))
+        .stdout(predicates::str::contains("\"categories\""))
+        .stdout(predicates::str::contains("\"annotations\""));
+}
+
+#[test]
+fn diff_iou_mode_matches_different_ids() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let a = temp.path().join("a.ir.json");
+    let b = temp.path().join("b.ir.json");
+
+    let a_json = r#"{"info":{},"images":[{"id":1,"file_name":"img.jpg","width":100,"height":100}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":1,"image_id":1,"category_id":1,"bbox":{"xmin":10.0,"ymin":10.0,"xmax":20.0,"ymax":20.0}}]}"#;
+    let b_json = r#"{"info":{},"images":[{"id":1,"file_name":"img.jpg","width":100,"height":100}],"categories":[{"id":1,"name":"cat"}],"annotations":[{"id":999,"image_id":1,"category_id":1,"bbox":{"xmin":10.0,"ymin":10.0,"xmax":20.0,"ymax":20.0}}]}"#;
+
+    fs::write(&a, a_json).expect("write a");
+    fs::write(&b, b_json).expect("write b");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "diff",
+        a.to_str().unwrap(),
+        b.to_str().unwrap(),
+        "--format-a",
+        "ir-json",
+        "--format-b",
+        "ir-json",
+        "--match-by",
+        "iou",
+        "--iou-threshold",
+        "0.5",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Annotations:"))
+        .stdout(predicates::str::contains("modified (0)"));
+}
+
+// Sample subcommand tests
+
+#[test]
+fn sample_n_writes_output_and_validates() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "ir-json",
+        "-n",
+        "1",
+    ]);
+    cmd.assert().success();
+
+    let mut validate = cargo_bin_cmd!("panlabel");
+    validate.args(["validate", out.to_str().unwrap(), "--format", "ir-json"]);
+    validate
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn sample_fraction_writes_output() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "ir-json",
+        "--fraction",
+        "0.5",
+        "--seed",
+        "42",
+    ]);
+    cmd.assert().success();
+    assert!(out.is_file());
+}
+
+#[test]
+fn sample_rejects_n_and_fraction_together() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "ir-json",
+        "-n",
+        "1",
+        "--fraction",
+        "0.5",
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Invalid sample parameters"));
+}
+
+#[test]
+fn sample_seed_is_deterministic() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out1 = temp.path().join("out1.ir.json");
+    let out2 = temp.path().join("out2.ir.json");
+
+    for out in [&out1, &out2] {
+        let mut cmd = cargo_bin_cmd!("panlabel");
+        cmd.args([
+            "sample",
+            "-i",
+            "tests/fixtures/sample_valid.coco.json",
+            "-o",
+            out.to_str().unwrap(),
+            "--from",
+            "coco",
+            "--to",
+            "ir-json",
+            "-n",
+            "1",
+            "--seed",
+            "123",
+        ]);
+        cmd.assert().success();
+    }
+
+    let b1 = fs::read(&out1).expect("read out1");
+    let b2 = fs::read(&out2).expect("read out2");
+    assert_eq!(b1, b2);
+}
+
+#[test]
+fn sample_category_mode_annotations_keeps_all_categories() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let input = temp.path().join("in.ir.json");
+    let out = temp.path().join("out.ir.json");
+
+    let ds = r#"{
+      "info": {},
+      "images": [{"id":1,"file_name":"img.jpg","width":10,"height":10}],
+      "categories": [{"id":1,"name":"person"},{"id":2,"name":"dog"}],
+      "annotations": [
+        {"id":1,"image_id":1,"category_id":1,"bbox":{"xmin":1.0,"ymin":1.0,"xmax":2.0,"ymax":2.0}},
+        {"id":2,"image_id":1,"category_id":2,"bbox":{"xmin":3.0,"ymin":3.0,"xmax":4.0,"ymax":4.0}}
+      ]
+    }"#;
+    fs::write(&input, ds).expect("write input");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        input.to_str().unwrap(),
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "ir-json",
+        "--to",
+        "ir-json",
+        "-n",
+        "1",
+        "--categories",
+        "person",
+        "--category-mode",
+        "annotations",
+        "--seed",
+        "1",
+    ]);
+    cmd.assert().success();
+
+    let out_s = fs::read_to_string(&out).expect("read out");
+    let out_v: serde_json::Value = serde_json::from_str(&out_s).expect("parse json");
+
+    assert_eq!(out_v["categories"].as_array().map(|v| v.len()), Some(2));
+    let annotations = out_v["annotations"].as_array().expect("annotations array");
+    assert!(annotations.iter().all(|ann| ann["category_id"] == 1));
+}
+
+#[test]
+fn sample_to_tfod_is_blocked_without_allow_lossy() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "tfod",
+        "-n",
+        "1",
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Lossy conversion"))
+        .stderr(predicates::str::contains("--allow-lossy"));
 }
 
 // list-formats subcommand tests

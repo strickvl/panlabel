@@ -52,7 +52,13 @@ panlabel convert -f label-studio -t coco -i export.json -o coco_output.json
 panlabel validate --format coco annotations.json
 
 # Get a quick overview of what's in a dataset
-panlabel inspect --format coco annotations.json
+panlabel stats --format coco annotations.json
+
+# Compare two datasets
+panlabel diff --format-a auto --format-b auto old.json new.json
+
+# Sample a smaller subset for quick experiments
+panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42
 ```
 
 ## What can panlabel do?
@@ -61,7 +67,9 @@ panlabel inspect --format coco annotations.json
 |---------|-------------|
 | `convert` | Convert between annotation formats, with clear warnings about what (if anything) gets lost |
 | `validate` | Check your dataset for common problems — duplicate IDs, missing references, invalid bounding boxes |
-| `inspect` | Show dataset statistics: image/annotation counts, label histogram, bounding box quality metrics |
+| `stats` | Show rich dataset statistics in text, JSON, or HTML |
+| `diff` | Compare two datasets semantically (summary or detailed output) |
+| `sample` | Create subset datasets (random or stratified), with optional category filtering |
 | `list-formats` | Show which formats are supported and their read/write/lossiness capabilities |
 
 ## Supported formats

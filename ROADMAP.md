@@ -12,7 +12,7 @@ For current, implemented behavior, use:
 - ✅ Detection task support (axis-aligned bboxes)
 - ✅ Formats: IR JSON, COCO JSON, Label Studio JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory
 - ✅ Conversion lossiness analysis and report JSON output
-- ✅ CLI: convert, validate, inspect, list-formats
+- ✅ CLI: convert, validate, stats, diff, sample, list-formats
 
 ## Near-term priorities
 
@@ -28,9 +28,9 @@ before expanding to new annotation tasks (segmentation, classification).
 
 ### CLI commands
 
-- ⏳ `panlabel diff` — semantic diff between two datasets
-- ⏳ `panlabel stats` — richer statistics (per-category distributions, bbox quality)
-- ⏳ `panlabel sample` — subset a dataset (random, stratified, by category)
+- ✅ `panlabel diff` — semantic diff between two datasets
+- ✅ `panlabel stats` — richer statistics (per-category distributions, bbox quality)
+- ✅ `panlabel sample` — subset a dataset (random, stratified, by category)
 
 ### Testing & robustness
 

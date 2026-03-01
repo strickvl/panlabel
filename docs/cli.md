@@ -1,8 +1,6 @@
 # CLI reference
 
-Everything you can do with the `panlabel` command line. If you're just getting
-started, the [Quick Start in the README](../README.md#quick-start) is a good
-place to begin — then come back here when you need the full details.
+Everything you can do with the `panlabel` command line.
 
 ## Global
 
@@ -16,10 +14,7 @@ place to begin — then come back here when you need the full details.
 
 Validate a dataset path and print a validation report.
 
-### Inputs
 - Positional: `input` (path; file or directory depending on format)
-
-### Flags
 - `--format <string>` (default: `ir-json`)
   - supported values: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
 - `--strict` (treat warnings as errors)
@@ -31,40 +26,69 @@ Validate a dataset path and print a validation report.
 
 Convert annotations between formats using IR as the internal hub.
 
-### Inputs
-- `--from`, `-f` source format
-- `--to`, `-t` target format
-- `--input`, `-i` input path
-- `--output`, `-o` output path
-
-### Format values
-- `--from`: `auto`, `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
-- `--to`: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
-
-### Flags
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+- `--input`, `-i`: input path
+- `--output`, `-o`: output path
 - `--strict`
 - `--no-validate`
 - `--allow-lossy`
 - `--report <text|json>` (default: `text`)
 
-### Output behavior
-- Validation issues encountered during convert may print to **stderr**.
-- With `--report text`, panlabel prints conversion summary text.
-- With `--report json`, panlabel prints JSON report to stdout (machine-consumable).
+With `--report json`, panlabel prints JSON only to stdout.
 
 ---
 
-### `inspect`
+### `stats`
 
-Show dataset summary statistics.
+Show rich dataset statistics.
 
-### Inputs
-- Positional: `input` path
+- Positional: `input`
+- `--format <format>` (optional; if omitted panlabel auto-detects)
+  - when detection fails for a **JSON file**, stats falls back to `ir-json`
+- `--top <N>` (default: `10`) for label and co-occurrence top lists
+- `--tolerance <PX>` (default: `0.5`) for OOB checks
+- `--output <text|json|html>` (default: `text`)
 
-### Flags
-- `--format <ir-json|coco|label-studio|tfod|yolo|voc>` (canonical names shown; aliases like `coco-json`, `ls`, `tfod-csv`, `yolov8`, `voc-xml` are also accepted)
-- `--top <usize>` (default: `10`)
-- `--tolerance <f64>` (default: `0.5`)
+`--output html` returns a self-contained HTML report on stdout.
+
+---
+
+### `diff`
+
+Compare two datasets semantically.
+
+Usage:
+`panlabel diff [OPTIONS] <INPUT_A> <INPUT_B>`
+
+- `--format-a <FORMAT>` (default: `auto`)
+- `--format-b <FORMAT>` (default: `auto`)
+- `--match-by <id|iou>` (default: `id`)
+- `--iou-threshold <FLOAT>` (default: `0.5`, used by `--match-by iou`)
+- `--detail` for item-level details
+- `--output <text|json>` (default: `text`)
+
+---
+
+### `sample`
+
+Create a subset dataset.
+
+Usage:
+`panlabel sample [OPTIONS] -i <INPUT> -o <OUTPUT>`
+
+- `--from <FORMAT>` (default: `auto`)
+- `--to <FORMAT>` (optional)
+  - if omitted and `--from` is explicit, output uses same format
+  - if omitted and `--from auto`, output defaults to `ir-json`
+- `-n <COUNT>` or `--fraction <FLOAT>` (exactly one required)
+- `--seed <INT>` for deterministic sampling
+- `--strategy <random|stratified>` (default: `random`)
+- `--categories <comma,separated,list>`
+- `--category-mode <images|annotations>` (default: `images`)
+- `--allow-lossy`
+
+Sampling keeps original IDs and keeps all categories in output.
 
 ---
 
@@ -72,34 +96,18 @@ Show dataset summary statistics.
 
 Show format capabilities and lossiness class.
 
-The table includes:
-- format name
-- read support
-- write support
-- lossiness (`lossless`, `conditional`, `lossy`)
-
-`list-formats` shows canonical names. Command aliases are accepted by other commands (for example `ls` for `label-studio`) but may not be printed in the table.
-
-## Auto-detection rules (`convert --from auto`)
-
-Implemented detection logic:
+## Auto-detection rules (`convert --from auto`, `diff --format-* auto`, `sample --from auto`, `stats` without `--format`)
 
 1. If input path is a directory:
-   - if `<path>/labels` exists and contains `.txt` label files recursively → YOLO marker
-   - OR if `<path>` is itself a `labels` directory with `.txt` files recursively → YOLO marker
-   - if `<path>/Annotations` exists with `.xml` files recursively and `<path>/JPEGImages` exists → VOC marker
-   - OR if `<path>` is itself an `Annotations` directory with `.xml` files recursively and sibling `../JPEGImages` exists → VOC marker
-   - if both YOLO and VOC markers match, detection fails with an ambiguity error (use `--from`)
+   - YOLO marker: `labels/` with `.txt` labels (or path itself is `labels/`)
+   - VOC marker: `Annotations/` with `.xml` plus `JPEGImages/` (or path itself is `Annotations/` with sibling `JPEGImages/`)
+   - if both match, detection fails (ambiguous)
 2. If input path is a file:
-   - `.csv` → `tfod`
+   - `.csv` -> `tfod`
    - `.json`:
-     - if JSON root is an empty array (`[]`) → `label-studio`
-     - else if JSON root is an array and the first element looks like a Label Studio task (`data.image` string) → `label-studio`
-     - else for object-root JSON, inspect `annotations[0].bbox`:
-       - bbox array `[x,y,w,h]` → `coco`
-       - bbox object (`min/max` or `xmin/ymin/xmax/ymax`) → `ir-json`
-
-Auto-detect limitation for JSON: detection is intentionally shallow. For array-root JSON, panlabel only checks the first task shape and does not fully validate Label Studio schema at detection time. If that first-task heuristic fails, detection fails and asks for `--from`. For object-root JSON, detection requires a non-empty `annotations` array and a `bbox` in the first annotation.
+     - array-root empty or Label Studio task shape -> `label-studio`
+     - object-root with `annotations[0].bbox` array -> `coco`
+     - object-root with bbox object (`min/max` or `xmin/ymin/xmax/ymax`) -> `ir-json`
 
 ## Examples
 
@@ -110,12 +118,12 @@ panlabel validate /data/my_yolo --format yolo
 # Auto-detect YOLO from directory, convert to COCO
 panlabel convert --from auto --to coco -i /data/my_yolo -o out.json
 
-# Convert IR -> YOLO (lossy, requires opt-in)
-panlabel convert -f ir-json -t yolo -i in.ir.json -o out_yolo --allow-lossy
+# Dataset stats as JSON
+panlabel stats --output json tests/fixtures/sample_valid.coco.json
 
-# Convert Pascal VOC -> COCO
-panlabel convert -f voc -t coco -i ./voc_dataset -o out.json
+# Dataset diff with details
+panlabel diff --match-by id --detail a.ir.json b.ir.json
 
-# Convert Label Studio -> COCO
-panlabel convert -f label-studio -t coco -i ./label_studio_export.json -o out.json
+# Category-focused sampling
+panlabel sample -i in.coco.json -o out.ir.json --from coco --to ir-json --categories person,car --category-mode images -n 100 --seed 42
 ```

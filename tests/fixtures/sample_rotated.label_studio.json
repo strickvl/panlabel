@@ -1,0 +1,31 @@
+[
+  {
+    "id": 1,
+    "data": {
+      "image": "rotated_img.jpg"
+    },
+    "annotations": [
+      {
+        "result": [
+          {
+            "type": "rectanglelabels",
+            "from_name": "bbox",
+            "to_name": "image",
+            "value": {
+              "x": 20.0,
+              "y": 20.0,
+              "width": 30.0,
+              "height": 40.0,
+              "rectanglelabels": [
+                "box"
+              ]
+            },
+            "rotation": 30.0,
+            "original_width": 100,
+            "original_height": 200
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -226,6 +226,14 @@ pub enum ConversionIssueCode {
     VocWriterNoImageCopy,
     /// VOC writer normalizes boolean fields (truncated/difficult/occluded).
     VocWriterBoolNormalization,
+    /// Label Studio reader converted rotated boxes to axis-aligned envelopes.
+    LabelStudioRotationDropped,
+    /// Label Studio reader ID assignment policy.
+    LabelStudioReaderIdAssignment,
+    /// Label Studio reader image-reference policy.
+    LabelStudioReaderImageRefPolicy,
+    /// Label Studio writer default from_name/to_name policy.
+    LabelStudioWriterFromToDefaults,
 }
 
 #[cfg(test)]

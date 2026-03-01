@@ -1,0 +1,31 @@
+[
+  {
+    "id": 1,
+    "data": {
+      "image": "img.jpg"
+    },
+    "annotations": [
+      {
+        "result": [
+          {
+            "type": "rectanglelabels",
+            "value": {
+              "x": 10.0,
+              "y": 10.0,
+              "width": 20.0,
+              "height": 20.0,
+              "rectanglelabels": [
+                "cat"
+              ]
+            },
+            "original_width": 100,
+            "original_height": 100
+          }
+        ]
+      },
+      {
+        "result": []
+      }
+    ]
+  }
+]

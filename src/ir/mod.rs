@@ -40,6 +40,7 @@ mod coord;
 mod ids;
 pub mod io_coco_json;
 pub mod io_json;
+pub mod io_label_studio_json;
 pub mod io_tfod_csv;
 pub mod io_voc_xml;
 pub mod io_yolo;

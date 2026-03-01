@@ -56,6 +56,9 @@ enum ConvertFormat {
     /// COCO object detection format (JSON).
     #[value(name = "coco", alias = "coco-json")]
     Coco,
+    /// Label Studio task export (JSON).
+    #[value(name = "label-studio", alias = "label-studio-json", alias = "ls")]
+    LabelStudio,
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
@@ -78,6 +81,7 @@ impl ConvertFormat {
         match self {
             ConvertFormat::IrJson => conversion::Format::IrJson,
             ConvertFormat::Coco => conversion::Format::Coco,
+            ConvertFormat::LabelStudio => conversion::Format::LabelStudio,
             ConvertFormat::Tfod => conversion::Format::Tfod,
             ConvertFormat::Yolo => conversion::Format::Yolo,
             ConvertFormat::Voc => conversion::Format::Voc,
@@ -97,6 +101,9 @@ enum ConvertFromFormat {
     /// COCO object detection format (JSON).
     #[value(name = "coco", alias = "coco-json")]
     Coco,
+    /// Label Studio task export (JSON).
+    #[value(name = "label-studio", alias = "label-studio-json", alias = "ls")]
+    LabelStudio,
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
@@ -120,6 +127,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::Auto => None,
             ConvertFromFormat::IrJson => Some(ConvertFormat::IrJson),
             ConvertFromFormat::Coco => Some(ConvertFormat::Coco),
+            ConvertFromFormat::LabelStudio => Some(ConvertFormat::LabelStudio),
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
             ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
@@ -145,7 +153,7 @@ struct ValidateArgs {
     /// Input path to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'tfod', 'yolo', or 'voc').
+    /// Input format ('ir-json', 'coco', 'label-studio', 'tfod', 'yolo', or 'voc').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -164,7 +172,7 @@ struct InspectArgs {
     /// Input path to inspect.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'tfod', 'yolo', or 'voc').
+    /// Input format ('ir-json', 'coco', 'label-studio', 'tfod', 'yolo', or 'voc').
     #[arg(long, value_enum, default_value = "ir-json")]
     format: ConvertFormat,
 
@@ -217,7 +225,7 @@ struct ConvertArgs {
 #[derive(clap::Args)]
 struct ListFormatsArgs {}
 
-const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, tfod, yolo, voc";
+const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, label-studio, tfod, yolo, voc";
 
 /// Run the panlabel CLI.
 ///
@@ -265,6 +273,9 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
     let dataset = match args.format.as_str() {
         "ir-json" => ir::io_json::read_ir_json(&args.input)?,
         "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
+        "label-studio" | "label-studio-json" | "ls" => {
+            ir::io_label_studio_json::read_label_studio_json(&args.input)?
+        }
         "tfod" | "tfod-csv" => ir::io_tfod_csv::read_tfod_csv(&args.input)?,
         "yolo" | "ultralytics" | "yolov8" | "yolov5" => ir::io_yolo::read_yolo_dir(&args.input)?,
         "voc" | "pascal-voc" | "voc-xml" => ir::io_voc_xml::read_voc_dir(&args.input)?,
@@ -393,6 +404,7 @@ fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, Panla
     match format {
         ConvertFormat::IrJson => ir::io_json::read_ir_json(path),
         ConvertFormat::Coco => ir::io_coco_json::read_coco_json(path),
+        ConvertFormat::LabelStudio => ir::io_label_studio_json::read_label_studio_json(path),
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir(path),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
@@ -408,6 +420,9 @@ fn write_dataset(
     match format {
         ConvertFormat::IrJson => ir::io_json::write_ir_json(path, dataset),
         ConvertFormat::Coco => ir::io_coco_json::write_coco_json(path, dataset),
+        ConvertFormat::LabelStudio => {
+            ir::io_label_studio_json::write_label_studio_json(path, dataset)
+        }
         ConvertFormat::Tfod => ir::io_tfod_csv::write_tfod_csv(path, dataset),
         ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
         ConvertFormat::Voc => ir::io_voc_xml::write_voc_dir(path, dataset),
@@ -419,6 +434,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
     match format {
         ConvertFormat::IrJson => "ir-json",
         ConvertFormat::Coco => "coco",
+        ConvertFormat::LabelStudio => "label-studio",
         ConvertFormat::Tfod => "tfod",
         ConvertFormat::Yolo => "yolo",
         ConvertFormat::Voc => "voc",
@@ -447,6 +463,10 @@ fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
             "Panlabel's intermediate representation (JSON)",
         ),
         (ConvertFormat::Coco, "COCO object detection format (JSON)"),
+        (
+            ConvertFormat::LabelStudio,
+            "Label Studio task export (JSON)",
+        ),
         (
             ConvertFormat::Tfod,
             "TensorFlow Object Detection format (CSV)",
@@ -593,11 +613,13 @@ fn is_annotations_dir(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Detect whether a JSON file is COCO or IR JSON format.
+/// Detect whether a JSON file is Label Studio, COCO, or IR JSON format.
 ///
-/// Heuristic: peek at `annotations[0].bbox`:
-/// - If `bbox` is an array of 4 numbers → COCO
-/// - If `bbox` is an object with xmin/ymin/xmax/ymax → IR JSON
+/// Heuristics:
+/// - Array-root JSON: Label Studio task export
+/// - Object-root JSON: inspect `annotations[0].bbox`
+///   - array of 4 numbers -> COCO
+///   - object min/max or xmin/ymin/xmax/ymax -> IR JSON
 fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     use std::fs::File;
     use std::io::BufReader;
@@ -610,6 +632,23 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             source,
         }
     })?;
+
+    if let Some(tasks) = value.as_array() {
+        if tasks.is_empty() {
+            return Ok(ConvertFormat::LabelStudio);
+        }
+
+        if is_likely_label_studio_task(&tasks[0]) {
+            return Ok(ConvertFormat::LabelStudio);
+        }
+
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "array-root JSON not recognized (expected Label Studio task export array). Use --from to specify format explicitly.".to_string(),
+        });
+    }
+
+    // Object-root detection remains the same COCO-vs-IR heuristic.
 
     // Get annotations array
     let annotations = value.get("annotations").and_then(|v| v.as_array());
@@ -679,4 +718,19 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         reason: "bbox has unexpected type (expected array or object). Cannot determine format."
             .to_string(),
     })
+}
+
+fn is_likely_label_studio_task(value: &serde_json::Value) -> bool {
+    let Some(task_obj) = value.as_object() else {
+        return false;
+    };
+
+    let Some(data_obj) = task_obj.get("data").and_then(|v| v.as_object()) else {
+        return false;
+    };
+
+    data_obj
+        .get("image")
+        .map(|value| value.is_string())
+        .unwrap_or(false)
 }

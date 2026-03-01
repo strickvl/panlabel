@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "data": {
+      "image": "legacy_img.jpg"
+    },
+    "completions": [
+      {
+        "result": [
+          {
+            "type": "rectanglelabels",
+            "value": {
+              "x": 5.0,
+              "y": 10.0,
+              "width": 25.0,
+              "height": 30.0,
+              "rectanglelabels": [
+                "legacy_cat"
+              ]
+            },
+            "original_width": 200,
+            "original_height": 100
+          }
+        ]
+      }
+    ]
+  }
+]

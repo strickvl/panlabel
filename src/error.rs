@@ -38,6 +38,23 @@ pub enum PanlabelError {
         source: serde_json::Error,
     },
 
+    #[error("Failed to parse Label Studio JSON from {path}: {source}")]
+    LabelStudioJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write Label Studio JSON to {path}: {source}")]
+    LabelStudioJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid Label Studio JSON: {path}: {message}")]
+    LabelStudioJsonInvalid { path: PathBuf, message: String },
+
     #[error("Failed to parse TFOD CSV from {path}: {source}")]
     TfodCsvParse {
         path: PathBuf,

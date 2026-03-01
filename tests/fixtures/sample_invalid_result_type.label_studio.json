@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1,
+    "data": {
+      "image": "img.jpg"
+    },
+    "annotations": [
+      {
+        "result": [
+          {
+            "type": "choices",
+            "value": {
+              "choices": [
+                "cat"
+              ]
+            },
+            "original_width": 100,
+            "original_height": 100
+          }
+        ]
+      }
+    ]
+  }
+]

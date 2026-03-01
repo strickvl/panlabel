@@ -1,0 +1,81 @@
+[
+  {
+    "id": 2,
+    "data": {
+      "image": "https://example.com/datasets/img_b.jpg"
+    },
+    "annotations": [
+      {
+        "result": [
+          {
+            "type": "rectanglelabels",
+            "from_name": "bbox",
+            "to_name": "image",
+            "value": {
+              "x": 10.0,
+              "y": 20.0,
+              "width": 30.0,
+              "height": 40.0,
+              "rectanglelabels": [
+                "dog"
+              ]
+            },
+            "original_width": 200,
+            "original_height": 100
+          }
+        ]
+      }
+    ],
+    "predictions": [
+      {
+        "result": [
+          {
+            "type": "rectanglelabels",
+            "from_name": "bbox",
+            "to_name": "image",
+            "value": {
+              "x": 50.0,
+              "y": 10.0,
+              "width": 20.0,
+              "height": 30.0,
+              "rectanglelabels": [
+                "cat"
+              ]
+            },
+            "original_width": 200,
+            "original_height": 100,
+            "score": 0.85
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "data": {
+      "image": "/uploads/img_a.jpg"
+    },
+    "annotations": [
+      {
+        "result": [
+          {
+            "type": "rectanglelabels",
+            "from_name": "bbox",
+            "to_name": "image",
+            "value": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 50.0,
+              "height": 50.0,
+              "rectanglelabels": [
+                "cat"
+              ]
+            },
+            "original_width": 100,
+            "original_height": 100
+          }
+        ]
+      }
+    ]
+  }
+]

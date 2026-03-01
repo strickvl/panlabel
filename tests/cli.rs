@@ -335,6 +335,34 @@ fn validate_voc_alias_works() {
 }
 
 #[test]
+fn validate_label_studio_dataset_succeeds() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.label_studio.json",
+        "--format",
+        "label-studio",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_label_studio_alias_works() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.label_studio.json",
+        "--format",
+        "ls",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
 #[ignore] // Requires large generated dataset in assets/ (not committed)
 fn validate_tfod_large_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -610,6 +638,29 @@ fn convert_ir_json_to_voc_succeeds_with_allow_lossy() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_ir_json_to_label_studio_fails_without_allow_lossy() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("label_studio_out.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "label-studio",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Lossy conversion"))
+        .stderr(predicates::str::contains("--allow-lossy"));
 }
 
 #[test]
@@ -912,6 +963,35 @@ fn convert_to_voc_report_includes_policy_notes() {
         .stdout(predicates::str::contains("voc_writer_bool_normalization"));
 }
 
+#[test]
+fn convert_to_label_studio_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_label_studio.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "label-studio",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--report",
+        "json",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"severity\": \"info\""))
+        .stdout(predicates::str::contains(
+            "label_studio_writer_from_to_defaults",
+        ));
+}
+
 // Inspect subcommand tests
 
 #[test]
@@ -975,6 +1055,21 @@ fn inspect_voc_dataset_succeeds() {
 }
 
 #[test]
+fn inspect_label_studio_dataset_succeeds() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "inspect",
+        "--format",
+        "label-studio",
+        "tests/fixtures/sample_valid.label_studio.json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Images"));
+}
+
+#[test]
 fn inspect_shows_label_histogram() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
@@ -1022,6 +1117,7 @@ fn list_formats_shows_all_formats() {
         .success()
         .stdout(predicates::str::contains("ir-json"))
         .stdout(predicates::str::contains("coco"))
+        .stdout(predicates::str::contains("label-studio"))
         .stdout(predicates::str::contains("tfod"))
         .stdout(predicates::str::contains("yolo"))
         .stdout(predicates::str::contains("voc"))
@@ -1124,6 +1220,30 @@ fn convert_auto_detects_ir_json_format() {
         .stdout(predicates::str::contains("(ir-json)"));
 
     // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_auto_detects_label_studio_format() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("auto_detect_label_studio.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.label_studio.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(label-studio)"));
+
     let _ = std::fs::remove_file(&output_path);
 }
 

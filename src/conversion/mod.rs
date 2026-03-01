@@ -20,6 +20,7 @@ use std::collections::HashSet;
 pub enum Format {
     IrJson,
     Coco,
+    LabelStudio,
     Tfod,
     Yolo,
     Voc,
@@ -42,6 +43,7 @@ impl Format {
         match self {
             Format::IrJson => "ir-json",
             Format::Coco => "coco",
+            Format::LabelStudio => "label-studio",
             Format::Tfod => "tfod",
             Format::Yolo => "yolo",
             Format::Voc => "voc",
@@ -52,6 +54,7 @@ impl Format {
     ///
     /// - `IrJson`: Lossless (it IS the IR)
     /// - `Coco`: Conditional (loses dataset name, may lose some attributes)
+    /// - `LabelStudio`: Lossy (drops IR-level metadata fields not representable in task export)
     /// - `Tfod`: Lossy (loses metadata, licenses, images without annotations, etc.)
     /// - `Yolo`: Lossy (loses metadata, licenses, attributes, etc.)
     /// - `Voc`: Lossy (loses metadata, licenses, supercategory, confidence, etc.)
@@ -59,6 +62,7 @@ impl Format {
         match self {
             Format::IrJson => IrLossiness::Lossless,
             Format::Coco => IrLossiness::Conditional,
+            Format::LabelStudio => IrLossiness::Lossy,
             Format::Tfod => IrLossiness::Lossy,
             Format::Yolo => IrLossiness::Lossy,
             Format::Voc => IrLossiness::Lossy,
@@ -87,6 +91,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Tfod => analyze_to_tfod(dataset, &mut report),
         Format::Yolo => analyze_to_yolo(dataset, &mut report),
         Format::Voc => analyze_to_voc(dataset, &mut report),
+        Format::LabelStudio => analyze_to_label_studio(dataset, &mut report),
         Format::Coco => analyze_to_coco(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
     }
@@ -96,6 +101,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Tfod => add_tfod_reader_policy(&mut report),
         Format::Yolo => add_yolo_reader_policy(&mut report),
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
+        Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
         Format::Coco | Format::IrJson => {}
     }
 
@@ -104,6 +110,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Tfod => add_tfod_writer_policy(&mut report),
         Format::Yolo => add_yolo_writer_policy(&mut report),
         Format::Voc => add_voc_writer_policy(&mut report),
+        Format::LabelStudio => add_label_studio_writer_policy(dataset, &mut report),
         Format::Coco | Format::IrJson => {}
     }
 
@@ -402,6 +409,74 @@ fn analyze_to_voc(dataset: &Dataset, report: &mut ConversionReport) {
     report.output = report.input.clone();
 }
 
+/// Analyze conversion to Label Studio format.
+fn analyze_to_label_studio(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have license_id/date_captured that will be dropped",
+                images_with_metadata
+            ),
+        ));
+    }
+
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+
+    let anns_with_unrepresentable_attrs = dataset
+        .annotations
+        .iter()
+        .filter(|ann| {
+            ann.attributes
+                .keys()
+                .any(|key| key.as_str() != "ls_rotation_deg")
+        })
+        .count();
+    if anns_with_unrepresentable_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes outside Label Studio's preserved set",
+                anns_with_unrepresentable_attrs
+            ),
+        ));
+    }
+
+    report.output = report.input.clone();
+}
+
 /// Analyze conversion to COCO format.
 fn analyze_to_coco(dataset: &Dataset, report: &mut ConversionReport) {
     // COCO doesn't have a dataset name field
@@ -531,6 +606,44 @@ fn add_voc_writer_policy(report: &mut ConversionReport) {
         "VOC writer normalizes truncated/difficult/occluded attributes: true/yes/1 -> 1 and false/no/0 -> 0"
             .to_string(),
     ));
+}
+
+/// Add policy notes for Label Studio reader behavior.
+fn add_label_studio_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::LabelStudioReaderIdAssignment,
+        "Label Studio reader assigns IDs deterministically: images by derived file_name (lexicographic), categories by label (lexicographic), annotations by image order then result order".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::LabelStudioReaderImageRefPolicy,
+        "Label Studio reader derives Image.file_name from data.image basename and preserves full source reference in image attribute ls_image_ref".to_string(),
+    ));
+
+    let has_rotation = dataset
+        .annotations
+        .iter()
+        .any(|ann| ann.attributes.contains_key("ls_rotation_deg"));
+    if has_rotation {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::LabelStudioRotationDropped,
+            "Label Studio rotated bbox converted to axis-aligned envelope (original angle stored in annotation attribute ls_rotation_deg)".to_string(),
+        ));
+    }
+}
+
+/// Add policy notes for Label Studio writer behavior.
+fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    let used_defaults = dataset.images.iter().any(|image| {
+        !image.attributes.contains_key("ls_from_name")
+            || !image.attributes.contains_key("ls_to_name")
+    });
+
+    if used_defaults {
+        report.add(ConversionIssue::info(
+            ConversionIssueCode::LabelStudioWriterFromToDefaults,
+            "Label Studio writer uses from_name='label' and to_name='image' when ls_from_name/ls_to_name attributes are absent".to_string(),
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -756,5 +869,62 @@ mod tests {
             .issues
             .iter()
             .any(|i| i.code == ConversionIssueCode::VocWriterBoolNormalization));
+    }
+
+    #[test]
+    fn to_label_studio_detects_lossiness() {
+        let dataset = sample_dataset();
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::LabelStudio);
+
+        assert!(report.is_lossy());
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::DropDatasetInfo));
+    }
+
+    #[test]
+    fn label_studio_source_adds_policy_notes_and_rotation_warning() {
+        let mut dataset = Dataset::default();
+        dataset.images.push(Image::new(1u64, "img.jpg", 100, 100));
+        dataset.categories.push(Category::new(1u64, "cat"));
+
+        let mut ann = Annotation::new(
+            1u64,
+            1u64,
+            1u64,
+            BBoxXYXY::<Pixel>::new(Coord::new(10.0, 10.0), Coord::new(20.0, 20.0)),
+        );
+        ann.attributes
+            .insert("ls_rotation_deg".to_string(), "15".to_string());
+        dataset.annotations.push(ann);
+
+        let report = build_conversion_report(&dataset, Format::LabelStudio, Format::Coco);
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::LabelStudioReaderIdAssignment));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::LabelStudioReaderImageRefPolicy));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::LabelStudioRotationDropped));
+    }
+
+    #[test]
+    fn label_studio_target_adds_default_name_policy_note() {
+        let mut dataset = Dataset::default();
+        dataset.images.push(Image::new(1u64, "img.jpg", 100, 100));
+
+        let report = build_conversion_report(&dataset, Format::Coco, Format::LabelStudio);
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::LabelStudioWriterFromToDefaults));
     }
 }

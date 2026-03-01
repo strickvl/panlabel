@@ -62,6 +62,9 @@ enum ConvertFormat {
     /// COCO object detection format (JSON).
     #[value(name = "coco", alias = "coco-json")]
     Coco,
+    /// CVAT for images task export (XML).
+    #[value(name = "cvat", alias = "cvat-xml")]
+    Cvat,
     /// Label Studio task export (JSON).
     #[value(name = "label-studio", alias = "label-studio-json", alias = "ls")]
     LabelStudio,
@@ -87,6 +90,7 @@ impl ConvertFormat {
         match self {
             ConvertFormat::IrJson => conversion::Format::IrJson,
             ConvertFormat::Coco => conversion::Format::Coco,
+            ConvertFormat::Cvat => conversion::Format::Cvat,
             ConvertFormat::LabelStudio => conversion::Format::LabelStudio,
             ConvertFormat::Tfod => conversion::Format::Tfod,
             ConvertFormat::Yolo => conversion::Format::Yolo,
@@ -107,6 +111,9 @@ enum ConvertFromFormat {
     /// COCO object detection format (JSON).
     #[value(name = "coco", alias = "coco-json")]
     Coco,
+    /// CVAT for images task export (XML).
+    #[value(name = "cvat", alias = "cvat-xml")]
+    Cvat,
     /// Label Studio task export (JSON).
     #[value(name = "label-studio", alias = "label-studio-json", alias = "ls")]
     LabelStudio,
@@ -133,6 +140,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::Auto => None,
             ConvertFromFormat::IrJson => Some(ConvertFormat::IrJson),
             ConvertFromFormat::Coco => Some(ConvertFormat::Coco),
+            ConvertFromFormat::Cvat => Some(ConvertFormat::Cvat),
             ConvertFromFormat::LabelStudio => Some(ConvertFormat::LabelStudio),
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
@@ -210,7 +218,7 @@ struct ValidateArgs {
     /// Input path to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'label-studio', 'tfod', 'yolo', or 'voc').
+    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', or 'voc').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -229,7 +237,7 @@ struct StatsArgs {
     /// Input path to analyze.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'label-studio', 'tfod', 'yolo', or 'voc').
+    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', or 'voc').
     ///
     /// If omitted, panlabel auto-detects the format. If detection fails for a JSON
     /// file, stats falls back to reading as ir-json.
@@ -371,7 +379,7 @@ struct ConvertArgs {
 #[derive(clap::Args)]
 struct ListFormatsArgs {}
 
-const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, label-studio, tfod, yolo, voc";
+const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, cvat, label-studio, tfod, yolo, voc";
 
 /// Run the panlabel CLI.
 ///
@@ -550,6 +558,7 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
     let dataset = match args.format.as_str() {
         "ir-json" => ir::io_json::read_ir_json(&args.input)?,
         "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
+        "cvat" | "cvat-xml" => ir::io_cvat_xml::read_cvat_xml(&args.input)?,
         "label-studio" | "label-studio-json" | "ls" => {
             ir::io_label_studio_json::read_label_studio_json(&args.input)?
         }
@@ -739,6 +748,7 @@ fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, Panla
     match format {
         ConvertFormat::IrJson => ir::io_json::read_ir_json(path),
         ConvertFormat::Coco => ir::io_coco_json::read_coco_json(path),
+        ConvertFormat::Cvat => ir::io_cvat_xml::read_cvat_xml(path),
         ConvertFormat::LabelStudio => ir::io_label_studio_json::read_label_studio_json(path),
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir(path),
@@ -755,6 +765,7 @@ fn write_dataset(
     match format {
         ConvertFormat::IrJson => ir::io_json::write_ir_json(path, dataset),
         ConvertFormat::Coco => ir::io_coco_json::write_coco_json(path, dataset),
+        ConvertFormat::Cvat => ir::io_cvat_xml::write_cvat_xml(path, dataset),
         ConvertFormat::LabelStudio => {
             ir::io_label_studio_json::write_label_studio_json(path, dataset)
         }
@@ -769,6 +780,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
     match format {
         ConvertFormat::IrJson => "ir-json",
         ConvertFormat::Coco => "coco",
+        ConvertFormat::Cvat => "cvat",
         ConvertFormat::LabelStudio => "label-studio",
         ConvertFormat::Tfod => "tfod",
         ConvertFormat::Yolo => "yolo",
@@ -798,6 +810,7 @@ fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
             "Panlabel's intermediate representation (JSON)",
         ),
         (ConvertFormat::Coco, "COCO object detection format (JSON)"),
+        (ConvertFormat::Cvat, "CVAT for images XML annotation export"),
         (
             ConvertFormat::LabelStudio,
             "Label Studio task export (JSON)",
@@ -854,6 +867,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         match ext.to_lowercase().as_str() {
             "csv" => return Ok(ConvertFormat::Tfod),
             "json" => return detect_json_format(path),
+            "xml" => return detect_xml_format(path),
             _ => {}
         }
     }
@@ -861,7 +875,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // Keep message stable (existing CLI tests assert this substring).
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized file extension (expected .json or .csv). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized file extension (expected .json, .csv, or .xml). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -882,10 +896,28 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
                 .unwrap_or(false)
             && dir_contains_xml_files(path)?);
 
+    let is_cvat = path.join("annotations.xml").is_file();
+
     if is_yolo && is_voc {
         return Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
             reason: "directory matches both YOLO and VOC layouts. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    }
+
+    if is_yolo && is_cvat {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "directory matches both YOLO and CVAT layouts. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    }
+
+    if is_voc && is_cvat {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "directory matches both VOC and CVAT layouts. Use --from to specify format explicitly."
                 .to_string(),
         });
     }
@@ -898,9 +930,13 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         return Ok(ConvertFormat::Voc);
     }
 
+    if is_cvat {
+        return Ok(ConvertFormat::Cvat);
+    }
+
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files or VOC Annotations/ with .xml files plus JPEGImages/). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files, VOC Annotations/ with .xml files plus JPEGImages/, or CVAT directory export with annotations.xml at root). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -1053,6 +1089,33 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         reason: "bbox has unexpected type (expected array or object). Cannot determine format."
             .to_string(),
     })
+}
+
+/// Detect whether an XML file is CVAT XML.
+///
+/// Heuristic:
+/// - root `<annotations>` => CVAT
+/// - root `<annotation>` => looks like a single VOC XML (not auto-detected)
+fn detect_xml_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    let xml = std::fs::read_to_string(path).map_err(PanlabelError::Io)?;
+    let doc = roxmltree::Document::parse(&xml).map_err(|source| {
+        PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!("failed to parse XML while detecting format: {source}"),
+        }
+    })?;
+
+    match doc.root_element().tag_name().name() {
+        "annotations" => Ok(ConvertFormat::Cvat),
+        "annotation" => Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "XML root is <annotation> (looks like a single VOC file). Panlabel expects VOC as a directory layout; use --from voc with a VOC dataset directory.".to_string(),
+        }),
+        other => Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!("unrecognized XML root element <{other}>; cannot determine format. Use --from to specify format explicitly."),
+        }),
+    }
 }
 
 fn is_likely_label_studio_task(value: &serde_json::Value) -> bool {

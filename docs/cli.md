@@ -16,7 +16,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <string>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
 - `--strict` (treat warnings as errors)
 - `--output <string>` (`text` or `json`, default: `text`)
 
@@ -26,8 +26,8 @@ Validate a dataset path and print a validation report.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
 - `--input`, `-i`: input path
 - `--output`, `-o`: output path
 - `--strict`
@@ -101,9 +101,12 @@ Show format capabilities and lossiness class.
 1. If input path is a directory:
    - YOLO marker: `labels/` with `.txt` labels (or path itself is `labels/`)
    - VOC marker: `Annotations/` with `.xml` plus `JPEGImages/` (or path itself is `Annotations/` with sibling `JPEGImages/`)
-   - if both match, detection fails (ambiguous)
+   - CVAT marker: `annotations.xml` at directory root
+   - if multiple markers match, detection fails (ambiguous)
 2. If input path is a file:
    - `.csv` -> `tfod`
+   - `.xml`:
+     - root `<annotations>` -> `cvat`
    - `.json`:
      - array-root empty or Label Studio task shape -> `label-studio`
      - object-root with `annotations[0].bbox` array -> `coco`

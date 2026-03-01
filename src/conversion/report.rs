@@ -234,6 +234,12 @@ pub enum ConversionIssueCode {
     LabelStudioReaderImageRefPolicy,
     /// Label Studio writer default from_name/to_name policy.
     LabelStudioWriterFromToDefaults,
+    /// CVAT reader deterministic ID assignment policy.
+    CvatReaderIdAssignment,
+    /// CVAT reader coordinate + attribute mapping policy.
+    CvatReaderAttributePolicy,
+    /// CVAT writer default metadata block policy.
+    CvatWriterMetaDefaults,
 }
 
 #[cfg(test)]

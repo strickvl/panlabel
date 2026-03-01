@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <image id="0" name="img.jpg" width="10" height="10">
+    <polygon label="cat" points="1,1;2,2"/>
+  </image>
+</annotations>

@@ -1,4 +1,5 @@
 use panlabel::ir::io_coco_json::{from_coco_str, to_coco_string};
+use panlabel::ir::io_cvat_xml::{from_cvat_xml_str, to_cvat_xml_string};
 use panlabel::ir::io_json::{from_json_str, to_json_string};
 use panlabel::ir::io_label_studio_json::{from_label_studio_str, to_label_studio_string};
 use panlabel::ir::io_tfod_csv::{from_tfod_csv_str, to_tfod_csv_string};
@@ -45,6 +46,15 @@ proptest! {
             proptest_helpers::eps_yolo_for_dataset(&ir_reference),
         );
         prop_assert!(yolo_res.is_ok(), "YOLO subset failure: {}", yolo_res.unwrap_err());
+
+        let cvat = from_cvat_xml_str(&to_cvat_xml_string(&dataset).expect("serialize cvat"))
+            .expect("parse cvat");
+        let cvat_res = proptest_helpers::assert_annotations_subset(
+            &cvat,
+            &ir_reference,
+            proptest_helpers::EPS_CVAT,
+        );
+        prop_assert!(cvat_res.is_ok(), "CVAT subset failure: {}", cvat_res.unwrap_err());
     }
 }
 

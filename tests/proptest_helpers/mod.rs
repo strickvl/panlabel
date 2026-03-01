@@ -14,6 +14,7 @@ pub const EPS_COCO: f64 = 1e-10;
 pub const EPS_TFOD: f64 = 1e-2;
 pub const EPS_LABEL_STUDIO: f64 = 1e-4;
 pub const EPS_VOC: f64 = 1e-9;
+pub const EPS_CVAT: f64 = 1e-9;
 
 pub fn eps_yolo(image_w: u32, image_h: u32) -> f64 {
     image_w.max(image_h) as f64 * 1e-6

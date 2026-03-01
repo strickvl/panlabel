@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <image id="0" name="img1.jpg" width="100" height="80">
+    <box label="cat" occluded="0" xtl="10" ytl="20" xbr="50" ybr="70" z_order="0" source="manual"/>
+  </image>
+  <image id="1" name="img2.jpg" width="120" height="90">
+    <box label="dog" occluded="1" xtl="15" ytl="25" xbr="60" ybr="80" z_order="1" source="manual"/>
+  </image>
+</annotations>

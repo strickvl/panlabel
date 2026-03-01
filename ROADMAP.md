@@ -23,7 +23,7 @@ before expanding to new annotation tasks (segmentation, classification).
 
 - ✅ Pascal VOC XML
 - ✅ Label Studio JSON
-- ⏳ CVAT XML
+- ✅ CVAT XML
 - ⏳ Broader YOLO family variants only when they fit IR safely
 
 ### CLI commands

@@ -17,6 +17,7 @@ A conversion report issue has a severity:
 Format-level lossiness relative to IR:
 - `ir-json`: lossless
 - `coco`: conditional
+- `cvat`: lossy
 - `label-studio`: lossy
 - `tfod`: lossy
 - `yolo`: lossy
@@ -81,6 +82,9 @@ These codes are designed to be stable for programmatic use.
 | `label_studio_reader_id_assignment` | Label Studio reader deterministic ID assignment policy |
 | `label_studio_reader_image_ref_policy` | Label Studio reader image reference mapping policy |
 | `label_studio_writer_from_to_defaults` | Label Studio writer default `from_name` / `to_name` policy |
+| `cvat_reader_id_assignment` | CVAT reader deterministic ID assignment policy |
+| `cvat_reader_attribute_policy` | CVAT reader coordinate + attribute mapping policy |
+| `cvat_writer_meta_defaults` | CVAT writer minimal `<meta>` block policy |
 
 ## Practical guidance
 

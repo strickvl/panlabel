@@ -20,6 +20,7 @@ use std::collections::HashSet;
 pub enum Format {
     IrJson,
     Coco,
+    Cvat,
     LabelStudio,
     Tfod,
     Yolo,
@@ -43,6 +44,7 @@ impl Format {
         match self {
             Format::IrJson => "ir-json",
             Format::Coco => "coco",
+            Format::Cvat => "cvat",
             Format::LabelStudio => "label-studio",
             Format::Tfod => "tfod",
             Format::Yolo => "yolo",
@@ -62,6 +64,7 @@ impl Format {
         match self {
             Format::IrJson => IrLossiness::Lossless,
             Format::Coco => IrLossiness::Conditional,
+            Format::Cvat => IrLossiness::Lossy,
             Format::LabelStudio => IrLossiness::Lossy,
             Format::Tfod => IrLossiness::Lossy,
             Format::Yolo => IrLossiness::Lossy,
@@ -93,6 +96,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Voc => analyze_to_voc(dataset, &mut report),
         Format::LabelStudio => analyze_to_label_studio(dataset, &mut report),
         Format::Coco => analyze_to_coco(dataset, &mut report),
+        Format::Cvat => analyze_to_cvat(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
     }
 
@@ -102,6 +106,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Yolo => add_yolo_reader_policy(&mut report),
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
         Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
+        Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
         Format::Coco | Format::IrJson => {}
     }
 
@@ -111,6 +116,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Yolo => add_yolo_writer_policy(&mut report),
         Format::Voc => add_voc_writer_policy(&mut report),
         Format::LabelStudio => add_label_studio_writer_policy(dataset, &mut report),
+        Format::Cvat => add_cvat_writer_policy(&mut report),
         Format::Coco | Format::IrJson => {}
     }
 
@@ -513,6 +519,94 @@ fn analyze_to_ir_json(_dataset: &Dataset, report: &mut ConversionReport) {
     report.output = report.input.clone();
 }
 
+/// Analyze conversion to CVAT XML format.
+fn analyze_to_cvat(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| {
+            img.license_id.is_some() || img.date_captured.is_some() || !img.attributes.is_empty()
+        })
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata that CVAT cannot represent (license/date/image attributes)",
+                images_with_metadata
+            ),
+        ));
+    }
+
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+
+    let anns_with_unrepresentable_attrs = dataset
+        .annotations
+        .iter()
+        .filter(|ann| {
+            ann.attributes.keys().any(|key| {
+                !(key == "occluded"
+                    || key == "z_order"
+                    || key == "source"
+                    || key.starts_with("cvat_attr_"))
+            })
+        })
+        .count();
+    if anns_with_unrepresentable_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes outside CVAT's preserved set (occluded/z_order/source/cvat_attr_*)",
+                anns_with_unrepresentable_attrs
+            ),
+        ));
+    }
+
+    report.output = report.input.clone();
+}
+
 /// Add policy notes for TFOD reader behavior.
 fn add_tfod_reader_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::info(
@@ -644,6 +738,26 @@ fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionRepo
             "Label Studio writer uses from_name='label' and to_name='image' when ls_from_name/ls_to_name attributes are absent".to_string(),
         ));
     }
+}
+
+/// Add policy notes for CVAT reader behavior.
+fn add_cvat_reader_policy(_dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CvatReaderIdAssignment,
+        "CVAT reader assigns IDs deterministically: images by <image name> (lexicographic), categories by label name (lexicographic), annotations by image order then <box> order".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CvatReaderAttributePolicy,
+        "CVAT reader maps xtl/ytl/xbr/ybr to IR pixel XYXY 1:1; custom <attribute> children are stored as annotation attributes with 'cvat_attr_' prefix".to_string(),
+    ));
+}
+
+/// Add policy notes for CVAT writer behavior.
+fn add_cvat_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CvatWriterMetaDefaults,
+        "CVAT writer emits a minimal <meta><task> block with name='panlabel export' and writes labels only for categories referenced by annotations".to_string(),
+    ));
 }
 
 #[cfg(test)]
@@ -926,5 +1040,37 @@ mod tests {
             .issues
             .iter()
             .any(|i| i.code == ConversionIssueCode::LabelStudioWriterFromToDefaults));
+    }
+
+    #[test]
+    fn to_cvat_detects_lossiness() {
+        let dataset = sample_dataset();
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::Cvat);
+
+        assert!(report.is_lossy());
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::DropImageMetadata));
+    }
+
+    #[test]
+    fn cvat_source_and_target_add_policy_notes() {
+        let dataset = Dataset::default();
+        let from_report = build_conversion_report(&dataset, Format::Cvat, Format::Coco);
+        assert!(from_report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatReaderIdAssignment));
+        assert!(from_report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatReaderAttributePolicy));
+
+        let to_report = build_conversion_report(&dataset, Format::Coco, Format::Cvat);
+        assert!(to_report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatWriterMetaDefaults));
     }
 }

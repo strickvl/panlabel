@@ -33,6 +33,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "cvat_xml_parse"
+path = "fuzz_targets/cvat_xml_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "tfod_csv_parse"
 path = "fuzz_targets/tfod_csv_parse.rs"
 test = false

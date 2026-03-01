@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <meta>
+    <task>
+      <labels>
+        <label><name>cat</name><type>bbox</type></label>
+        <label><name>dog</name><type>bbox</type></label>
+      </labels>
+    </task>
+  </meta>
+  <image id="0" name="img1.jpg" width="100" height="80">
+    <box label="cat" occluded="0" xtl="10" ytl="20" xbr="50" ybr="70" z_order="0" source="manual"/>
+  </image>
+</annotations>

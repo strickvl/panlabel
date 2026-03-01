@@ -39,6 +39,7 @@ mod bbox;
 mod coord;
 mod ids;
 pub mod io_coco_json;
+pub mod io_cvat_xml;
 pub mod io_json;
 pub mod io_label_studio_json;
 pub mod io_tfod_csv;

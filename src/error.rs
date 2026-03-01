@@ -119,6 +119,15 @@ pub enum PanlabelError {
     #[error("Failed to write VOC dataset at {path}: {message}")]
     VocWriteError { path: PathBuf, message: String },
 
+    #[error("Invalid CVAT XML layout at {path}: {message}")]
+    CvatLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse CVAT XML from {path}: {message}")]
+    CvatXmlParse { path: PathBuf, message: String },
+
+    #[error("Failed to write CVAT XML at {path}: {message}")]
+    CvatWriteError { path: PathBuf, message: String },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

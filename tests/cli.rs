@@ -94,6 +94,26 @@ fn create_sample_voc_dataset(root: &Path) {
     fs::write(root.join("Annotations/img2.xml"), xml_2).expect("write img2 xml");
 }
 
+fn create_sample_cvat_export(root: &Path) {
+    fs::create_dir_all(root).expect("create cvat root");
+    let xml = r#"<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <meta>
+    <task>
+      <labels>
+        <label><name>person</name><type>bbox</type></label>
+      </labels>
+    </task>
+  </meta>
+  <image id="0" name="img1.jpg" width="100" height="80">
+    <box label="person" occluded="0" xtl="10" ytl="20" xbr="50" ybr="70" z_order="0" source="manual"/>
+  </image>
+</annotations>
+"#;
+    fs::write(root.join("annotations.xml"), xml).expect("write cvat annotations.xml");
+}
+
 #[test]
 fn runs() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -356,6 +376,34 @@ fn validate_label_studio_alias_works() {
         "tests/fixtures/sample_valid.label_studio.json",
         "--format",
         "ls",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_cvat_dataset_succeeds() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.cvat.xml",
+        "--format",
+        "cvat",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_cvat_alias_works() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.cvat.xml",
+        "--format",
+        "cvat-xml",
     ]);
     cmd.assert()
         .success()
@@ -638,6 +686,73 @@ fn convert_ir_json_to_voc_succeeds_with_allow_lossy() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_ir_json_to_cvat_fails_without_allow_lossy() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let input_path = temp.path().join("in.ir.json");
+    let output_path = temp.path().join("out.cvat.xml");
+
+    let ir = r#"{
+      "info": {"name": "needs-lossy-opt-in"},
+      "images": [{"id": 1, "file_name": "img.jpg", "width": 100, "height": 80}],
+      "categories": [{"id": 1, "name": "person"}],
+      "annotations": [{"id": 1, "image_id": 1, "category_id": 1, "bbox": {"xmin": 10.0, "ymin": 20.0, "xmax": 50.0, "ymax": 70.0}}]
+    }"#;
+    fs::write(&input_path, ir).expect("write input");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "cvat",
+        "-i",
+        input_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Lossy conversion"))
+        .stderr(predicates::str::contains("--allow-lossy"));
+}
+
+#[test]
+fn convert_ir_json_to_cvat_succeeds_with_allow_lossy_and_report_has_policy_note() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let input_path = temp.path().join("in.ir.json");
+    let output_path = temp.path().join("out.cvat.xml");
+
+    let ir = r#"{
+      "info": {"name": "needs-lossy-opt-in"},
+      "images": [{"id": 1, "file_name": "img.jpg", "width": 100, "height": 80}],
+      "categories": [{"id": 1, "name": "person"}],
+      "annotations": [{"id": 1, "image_id": 1, "category_id": 1, "bbox": {"xmin": 10.0, "ymin": 20.0, "xmax": 50.0, "ymax": 70.0}}]
+    }"#;
+    fs::write(&input_path, ir).expect("write input");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "cvat",
+        "-i",
+        input_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--report",
+        "json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"to\": \"cvat\""))
+        .stdout(predicates::str::contains("cvat_writer_meta_defaults"));
 }
 
 #[test]
@@ -1533,6 +1648,7 @@ fn list_formats_shows_all_formats() {
         .success()
         .stdout(predicates::str::contains("ir-json"))
         .stdout(predicates::str::contains("coco"))
+        .stdout(predicates::str::contains("cvat"))
         .stdout(predicates::str::contains("label-studio"))
         .stdout(predicates::str::contains("tfod"))
         .stdout(predicates::str::contains("yolo"))
@@ -1734,6 +1850,54 @@ fn convert_auto_detects_voc_directory() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(voc)"));
+}
+
+#[test]
+fn convert_auto_detects_cvat_xml_file() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let output_path = temp.path().join("auto_detect_cvat_file.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        "tests/fixtures/sample_valid.cvat.xml",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(cvat)"));
+}
+
+#[test]
+fn convert_auto_detects_cvat_directory() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let cvat_dir = temp.path().join("sample_cvat");
+    create_sample_cvat_export(&cvat_dir);
+    let output_path = temp.path().join("auto_detect_cvat_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        cvat_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(cvat)"));
 }
 
 #[test]

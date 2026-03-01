@@ -48,6 +48,9 @@ panlabel convert -f voc -t coco -i ./voc_dataset -o coco_output.json
 # Convert Label Studio JSON to COCO JSON
 panlabel convert -f label-studio -t coco -i export.json -o coco_output.json
 
+# Convert CVAT XML to COCO JSON
+panlabel convert -f cvat -t coco -i annotations.xml -o coco_output.json
+
 # Check a dataset for problems before training
 panlabel validate --format coco annotations.json
 
@@ -78,6 +81,7 @@ panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -
 |--------|--------------------|-------------|-----------|
 | `ir-json` | `.json` | Panlabel's own intermediate representation | Lossless |
 | `coco` | `.json` | COCO object detection format | Conditional |
+| `cvat` | `.xml` / `annotations.xml` export | CVAT for images XML annotation export | Lossy |
 | `label-studio` | `.json` | Label Studio task export JSON (`rectanglelabels`) | Lossy |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
 | `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
@@ -136,6 +140,7 @@ cargo test --test proptest_tfod
 cargo test --test proptest_label_studio
 cargo test --test proptest_voc
 cargo test --test proptest_yolo
+cargo test --test proptest_cvat
 cargo test --test proptest_cross_format
 
 PROPTEST_CASES=1000 cargo test --test proptest_ir_json   # deeper local exploration
@@ -148,6 +153,7 @@ Fuzzing (nightly + `cargo-fuzz`):
 ```sh
 cargo +nightly fuzz run coco_json_parse
 cargo +nightly fuzz run voc_xml_parse
+cargo +nightly fuzz run cvat_xml_parse
 cargo +nightly fuzz run tfod_csv_parse
 cargo +nightly fuzz run label_studio_json_parse
 cargo +nightly fuzz run ir_json_parse

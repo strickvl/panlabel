@@ -15,6 +15,7 @@ Current scope: **object detection** bounding boxes only.
 |---|---|---|---|---|
 | `ir-json` | file (`.json`) | yes | yes | lossless |
 | `coco` | file (`.json`) | yes | yes | conditional |
+| `cvat` | file (`.xml`) or directory (`annotations.xml`) | yes | yes | lossy |
 | `label-studio` | file (`.json`) | yes | yes | lossy |
 | `tfod` | file (`.csv`) | yes | yes | lossy |
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
@@ -144,6 +145,43 @@ Writer behavior:
   - `true`/`yes`/`1` -> `1`
   - `false`/`no`/`0` -> `0`
   - any other value -> omitted
+
+## CVAT XML (`cvat` / `cvat-xml`)
+
+- Path kind: XML file (`.xml`) or directory containing `annotations.xml`.
+- Supported export: CVAT "for images" XML with `<annotations>` root.
+- Supported annotation type: `<box>` only.
+- Unsupported image-level annotation elements (for example `<polygon>`, `<points>`) are hard parse errors.
+- Coordinates: absolute pixels (`xtl/ytl/xbr/ybr`) mapped 1:1 to IR pixel XYXY.
+
+Reader behavior:
+- accepts file input or directory input with root `annotations.xml`
+- if `<meta><task><labels>` is present:
+  - keeps labels with `<type>bbox</type>` (or no `<type>`)
+  - verifies every `<box label="...">` exists in meta labels
+- if meta labels are missing, infers categories from `<box label="...">`
+- stores `<image id>` as `Image.attributes["cvat_image_id"]`
+- stores box attributes as:
+  - `occluded="1"` -> `Annotation.attributes["occluded"] = "1"`
+  - non-zero `z_order` -> `Annotation.attributes["z_order"]`
+  - non-empty `source` -> `Annotation.attributes["source"]`
+  - `<attribute name="k">v</attribute>` -> `Annotation.attributes["cvat_attr_k"] = "v"`
+
+Deterministic policy:
+- reader image IDs: by `<image name>` (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order then `<box>` order
+
+Writer behavior:
+- writes a single XML file (or `annotations.xml` inside output directory)
+- emits minimal `<meta><task>` with `name='panlabel export'`
+- writes labels only for categories referenced by annotations
+- writes `<image>` entries for all images, including unannotated images
+- writes `<box>` entries sorted by annotation ID per image
+- normalizes `occluded` values:
+  - `true`/`yes`/`1` -> `1`
+  - `false`/`no`/`0` -> `0`
+  - otherwise or missing -> `0`
 
 ## Future expansion rule
 

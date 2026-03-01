@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <image id="0" name="img.jpg" width="10" height="10">
+    <box label="cat" occluded="0" xtl="1" ytl="2" xbr="3" ybr="4" z_order="0" source="manual"/>
+  </image>
+</annotations>

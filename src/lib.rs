@@ -13,9 +13,11 @@
 //! - [`error`]: Error types for panlabel operations
 
 pub mod conversion;
+pub mod diff;
 pub mod error;
-pub mod inspect;
 pub mod ir;
+pub mod sample;
+pub mod stats;
 pub mod validation;
 
 use std::path::{Path, PathBuf};
@@ -41,8 +43,12 @@ enum Commands {
     Validate(ValidateArgs),
     /// Convert a dataset between formats.
     Convert(ConvertArgs),
-    /// Inspect a dataset and display summary statistics.
-    Inspect(InspectArgs),
+    /// Show rich dataset statistics.
+    Stats(StatsArgs),
+    /// Compare two datasets semantically.
+    Diff(DiffArgs),
+    /// Sample a subset dataset.
+    Sample(SampleArgs),
     /// List supported formats and their capabilities.
     ListFormats(ListFormatsArgs),
 }
@@ -147,6 +153,57 @@ enum ReportFormat {
     Json,
 }
 
+/// Output format for stats reports.
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum StatsOutputFormat {
+    /// Human-readable text output.
+    #[default]
+    #[value(name = "text")]
+    Text,
+    /// Machine-readable JSON output.
+    #[value(name = "json")]
+    Json,
+    /// Self-contained HTML report.
+    #[value(name = "html")]
+    Html,
+}
+
+/// Annotation matching strategy for dataset diff.
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum DiffMatchBy {
+    /// Match annotations by ID.
+    #[default]
+    #[value(name = "id")]
+    Id,
+    /// Match annotations by IoU.
+    #[value(name = "iou")]
+    Iou,
+}
+
+/// Image sampling strategy.
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum SampleStrategyArg {
+    /// Uniform random sampling.
+    #[default]
+    #[value(name = "random")]
+    Random,
+    /// Category-aware stratified sampling.
+    #[value(name = "stratified")]
+    Stratified,
+}
+
+/// Category filter mode.
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum CategoryModeArg {
+    /// Keep whole images that contain at least one selected category.
+    #[default]
+    #[value(name = "images")]
+    Images,
+    /// Keep only selected-category annotations.
+    #[value(name = "annotations")]
+    Annotations,
+}
+
 /// Arguments for the validate subcommand.
 #[derive(clap::Args)]
 struct ValidateArgs {
@@ -166,23 +223,112 @@ struct ValidateArgs {
     output: String,
 }
 
-/// Arguments for the inspect subcommand.
+/// Arguments for the stats subcommand.
 #[derive(clap::Args)]
-struct InspectArgs {
-    /// Input path to inspect.
+struct StatsArgs {
+    /// Input path to analyze.
     input: PathBuf,
 
     /// Input format ('ir-json', 'coco', 'label-studio', 'tfod', 'yolo', or 'voc').
-    #[arg(long, value_enum, default_value = "ir-json")]
-    format: ConvertFormat,
+    ///
+    /// If omitted, panlabel auto-detects the format. If detection fails for a JSON
+    /// file, stats falls back to reading as ir-json.
+    #[arg(long, value_enum)]
+    format: Option<ConvertFormat>,
 
-    /// Number of top labels to show in the histogram.
+    /// Number of top labels / pairs to show.
     #[arg(long, default_value_t = 10)]
     top: usize,
 
     /// Tolerance in pixels for out-of-bounds checks.
     #[arg(long, default_value_t = 0.5)]
     tolerance: f64,
+
+    /// Output format for the stats report.
+    #[arg(long, value_enum, default_value = "text")]
+    output: StatsOutputFormat,
+}
+
+/// Arguments for the diff subcommand.
+#[derive(clap::Args)]
+struct DiffArgs {
+    /// First dataset path.
+    input_a: PathBuf,
+
+    /// Second dataset path.
+    input_b: PathBuf,
+
+    /// Format for the first input (or auto-detect).
+    #[arg(long = "format-a", value_enum, default_value = "auto")]
+    format_a: ConvertFromFormat,
+
+    /// Format for the second input (or auto-detect).
+    #[arg(long = "format-b", value_enum, default_value = "auto")]
+    format_b: ConvertFromFormat,
+
+    /// Annotation matching strategy.
+    #[arg(long, value_enum, default_value = "id")]
+    match_by: DiffMatchBy,
+
+    /// IoU threshold used with --match-by iou.
+    #[arg(long, default_value_t = 0.5)]
+    iou_threshold: f64,
+
+    /// Include item-level detail in output.
+    #[arg(long)]
+    detail: bool,
+
+    /// Output format for diff report.
+    #[arg(long, value_enum, default_value = "text")]
+    output: ReportFormat,
+}
+
+/// Arguments for the sample subcommand.
+#[derive(clap::Args)]
+struct SampleArgs {
+    /// Input path.
+    #[arg(short = 'i', long = "input")]
+    input: PathBuf,
+
+    /// Output path.
+    #[arg(short = 'o', long = "output")]
+    output: PathBuf,
+
+    /// Source format (or auto-detect).
+    #[arg(long = "from", value_enum, default_value = "auto")]
+    from: ConvertFromFormat,
+
+    /// Target format.
+    #[arg(long = "to", value_enum)]
+    to: Option<ConvertFormat>,
+
+    /// Number of images to sample.
+    #[arg(short = 'n', long = "n")]
+    n: Option<usize>,
+
+    /// Fraction of images to sample.
+    #[arg(long = "fraction")]
+    fraction: Option<f64>,
+
+    /// Optional random seed for deterministic sampling.
+    #[arg(long = "seed")]
+    seed: Option<u64>,
+
+    /// Sampling strategy.
+    #[arg(long, value_enum, default_value = "random")]
+    strategy: SampleStrategyArg,
+
+    /// Comma-separated category names to filter on.
+    #[arg(long = "categories")]
+    categories: Option<String>,
+
+    /// Category filter mode.
+    #[arg(long = "category-mode", value_enum, default_value = "images")]
+    category_mode: CategoryModeArg,
+
+    /// Allow lossy output format conversions.
+    #[arg(long = "allow-lossy")]
+    allow_lossy: bool,
 }
 
 /// Arguments for the convert subcommand.
@@ -236,7 +382,9 @@ pub fn run() -> Result<(), PanlabelError> {
     match cli.command {
         Some(Commands::Validate(args)) => run_validate(args),
         Some(Commands::Convert(args)) => run_convert(args),
-        Some(Commands::Inspect(args)) => run_inspect(args),
+        Some(Commands::Stats(args)) => run_stats(args),
+        Some(Commands::Diff(args)) => run_diff(args),
+        Some(Commands::Sample(args)) => run_sample(args),
         Some(Commands::ListFormats(args)) => run_list_formats(args),
         None => {
             // No subcommand: just print help hint and exit successfully
@@ -251,19 +399,148 @@ pub fn run() -> Result<(), PanlabelError> {
     }
 }
 
-/// Execute the inspect subcommand.
-fn run_inspect(args: InspectArgs) -> Result<(), PanlabelError> {
-    let dataset = read_dataset(args.format, &args.input)?;
+/// Execute the stats subcommand.
+fn run_stats(args: StatsArgs) -> Result<(), PanlabelError> {
+    let format = resolve_stats_format(args.format, &args.input)?;
+    let dataset = read_dataset(format, &args.input)?;
 
-    let opts = inspect::InspectOptions {
+    let opts = stats::StatsOptions {
         top_labels: args.top,
+        top_pairs: args.top,
         oob_tolerance_px: args.tolerance,
         bar_width: 20,
     };
 
-    let report = inspect::inspect_dataset(&dataset, &opts);
+    let report = stats::stats_dataset(&dataset, &opts);
 
-    print!("{}", report);
+    match args.output {
+        StatsOutputFormat::Text => print!("{}", report),
+        StatsOutputFormat::Json => {
+            serde_json::to_writer_pretty(std::io::stdout(), &report)
+                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+            println!();
+        }
+        StatsOutputFormat::Html => {
+            let html = stats::html::render_html(&report)?;
+            print!("{html}");
+        }
+    }
+
+    Ok(())
+}
+
+/// Execute the diff subcommand.
+fn run_diff(args: DiffArgs) -> Result<(), PanlabelError> {
+    if matches!(args.match_by, DiffMatchBy::Iou)
+        && !(0.0 < args.iou_threshold && args.iou_threshold <= 1.0)
+    {
+        return Err(PanlabelError::DiffFailed {
+            message: "--iou-threshold must be in the interval (0.0, 1.0] when --match-by iou"
+                .to_string(),
+        });
+    }
+
+    let format_a = resolve_from_format(args.format_a, &args.input_a)?;
+    let format_b = resolve_from_format(args.format_b, &args.input_b)?;
+
+    let dataset_a = read_dataset(format_a, &args.input_a)?;
+    let dataset_b = read_dataset(format_b, &args.input_b)?;
+
+    ensure_unique_image_file_names(&dataset_a, "A")?;
+    ensure_unique_image_file_names(&dataset_b, "B")?;
+
+    let match_by = match args.match_by {
+        DiffMatchBy::Id => diff::MatchBy::Id,
+        DiffMatchBy::Iou => diff::MatchBy::Iou,
+    };
+
+    let opts = diff::DiffOptions {
+        match_by,
+        iou_threshold: args.iou_threshold,
+        detail: args.detail,
+        max_items: 20,
+        bbox_eps: 1e-6,
+    };
+
+    let report = diff::diff_datasets(&dataset_a, &dataset_b, &opts);
+
+    match args.output {
+        ReportFormat::Text => {
+            println!(
+                "Dataset Diff: {} vs {}",
+                args.input_a.display(),
+                args.input_b.display()
+            );
+            println!();
+            print!("{}", report);
+        }
+        ReportFormat::Json => {
+            serde_json::to_writer_pretty(std::io::stdout(), &report)
+                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
+/// Execute the sample subcommand.
+fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
+    let from_format = resolve_from_format(args.from, &args.input)?;
+    let to_format = match args.to {
+        Some(target) => target,
+        None => args.from.as_concrete().unwrap_or(ConvertFormat::IrJson),
+    };
+
+    let dataset = read_dataset(from_format, &args.input)?;
+
+    let strategy = match args.strategy {
+        SampleStrategyArg::Random => sample::SampleStrategy::Random,
+        SampleStrategyArg::Stratified => sample::SampleStrategy::Stratified,
+    };
+    let category_mode = match args.category_mode {
+        CategoryModeArg::Images => sample::CategoryMode::Images,
+        CategoryModeArg::Annotations => sample::CategoryMode::Annotations,
+    };
+
+    let sample_opts = sample::SampleOptions {
+        n: args.n,
+        fraction: args.fraction,
+        seed: args.seed,
+        strategy,
+        categories: parse_categories_arg(args.categories),
+        category_mode,
+    };
+
+    let sampled_dataset = sample::sample_dataset(&dataset, &sample_opts)?;
+
+    let conv_report = conversion::build_conversion_report(
+        &sampled_dataset,
+        from_format.to_conversion_format(),
+        to_format.to_conversion_format(),
+    );
+
+    if conv_report.is_lossy() && !args.allow_lossy {
+        return Err(PanlabelError::LossyConversionBlocked {
+            from: format_name(from_format).to_string(),
+            to: format_name(to_format).to_string(),
+            report: Box::new(conv_report),
+        });
+    }
+
+    write_dataset(to_format, &args.output, &sampled_dataset)?;
+
+    println!(
+        "Sampled {} images -> {} images: {} ({}) -> {} ({})",
+        dataset.images.len(),
+        sampled_dataset.images.len(),
+        args.input.display(),
+        format_name(from_format),
+        args.output.display(),
+        format_name(to_format)
+    );
+    print!("{}", conv_report);
+
     Ok(())
 }
 
@@ -325,10 +602,7 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
 /// Execute the convert subcommand.
 fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     // Step 0: Resolve auto-detection if needed
-    let from_format: ConvertFormat = match args.from.as_concrete() {
-        Some(f) => f,
-        None => detect_format(&args.input)?,
-    };
+    let from_format: ConvertFormat = resolve_from_format(args.from, &args.input)?;
 
     // Step 1: Read the dataset
     let dataset = read_dataset(from_format, &args.input)?;
@@ -396,6 +670,67 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
         }
     }
 
+    Ok(())
+}
+
+fn resolve_from_format(
+    from: ConvertFromFormat,
+    path: &Path,
+) -> Result<ConvertFormat, PanlabelError> {
+    match from.as_concrete() {
+        Some(format) => Ok(format),
+        None => detect_format(path),
+    }
+}
+
+fn resolve_stats_format(
+    format: Option<ConvertFormat>,
+    path: &Path,
+) -> Result<ConvertFormat, PanlabelError> {
+    if let Some(format) = format {
+        return Ok(format);
+    }
+
+    match detect_format(path) {
+        Ok(format) => Ok(format),
+        Err(error) => {
+            let is_json_file = path.is_file()
+                && path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("json"))
+                    .unwrap_or(false);
+
+            if is_json_file {
+                Ok(ConvertFormat::IrJson)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+fn parse_categories_arg(raw: Option<String>) -> Vec<String> {
+    raw.unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn ensure_unique_image_file_names(dataset: &ir::Dataset, side: &str) -> Result<(), PanlabelError> {
+    let mut seen = std::collections::HashSet::new();
+    for image in &dataset.images {
+        if !seen.insert(image.file_name.clone()) {
+            return Err(PanlabelError::DiffFailed {
+                message: format!(
+                    "duplicate image file_name '{}' found in dataset {}. Use unique image names for reliable diffing.",
+                    image.file_name, side
+                ),
+            });
+        }
+    }
     Ok(())
 }
 

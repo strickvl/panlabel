@@ -146,6 +146,15 @@ pub enum PanlabelError {
         report: Box<ConversionReport>,
     },
 
+    #[error("Diff failed: {message}")]
+    DiffFailed { message: String },
+
+    #[error("Sample failed: {message}")]
+    SampleFailed { message: String },
+
+    #[error("Invalid sample parameters: {message}")]
+    InvalidSampleParams { message: String },
+
     #[error("Failed to write report as JSON: {source}")]
     ReportJsonWrite {
         #[source]

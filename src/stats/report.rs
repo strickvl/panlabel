@@ -1,25 +1,39 @@
-//! Inspect report types and terminal formatting.
+//! Stats report types and terminal formatting.
 //!
-//! This module provides rich, structured inspection results that are
-//! displayed beautifully in the terminal.
+//! This module provides rich, structured dataset statistics that can be
+//! rendered as text (Display), serialized as JSON, or used for HTML charts.
 
+use serde::Serialize;
 use std::fmt;
 
-/// The result of inspecting a dataset.
-#[derive(Clone, Debug)]
-pub struct InspectReport {
+/// The result of computing dataset statistics.
+#[derive(Clone, Debug, Serialize)]
+pub struct StatsReport {
     /// Summary counts for the dataset.
     pub summary: SummarySection,
     /// Label distribution histogram.
     pub labels: LabelsSection,
     /// Bounding box statistics.
     pub bboxes: BBoxStats,
-    /// Display options for formatting.
+    /// Image resolution spread.
+    pub image_resolutions: ImageResolutionStats,
+    /// Annotation density across images.
+    pub annotation_density: AnnotationDensityStats,
+    /// Bounding box area distribution buckets.
+    pub area_distribution: AreaDistribution,
+    /// Bounding box aspect ratio distribution buckets.
+    pub aspect_ratios: AspectRatioDistribution,
+    /// Per-category bounding box area statistics.
+    pub per_category_bbox: Vec<PerCategoryBBoxStats>,
+    /// Top category co-occurrence pairs.
+    pub cooccurrence_top_pairs: CooccurrenceTopPairs,
+    /// Display-only option for histogram rendering width.
+    #[serde(skip)]
     pub(crate) bar_width: usize,
 }
 
 /// Summary counts for the dataset.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct SummarySection {
     /// Total number of images.
     pub images: usize,
@@ -34,7 +48,7 @@ pub struct SummarySection {
 }
 
 /// Label distribution section.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct LabelsSection {
     /// How many top labels to show.
     pub top_n: usize,
@@ -49,7 +63,7 @@ pub struct LabelsSection {
 }
 
 /// A single label with its annotation count.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct LabelCount {
     /// The category/label name.
     pub label: String,
@@ -58,7 +72,7 @@ pub struct LabelCount {
 }
 
 /// Bounding box statistics.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct BBoxStats {
     /// Total annotations analyzed.
     pub total: usize,
@@ -84,9 +98,76 @@ pub struct BBoxStats {
     pub max_height: Option<f64>,
 }
 
-impl fmt::Display for InspectReport {
+/// Image resolution statistics.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ImageResolutionStats {
+    pub min_w: u32,
+    pub max_w: u32,
+    pub mean_w: f64,
+    pub min_h: u32,
+    pub max_h: u32,
+    pub mean_h: f64,
+}
+
+/// Annotation density statistics.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct AnnotationDensityStats {
+    pub min_per_image: usize,
+    pub max_per_image: usize,
+    pub mean_per_image: f64,
+    pub zero_annotation_images: usize,
+}
+
+/// Bounding box area bucket counts.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct AreaDistribution {
+    pub small: usize,
+    pub medium: usize,
+    pub large: usize,
+    pub invalid: usize,
+}
+
+/// A single aspect-ratio bucket.
+#[derive(Clone, Debug, Serialize)]
+pub struct AspectRatioBucket {
+    pub name: String,
+    pub count: usize,
+}
+
+/// Aspect-ratio bucket counts.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct AspectRatioDistribution {
+    pub buckets: Vec<AspectRatioBucket>,
+    pub invalid: usize,
+}
+
+/// Per-category bbox area stats.
+#[derive(Clone, Debug, Serialize)]
+pub struct PerCategoryBBoxStats {
+    pub category: String,
+    pub annotations: usize,
+    pub min_area: Option<f64>,
+    pub max_area: Option<f64>,
+    pub mean_area: Option<f64>,
+}
+
+/// A single co-occurrence pair.
+#[derive(Clone, Debug, Serialize)]
+pub struct CooccurrencePair {
+    pub a: String,
+    pub b: String,
+    pub count: usize,
+}
+
+/// Top category co-occurrence pairs.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct CooccurrenceTopPairs {
+    pub top_n: usize,
+    pub pairs: Vec<CooccurrencePair>,
+}
+
+impl fmt::Display for StatsReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Header
         writeln!(f)?;
         writeln!(
             f,
@@ -94,7 +175,7 @@ impl fmt::Display for InspectReport {
         )?;
         writeln!(
             f,
-            "│              📊  Dataset Inspection Report                  │"
+            "│                📊  Dataset Stats Report                    │"
         )?;
         writeln!(
             f,
@@ -102,22 +183,29 @@ impl fmt::Display for InspectReport {
         )?;
         writeln!(f)?;
 
-        // Summary section
         self.fmt_summary(f)?;
         writeln!(f)?;
-
-        // Labels section
         self.fmt_labels(f)?;
         writeln!(f)?;
-
-        // BBox section
         self.fmt_bboxes(f)?;
+        writeln!(f)?;
+        self.fmt_image_resolutions(f)?;
+        writeln!(f)?;
+        self.fmt_annotation_density(f)?;
+        writeln!(f)?;
+        self.fmt_area_distribution(f)?;
+        writeln!(f)?;
+        self.fmt_aspect_ratios(f)?;
+        writeln!(f)?;
+        self.fmt_per_category_bbox(f)?;
+        writeln!(f)?;
+        self.fmt_cooccurrence(f)?;
 
         Ok(())
     }
 }
 
-impl InspectReport {
+impl StatsReport {
     fn fmt_summary(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = &self.summary;
 
@@ -156,7 +244,6 @@ impl InspectReport {
             "│                                                           │"
         )?;
 
-        // Show annotated vs total images
         let pct = if s.images > 0 {
             (s.annotated_images as f64 / s.images as f64) * 100.0
         } else {
@@ -169,10 +256,11 @@ impl InspectReport {
             format_number(s.images),
             pct,
             " ".repeat(
-                59 - 28
-                    - format_number(s.annotated_images).len()
-                    - format_number(s.images).len()
-                    - format!("{:.1}", pct).len()
+                59usize
+                    .saturating_sub(28)
+                    .saturating_sub(format_number(s.annotated_images).len())
+                    .saturating_sub(format_number(s.images).len())
+                    .saturating_sub(format!("{:.1}", pct).len())
             )
         )?;
         writeln!(
@@ -196,7 +284,12 @@ impl InspectReport {
             format!("Labels ({})", l.total_distinct)
         };
 
-        writeln!(f, "┌─ {} {}┐", header, "─".repeat(57 - header.len()))?;
+        writeln!(
+            f,
+            "┌─ {} {}┐",
+            header,
+            "─".repeat(57usize.saturating_sub(header.len()))
+        )?;
         writeln!(
             f,
             "│                                                           │"
@@ -208,7 +301,6 @@ impl InspectReport {
                 "│   No annotations found.                                   │"
             )?;
         } else {
-            // Find max count for bar scaling
             let max_count = l.entries.iter().map(|e| e.count).max().unwrap_or(1);
 
             for entry in &l.entries {
@@ -231,7 +323,6 @@ impl InspectReport {
                 )?;
             }
 
-            // Show "Other" bucket if there are more categories
             if l.other_count > 0 {
                 let pct = if l.total_annotations > 0 {
                     (l.other_count as f64 / l.total_annotations as f64) * 100.0
@@ -280,7 +371,6 @@ impl InspectReport {
                 "│   No bounding boxes found.                                │"
             )?;
         } else {
-            // Dimensions
             if let (Some(min_w), Some(max_w), Some(min_h), Some(max_h)) =
                 (b.min_width, b.max_width, b.min_height, b.max_height)
             {
@@ -305,14 +395,11 @@ impl InspectReport {
                 f,
                 "│                                                           │"
             )?;
-
-            // Quality metrics
             writeln!(
                 f,
                 "│   Quality metrics:                                        │"
             )?;
 
-            // Finite coordinates
             let finite_pct = fmt_percent(b.finite, b.total);
             writeln!(
                 f,
@@ -322,7 +409,6 @@ impl InspectReport {
                 finite_pct
             )?;
 
-            // Properly ordered
             let ordered_pct = fmt_percent(b.ordered, b.total);
             writeln!(
                 f,
@@ -337,7 +423,6 @@ impl InspectReport {
                 "│                                                           │"
             )?;
 
-            // Issues (if any)
             let has_issues = b.degenerate_area > 0
                 || b.out_of_bounds > 0
                 || b.missing_image_ref > 0
@@ -412,6 +497,255 @@ impl InspectReport {
 
         Ok(())
     }
+
+    fn fmt_image_resolutions(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = &self.image_resolutions;
+        writeln!(
+            f,
+            "┌─ Image Resolutions ───────────────────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "│   Width  (px): min {:>6}  mean {:>8.1}  max {:>6}        │",
+            s.min_w, s.mean_w, s.max_w
+        )?;
+        writeln!(
+            f,
+            "│   Height (px): min {:>6}  mean {:>8.1}  max {:>6}        │",
+            s.min_h, s.mean_h, s.max_h
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
+        Ok(())
+    }
+
+    fn fmt_annotation_density(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = &self.annotation_density;
+        writeln!(
+            f,
+            "┌─ Annotation Density ──────────────────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "│   Per image: min {:>6}  mean {:>8.2}  max {:>6}         │",
+            s.min_per_image, s.mean_per_image, s.max_per_image
+        )?;
+        writeln!(
+            f,
+            "│   Images with 0 annotations: {:>8}                        │",
+            format_number(s.zero_annotation_images)
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
+        Ok(())
+    }
+
+    fn fmt_area_distribution(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let a = &self.area_distribution;
+        let max_count = [a.small, a.medium, a.large].into_iter().max().unwrap_or(1);
+
+        writeln!(
+            f,
+            "┌─ Area Distribution (COCO: small<1024, medium<9216) ─────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "│   small   {:>7}  {}│",
+            format_number(a.small),
+            pad_bar(
+                &render_bar(a.small, max_count, self.bar_width),
+                self.bar_width
+            )
+        )?;
+        writeln!(
+            f,
+            "│   medium  {:>7}  {}│",
+            format_number(a.medium),
+            pad_bar(
+                &render_bar(a.medium, max_count, self.bar_width),
+                self.bar_width
+            )
+        )?;
+        writeln!(
+            f,
+            "│   large   {:>7}  {}│",
+            format_number(a.large),
+            pad_bar(
+                &render_bar(a.large, max_count, self.bar_width),
+                self.bar_width
+            )
+        )?;
+        writeln!(
+            f,
+            "│   invalid {:>7}                                         │",
+            format_number(a.invalid)
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
+        Ok(())
+    }
+
+    fn fmt_aspect_ratios(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let a = &self.aspect_ratios;
+        let max_count = a.buckets.iter().map(|b| b.count).max().unwrap_or(1);
+
+        writeln!(
+            f,
+            "┌─ Aspect Ratios (w/h) ────────────────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        for bucket in &a.buckets {
+            writeln!(
+                f,
+                "│   {:<8} {:>7}  {}│",
+                bucket.name,
+                format_number(bucket.count),
+                pad_bar(
+                    &render_bar(bucket.count, max_count, self.bar_width),
+                    self.bar_width
+                )
+            )?;
+        }
+        writeln!(
+            f,
+            "│   invalid  {:>7}                                         │",
+            format_number(a.invalid)
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
+        Ok(())
+    }
+
+    fn fmt_per_category_bbox(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "┌─ Per-category BBox Area (top) ───────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+
+        if self.per_category_bbox.is_empty() {
+            writeln!(
+                f,
+                "│   No per-category bbox stats available.                   │"
+            )?;
+        } else {
+            for row in &self.per_category_bbox {
+                let min = row
+                    .min_area
+                    .map(|v| format!("{v:.1}"))
+                    .unwrap_or_else(|| "n/a".to_string());
+                let mean = row
+                    .mean_area
+                    .map(|v| format!("{v:.1}"))
+                    .unwrap_or_else(|| "n/a".to_string());
+                let max = row
+                    .max_area
+                    .map(|v| format!("{v:.1}"))
+                    .unwrap_or_else(|| "n/a".to_string());
+
+                writeln!(
+                    f,
+                    "│   {:<14} n={:>5} min {:>8} mean {:>8} max {:>8}│",
+                    truncate_label(&row.category, 14),
+                    row.annotations,
+                    min,
+                    mean,
+                    max
+                )?;
+            }
+        }
+
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
+        Ok(())
+    }
+
+    fn fmt_cooccurrence(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let c = &self.cooccurrence_top_pairs;
+        writeln!(
+            f,
+            "┌─ Co-occurrence Top Pairs ─────────────────────────────────┐"
+        )?;
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+
+        if c.pairs.is_empty() {
+            writeln!(
+                f,
+                "│   No co-occurring category pairs found.                   │"
+            )?;
+        } else {
+            for pair in &c.pairs {
+                let label = format!("{} + {}", pair.a, pair.b);
+                writeln!(
+                    f,
+                    "│   {:<38} {:>9}                         │",
+                    truncate_label(&label, 38),
+                    format_number(pair.count)
+                )?;
+            }
+        }
+
+        writeln!(
+            f,
+            "│                                                           │"
+        )?;
+        writeln!(
+            f,
+            "└───────────────────────────────────────────────────────────┘"
+        )?;
+        Ok(())
+    }
 }
 
 /// Format a number with thousands separators.
@@ -443,15 +777,12 @@ fn render_bar(count: usize, max_count: usize, width: usize) -> String {
     }
 
     let filled = (count * width) / max_count;
-    let filled = filled.min(width); // Clamp to width
-
-    // Use Unicode blocks for a nicer look
+    let filled = filled.min(width);
     "█".repeat(filled) + &"░".repeat(width - filled)
 }
 
 /// Pad a bar string to ensure consistent column alignment.
 fn pad_bar(bar: &str, width: usize) -> String {
-    // Each Unicode char is 1 char, but we want consistent visual width
     let visual_len = bar.chars().count();
     let padding = (width + 2).saturating_sub(visual_len);
     format!("{}{}", bar, " ".repeat(padding))

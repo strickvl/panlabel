@@ -95,6 +95,31 @@ impl<TSpace> BBoxXYXY<TSpace> {
     pub fn is_ordered(&self) -> bool {
         self.min.x <= self.max.x && self.min.y <= self.max.y
     }
+
+    /// Computes intersection-over-union (IoU) with another box.
+    ///
+    /// Returns 0.0 for non-finite or unordered boxes.
+    pub fn iou(&self, other: &Self) -> f64 {
+        if !self.is_finite() || !other.is_finite() || !self.is_ordered() || !other.is_ordered() {
+            return 0.0;
+        }
+
+        let inter_xmin = self.xmin().max(other.xmin());
+        let inter_ymin = self.ymin().max(other.ymin());
+        let inter_xmax = self.xmax().min(other.xmax());
+        let inter_ymax = self.ymax().min(other.ymax());
+
+        let inter_w = (inter_xmax - inter_xmin).max(0.0);
+        let inter_h = (inter_ymax - inter_ymin).max(0.0);
+        let intersection = inter_w * inter_h;
+
+        let union = self.area() + other.area() - intersection;
+        if !union.is_finite() || union <= 0.0 {
+            0.0
+        } else {
+            intersection / union
+        }
+    }
 }
 
 impl<TSpace> std::fmt::Debug for BBoxXYXY<TSpace> {
@@ -287,5 +312,37 @@ mod tests {
         let (_, _, w, h) = malformed.to_cxcywh();
         assert_eq!(w, -10.0);
         assert_eq!(h, -20.0);
+    }
+
+    #[test]
+    fn test_iou_identical_boxes() {
+        let a: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(10.0, 10.0, 20.0, 20.0);
+        let b: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(10.0, 10.0, 20.0, 20.0);
+        assert!((a.iou(&b) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_iou_disjoint_boxes() {
+        let a: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(0.0, 0.0, 10.0, 10.0);
+        let b: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(20.0, 20.0, 30.0, 30.0);
+        assert_eq!(a.iou(&b), 0.0);
+    }
+
+    #[test]
+    fn test_iou_partial_overlap() {
+        let a: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(0.0, 0.0, 10.0, 10.0);
+        let b: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(5.0, 5.0, 15.0, 15.0);
+        // Intersection = 25, Union = 175
+        assert!((a.iou(&b) - (25.0 / 175.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_iou_invalid_boxes_return_zero() {
+        let unordered: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(10.0, 10.0, 5.0, 5.0);
+        let valid: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(0.0, 0.0, 10.0, 10.0);
+        assert_eq!(unordered.iou(&valid), 0.0);
+
+        let nan_box: BBoxXYXY<Pixel> = BBoxXYXY::from_xyxy(f64::NAN, 0.0, 1.0, 1.0);
+        assert_eq!(nan_box.iou(&valid), 0.0);
     }
 }

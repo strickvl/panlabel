@@ -65,6 +65,7 @@ These are deferred until detection format coverage is solid:
 - ⏳ Better end-to-end examples for common training/export pipelines
 - ⏳ HF remote support for `stats` / `sample` / `diff` (remote is currently `convert`-only)
 - ⏳ HF self-contained/viewer-converted Parquet variants (embedded image bytes and Hub auto-converted parquet refs)
+- ⏳ HF split-parquet + external-images layouts that currently fail in the wild (for example `KRAFTON/ArtiBench`)
 - ⏳ HF Hub streaming / partial reads
 
 ## Change policy

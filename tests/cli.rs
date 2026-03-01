@@ -148,7 +148,7 @@ fn runs() {
 fn outputs_tool_name() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.arg("-V");
-    cmd.assert().success().stdout("panlabel 0.2.0\n");
+    cmd.assert().success().stdout("panlabel 0.3.0\n");
 }
 
 // Validate subcommand tests

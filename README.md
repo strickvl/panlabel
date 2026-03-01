@@ -18,7 +18,7 @@ dependencies to manage.
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
 
-> **Note**: Panlabel is in active development (v0.2.x). The CLI and library APIs
+> **Note**: Panlabel is in active development (v0.3.x). The CLI and library APIs
 > may change between versions, so pin to a specific version if you're using it in
 > production.
 

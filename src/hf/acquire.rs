@@ -80,7 +80,7 @@ pub fn acquire(
             PanlabelError::HfAcquireError {
                 repo_id: repo_ref.repo_id.clone(),
                 message: format!(
-                    "could not find metadata.jsonl or metadata.parquet{}",
+                    "could not find a supported HF annotation layout (metadata.jsonl, metadata.parquet, or split parquet shards){}",
                     requested_split
                         .map(|split| format!(" for split '{split}'"))
                         .unwrap_or_default()
@@ -105,7 +105,7 @@ pub fn acquire(
         .map(|path| path.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    let files_to_download: BTreeSet<String> = match selected_metadata.format {
+    let mut files_to_download: BTreeSet<String> = match selected_metadata.format {
         HfMetadataFormat::Jsonl => {
             let referenced = read_jsonl_file_names(&metadata_local).map_err(|source| {
                 PanlabelError::HfAcquireError {
@@ -124,19 +124,27 @@ pub fn acquire(
                 })
                 .collect()
         }
-        HfMetadataFormat::Parquet => sibling_paths
-            .iter()
-            .filter(|path| {
-                is_image_file(path)
-                    && if metadata_dir_remote.is_empty() {
-                        true
-                    } else {
-                        path.starts_with(&format!("{}/", metadata_dir_remote))
-                    }
-            })
-            .cloned()
-            .collect(),
+        HfMetadataFormat::Parquet => {
+            if selected_metadata.is_metadata_file {
+                sibling_paths
+                    .iter()
+                    .filter(|path| {
+                        is_image_file(path)
+                            && if metadata_dir_remote.is_empty() {
+                                true
+                            } else {
+                                path.starts_with(&format!("{}/", metadata_dir_remote))
+                            }
+                    })
+                    .cloned()
+                    .collect()
+            } else {
+                select_related_parquet_shards(&sibling_paths, &selected_metadata, requested_split)
+            }
+        }
     };
+
+    files_to_download.remove(&selected_metadata.path);
 
     for remote_path in files_to_download {
         let local =
@@ -174,6 +182,7 @@ struct MetadataCandidate {
     format: HfMetadataFormat,
     split_name: Option<String>,
     depth: usize,
+    is_metadata_file: bool,
 }
 
 fn select_metadata_path(
@@ -182,11 +191,21 @@ fn select_metadata_path(
 ) -> Option<MetadataCandidate> {
     let mut candidates = metadata_candidates(paths);
     if candidates.is_empty() {
-        return None;
+        candidates = parquet_shard_candidates(paths);
+        if candidates.is_empty() {
+            return None;
+        }
     }
 
     if let Some(split) = requested_split {
-        candidates.retain(|candidate| candidate.split_name.as_deref() == Some(split));
+        let normalized_split = normalize_split_name(split).unwrap_or(split);
+        candidates.retain(|candidate| {
+            candidate
+                .split_name
+                .as_deref()
+                .map(|value| value == normalized_split)
+                .unwrap_or(false)
+        });
         if candidates.is_empty() {
             return None;
         }
@@ -230,31 +249,140 @@ fn metadata_candidates(paths: &[String]) -> Vec<MetadataCandidate> {
     let mut candidates = Vec::new();
 
     for path in paths {
-        let (format, file_name) = if path.ends_with("/metadata.jsonl") || path == "metadata.jsonl" {
-            (HfMetadataFormat::Jsonl, "metadata.jsonl")
+        let format = if path.ends_with("/metadata.jsonl") || path == "metadata.jsonl" {
+            HfMetadataFormat::Jsonl
         } else if path.ends_with("/metadata.parquet") || path == "metadata.parquet" {
-            (HfMetadataFormat::Parquet, "metadata.parquet")
+            HfMetadataFormat::Parquet
         } else {
             continue;
         };
 
         let depth = path.split('/').count();
-        let split_name = Path::new(path)
-            .parent()
-            .and_then(|parent| parent.file_name())
-            .and_then(|name| name.to_str())
-            .map(str::to_string)
-            .filter(|name| !name.is_empty() && name != file_name);
+        let split_name = infer_split_from_parquet_path(path);
 
         candidates.push(MetadataCandidate {
             path: path.clone(),
             format,
             split_name,
             depth,
+            is_metadata_file: true,
         });
     }
 
     candidates
+}
+
+fn parquet_shard_candidates(paths: &[String]) -> Vec<MetadataCandidate> {
+    let mut candidates = Vec::new();
+
+    for path in paths {
+        if !path.ends_with(".parquet") {
+            continue;
+        }
+        if path.ends_with("metadata.parquet") {
+            continue;
+        }
+
+        let depth = path.split('/').count();
+        let split_name = infer_split_from_parquet_path(path);
+
+        candidates.push(MetadataCandidate {
+            path: path.clone(),
+            format: HfMetadataFormat::Parquet,
+            split_name,
+            depth,
+            is_metadata_file: false,
+        });
+    }
+
+    candidates
+}
+
+fn infer_split_from_parquet_path(path: &str) -> Option<String> {
+    let parsed = Path::new(path);
+    let file_name = parsed
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_ascii_lowercase());
+
+    if let Some(file_name) = file_name {
+        if let Some((prefix, _)) = file_name.split_once('-') {
+            if let Some(normalized) = normalize_split_name(prefix) {
+                return Some(normalized.to_string());
+            }
+        }
+        if let Some(stem) = file_name.strip_suffix(".parquet") {
+            if let Some(normalized) = normalize_split_name(stem) {
+                return Some(normalized.to_string());
+            }
+        }
+    }
+
+    for component in parsed.components().rev() {
+        let Some(name) = component.as_os_str().to_str() else {
+            continue;
+        };
+        if let Some(normalized) = normalize_split_name(name) {
+            return Some(normalized.to_string());
+        }
+    }
+
+    None
+}
+
+fn normalize_split_name(name: &str) -> Option<&str> {
+    match name.to_ascii_lowercase().as_str() {
+        "train" => Some("train"),
+        "test" => Some("test"),
+        "validation" | "valid" | "val" => Some("validation"),
+        "dev" => Some("dev"),
+        _ => None,
+    }
+}
+
+fn select_related_parquet_shards(
+    paths: &[String],
+    selected: &MetadataCandidate,
+    requested_split: Option<&str>,
+) -> BTreeSet<String> {
+    let mut selected_paths = BTreeSet::new();
+    let target_split = requested_split
+        .and_then(normalize_split_name)
+        .map(str::to_string)
+        .or_else(|| selected.split_name.clone());
+    let selected_parent = Path::new(&selected.path)
+        .parent()
+        .map(|parent| parent.to_string_lossy().to_string());
+
+    for path in paths {
+        if !path.ends_with(".parquet") || path.ends_with("metadata.parquet") {
+            continue;
+        }
+
+        if let Some(parent) = selected_parent.as_deref() {
+            let path_parent = Path::new(path)
+                .parent()
+                .map(|value| value.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if path_parent != parent {
+                continue;
+            }
+        }
+
+        if let Some(split) = target_split.as_deref() {
+            if infer_split_from_parquet_path(path).as_deref() != Some(split) {
+                continue;
+            }
+        }
+
+        selected_paths.insert(path.clone());
+    }
+
+    if selected_paths.is_empty() {
+        selected_paths.insert(selected.path.clone());
+    }
+
+    selected_paths
 }
 
 fn read_jsonl_file_names(path: &Path) -> Result<Vec<String>, std::io::Error> {
@@ -353,6 +481,65 @@ mod tests {
         assert_eq!(
             resolve_remote_image_path("train", "img2.jpg", &siblings).as_deref(),
             Some("img2.jpg")
+        );
+    }
+
+    #[test]
+    fn metadata_selection_falls_back_to_parquet_shards() {
+        let files = vec![
+            "data/train-00000-of-00002.parquet".to_string(),
+            "data/train-00001-of-00002.parquet".to_string(),
+            "data/test-00000-of-00001.parquet".to_string(),
+        ];
+
+        let selected = select_metadata_path(&files, Some("train")).expect("selection");
+        assert_eq!(selected.format, HfMetadataFormat::Parquet);
+        assert!(!selected.is_metadata_file);
+        assert_eq!(selected.split_name.as_deref(), Some("train"));
+    }
+
+    #[test]
+    fn related_parquet_shards_selects_all_for_split() {
+        let files = vec![
+            "data/train-00000-of-00002.parquet".to_string(),
+            "data/train-00001-of-00002.parquet".to_string(),
+            "data/validation-00000-of-00001.parquet".to_string(),
+            "data/test-00000-of-00001.parquet".to_string(),
+        ];
+        let selected = select_metadata_path(&files, Some("train")).expect("selection");
+        let related = select_related_parquet_shards(&files, &selected, Some("train"));
+        assert_eq!(
+            related,
+            BTreeSet::from([
+                "data/train-00000-of-00002.parquet".to_string(),
+                "data/train-00001-of-00002.parquet".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn related_parquet_shards_stays_with_selected_parent_dir() {
+        let files = vec![
+            "config_a/train-00000-of-00002.parquet".to_string(),
+            "config_a/train-00001-of-00002.parquet".to_string(),
+            "config_b/train-00000-of-00001.parquet".to_string(),
+        ];
+
+        let selected = select_metadata_path(&files, Some("train")).expect("selection");
+        assert_eq!(
+            Path::new(&selected.path)
+                .parent()
+                .and_then(|value| value.to_str()),
+            Some("config_a")
+        );
+
+        let related = select_related_parquet_shards(&files, &selected, Some("train"));
+        assert_eq!(
+            related,
+            BTreeSet::from([
+                "config_a/train-00000-of-00002.parquet".to_string(),
+                "config_a/train-00001-of-00002.parquet".to_string()
+            ])
         );
     }
 }

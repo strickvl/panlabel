@@ -51,6 +51,7 @@ Notes:
 - `--hf-repo` can only be used with `--from hf`.
 - `--revision`/`--config` require `--hf-repo`.
 - Remote HF import (`--hf-repo`) needs a build with feature `hf-remote` (for full HF support from source: `cargo install panlabel --features hf`).
+- Remote HF parquet datasets commonly use split shard files (for example `data/train-*.parquet`); these are supported with `hf-parquet`.
 
 ---
 

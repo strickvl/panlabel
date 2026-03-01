@@ -1110,8 +1110,9 @@ fn read_hf_dataset_with_options(
 #[cfg(feature = "hf-parquet")]
 fn should_read_hf_parquet(path: &Path, split: Option<&str>) -> Result<bool, PanlabelError> {
     let has_jsonl = hf_has_metadata(path, split, "metadata.jsonl")?;
-    let has_parquet = hf_has_metadata(path, split, "metadata.parquet")?;
-    Ok(has_parquet && !has_jsonl)
+    let has_parquet_layout =
+        hf_has_metadata(path, split, "metadata.parquet")? || hf_has_any_parquet_file(path, split)?;
+    Ok(has_parquet_layout && !has_jsonl)
 }
 
 #[cfg(feature = "hf-parquet")]
@@ -1124,12 +1125,13 @@ fn hf_has_metadata(
         return Ok(false);
     }
 
-    if let Some(split_name) = split {
-        return Ok(path.join(split_name).join(metadata_file_name).is_file());
-    }
-
     if path.join(metadata_file_name).is_file() {
         return Ok(true);
+    }
+
+    if let Some(split_name) = split {
+        let normalized = normalize_split_hint(split_name);
+        return Ok(path.join(&normalized).join(metadata_file_name).is_file());
     }
 
     for entry in std::fs::read_dir(path).map_err(PanlabelError::Io)? {
@@ -1141,6 +1143,90 @@ fn hf_has_metadata(
     }
 
     Ok(false)
+}
+
+#[cfg(feature = "hf-parquet")]
+fn hf_has_any_parquet_file(path: &Path, split: Option<&str>) -> Result<bool, PanlabelError> {
+    if !path.is_dir() {
+        return Ok(false);
+    }
+
+    let normalized_split = split.map(normalize_split_hint);
+
+    for entry in walkdir::WalkDir::new(path).follow_links(true) {
+        let entry = entry.map_err(|source| PanlabelError::HfLayoutInvalid {
+            path: path.to_path_buf(),
+            message: format!("failed while scanning parquet files: {source}"),
+        })?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        let entry_path = entry.path();
+        let is_parquet = entry_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("parquet"))
+            .unwrap_or(false);
+        if !is_parquet {
+            continue;
+        }
+
+        if entry_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.eq_ignore_ascii_case("metadata.parquet"))
+            .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+
+        if let Some(split_name) = normalized_split.as_deref() {
+            if parquet_path_matches_split(entry_path, split_name) {
+                return Ok(true);
+            }
+            continue;
+        }
+
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+#[cfg(feature = "hf-parquet")]
+fn parquet_path_matches_split(path: &Path, split: &str) -> bool {
+    let split = normalize_split_hint(split);
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    if file_name.starts_with(&format!("{split}-")) {
+        return true;
+    }
+
+    path.components().any(|component| {
+        component
+            .as_os_str()
+            .to_str()
+            .map(|value| normalize_split_hint(value) == split)
+            .unwrap_or(false)
+    })
+}
+
+#[cfg(feature = "hf-parquet")]
+fn normalize_split_hint(value: &str) -> String {
+    match value.to_ascii_lowercase().as_str() {
+        "val" | "valid" => "validation".to_string(),
+        "validation" => "validation".to_string(),
+        "train" => "train".to_string(),
+        "test" => "test".to_string(),
+        "dev" => "dev".to_string(),
+        _ => value.to_ascii_lowercase(),
+    }
 }
 
 /// Get a human-readable name for a format.

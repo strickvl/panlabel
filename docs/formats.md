@@ -152,7 +152,8 @@ Writer behavior:
 - Path kind: directory.
 - Accepted local input layout:
   - dataset root containing `metadata.jsonl` or `metadata.parquet`
-  - or split subdirectories (for example `train/`, `validation/`) each containing metadata
+  - split subdirectories (for example `train/`, `validation/`) each containing metadata
+  - parquet shard layouts (for example `data/train-00000-of-00001.parquet`, `data/validation-*.parquet`, or `<config>/<split>/*.parquet`)
 - Remote Hub import is supported in `convert` via `--hf-repo` (requires `hf-remote` feature).
 
 Reader behavior:
@@ -170,7 +171,8 @@ Reader behavior:
 - width/height read from metadata when present, otherwise from image headers
 - duplicate `file_name` rows are rejected
 - when both `metadata.jsonl` and `metadata.parquet` are present, JSONL is preferred
-- when only `metadata.parquet` exists, reading requires `hf-parquet`
+- when no `metadata.jsonl` exists, panlabel can read supported parquet layouts (`metadata.parquet` or split parquet shards) with `hf-parquet`
+- for parquet rows without `file_name`, panlabel derives it from `image.path` (or fallback IDs)
 
 Writer behavior:
 - writes `metadata.jsonl` (one row per image)

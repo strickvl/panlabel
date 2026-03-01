@@ -157,6 +157,10 @@ pub enum PanlabelError {
     #[error("Failed to download from HF Hub ({repo_id}): {message}")]
     HfAcquireError { repo_id: String, message: String },
 
+    #[cfg(feature = "hf-remote")]
+    #[error("Unsupported HF zip payload for {repo_id}: {message}")]
+    HfZipLayoutInvalid { repo_id: String, message: String },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

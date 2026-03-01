@@ -52,6 +52,7 @@ Notes:
 - `--revision`/`--config` require `--hf-repo`.
 - Remote HF import (`--hf-repo`) needs a build with feature `hf-remote` (for full HF support from source: `cargo install panlabel --features hf`).
 - Remote HF parquet datasets commonly use split shard files (for example `data/train-*.parquet`); these are supported with `hf-parquet`.
+- Remote HF zip-style splits (for example `data/train.zip`) are supported when the extracted payload looks like YOLO, VOC, COCO JSON, or HF metadata layout.
 
 ---
 
@@ -152,4 +153,7 @@ panlabel convert --from hf --to coco -i ./hf_dataset -o out.coco.json
 
 # Convert a remote HF dataset repo to IR JSON (requires build with --features hf)
 panlabel convert --from hf --to ir-json --hf-repo rishitdagli/cppe-5 --split train -o out.ir.json
+
+# Zip-style remote dataset (auto-routed after extraction, still invoked as --from hf)
+panlabel convert --from hf --to ir-json --hf-repo keremberke/football-object-detection --split train -o out.ir.json
 ```

@@ -155,6 +155,7 @@ Writer behavior:
   - split subdirectories (for example `train/`, `validation/`) each containing metadata
   - parquet shard layouts (for example `data/train-00000-of-00001.parquet`, `data/validation-*.parquet`, or `<config>/<split>/*.parquet`)
 - Remote Hub import is supported in `convert` via `--hf-repo` (requires `hf-remote` feature).
+- Remote zip-style split archives (for example `data/train.zip`) are also supported when they extract to YOLO, VOC, COCO JSON, or HF metadata layouts.
 
 Reader behavior:
 - object-container auto-detection: `objects` first, then `faces` (override with `--hf-objects-column`)

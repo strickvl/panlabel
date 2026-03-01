@@ -701,103 +701,121 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     let hf_write_options = ir::io_hf_imagefolder::HfWriteOptions {
         bbox_format: args.hf_bbox_format.to_hf_bbox_format(),
     };
+    let mut remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
 
-    let (effective_input, source_display) = if from_format == ConvertFormat::HfImagefolder
-        && args.hf_repo.is_some()
-    {
-        #[cfg(feature = "hf-remote")]
-        {
-            let repo_input = args.hf_repo.as_deref().expect("checked is_some");
-            let repo_ref = hf::resolve::parse_hf_input(
-                repo_input,
-                args.revision.as_deref(),
-                args.config.as_deref(),
-                args.split.as_deref(),
-            )?;
+    let (effective_input, source_display, effective_from_format) =
+        if from_format == ConvertFormat::HfImagefolder && args.hf_repo.is_some() {
+            #[cfg(feature = "hf-remote")]
+            {
+                let repo_input = args.hf_repo.as_deref().expect("checked is_some");
+                let repo_ref = hf::resolve::parse_hf_input(
+                    repo_input,
+                    args.revision.as_deref(),
+                    args.config.as_deref(),
+                    args.split.as_deref(),
+                )?;
 
-            let preflight = hf::preflight::run_preflight(&repo_ref, args.token.as_deref());
-            if preflight.is_none() {
-                eprintln!("Note: HF viewer API unavailable; proceeding with direct download.");
-            }
-
-            if let Some(preflight_data) = preflight.as_ref() {
-                if hf_read_options.objects_column.is_none() {
-                    hf_read_options.objects_column = preflight_data.detected_objects_column.clone();
+                let preflight = hf::preflight::run_preflight(&repo_ref, args.token.as_deref());
+                if preflight.is_none() {
+                    eprintln!("Note: HF viewer API unavailable; proceeding with direct download.");
                 }
 
-                if hf_read_options.category_map.is_empty() {
-                    if let Some(labels) = preflight_data.category_labels.as_ref() {
-                        for (idx, label) in labels.iter().enumerate() {
-                            hf_read_options
-                                .category_map
-                                .insert(idx as i64, label.clone());
+                if let Some(preflight_data) = preflight.as_ref() {
+                    if hf_read_options.objects_column.is_none() {
+                        hf_read_options.objects_column =
+                            preflight_data.detected_objects_column.clone();
+                    }
+
+                    if hf_read_options.category_map.is_empty() {
+                        if let Some(labels) = preflight_data.category_labels.as_ref() {
+                            for (idx, label) in labels.iter().enumerate() {
+                                hf_read_options
+                                    .category_map
+                                    .insert(idx as i64, label.clone());
+                            }
                         }
+                    }
+
+                    if let Some(license) = preflight_data.license.as_ref() {
+                        hf_read_options
+                            .provenance
+                            .insert("hf_license".to_string(), license.clone());
+                    }
+                    if let Some(description) = preflight_data.description.as_ref() {
+                        hf_read_options
+                            .provenance
+                            .insert("hf_description".to_string(), description.clone());
+                    }
+
+                    if hf_read_options.split.is_none() {
+                        hf_read_options.split = preflight_data.selected_split.clone();
                     }
                 }
 
-                if let Some(license) = preflight_data.license.as_ref() {
-                    hf_read_options
-                        .provenance
-                        .insert("hf_license".to_string(), license.clone());
-                }
-                if let Some(description) = preflight_data.description.as_ref() {
-                    hf_read_options
-                        .provenance
-                        .insert("hf_description".to_string(), description.clone());
-                }
-
-                if hf_read_options.split.is_none() {
-                    hf_read_options.split = preflight_data.selected_split.clone();
-                }
-            }
-
-            let acquired =
-                hf::acquire::acquire(&repo_ref, preflight.as_ref(), args.token.as_deref())?;
-            let revision = repo_ref
-                .revision
-                .clone()
-                .unwrap_or_else(|| "main".to_string());
-            hf_read_options
-                .provenance
-                .insert("hf_repo_id".to_string(), repo_ref.repo_id.clone());
-            hf_read_options
-                .provenance
-                .insert("hf_revision".to_string(), revision);
-            hf_read_options.provenance.insert(
-                "hf_bbox_format".to_string(),
-                args.hf_bbox_format.to_hf_bbox_format().as_str().to_string(),
-            );
-            if let Some(split_name) = acquired
-                .split_name
-                .clone()
-                .or_else(|| repo_ref.split.clone())
-            {
+                let acquired =
+                    hf::acquire::acquire(&repo_ref, preflight.as_ref(), args.token.as_deref())?;
+                let revision = repo_ref
+                    .revision
+                    .clone()
+                    .unwrap_or_else(|| "main".to_string());
                 hf_read_options
                     .provenance
-                    .insert("hf_split".to_string(), split_name);
-            }
+                    .insert("hf_repo_id".to_string(), repo_ref.repo_id.clone());
+                hf_read_options
+                    .provenance
+                    .insert("hf_revision".to_string(), revision);
+                hf_read_options.provenance.insert(
+                    "hf_bbox_format".to_string(),
+                    args.hf_bbox_format.to_hf_bbox_format().as_str().to_string(),
+                );
+                if let Some(split_name) = acquired
+                    .split_name
+                    .clone()
+                    .or_else(|| repo_ref.split.clone())
+                {
+                    hf_read_options
+                        .provenance
+                        .insert("hf_split".to_string(), split_name);
+                }
+                remote_hf_provenance = Some(hf_read_options.provenance.clone());
 
-            (
-                acquired.split_dir,
-                args.hf_repo.clone().expect("checked is_some"),
-            )
-        }
-        #[cfg(not(feature = "hf-remote"))]
-        {
-            return Err(PanlabelError::UnsupportedFormat(
-                "remote HF import requires the 'hf-remote' feature".to_string(),
-            ));
-        }
-    } else {
-        let input = args.input.clone().ok_or_else(|| {
-            PanlabelError::UnsupportedFormat("missing required --input <path>".to_string())
-        })?;
-        let display = input.display().to_string();
-        (input, display)
-    };
+                if acquired.payload_format == hf::acquire::HfAcquirePayloadFormat::HfImagefolder
+                    && hf_read_options.split.is_some()
+                    && (acquired.payload_path.join("metadata.jsonl").is_file()
+                        || acquired.payload_path.join("metadata.parquet").is_file())
+                {
+                    hf_read_options.split = None;
+                }
+
+                (
+                    acquired.payload_path,
+                    args.hf_repo.clone().expect("checked is_some"),
+                    remote_payload_to_convert_format(acquired.payload_format),
+                )
+            }
+            #[cfg(not(feature = "hf-remote"))]
+            {
+                return Err(PanlabelError::UnsupportedFormat(
+                    "remote HF import requires the 'hf-remote' feature".to_string(),
+                ));
+            }
+        } else {
+            let input = args.input.clone().ok_or_else(|| {
+                PanlabelError::UnsupportedFormat("missing required --input <path>".to_string())
+            })?;
+            let display = input.display().to_string();
+            (input, display, from_format)
+        };
 
     // Step 1: Read the dataset
-    let dataset = read_dataset_with_options(from_format, &effective_input, &hf_read_options)?;
+    let mut dataset = if effective_from_format == ConvertFormat::HfImagefolder {
+        read_dataset_with_options(effective_from_format, &effective_input, &hf_read_options)?
+    } else {
+        read_dataset(effective_from_format, &effective_input)?
+    };
+    if let Some(provenance) = remote_hf_provenance {
+        dataset.info.attributes.extend(provenance);
+    }
 
     // Step 2: Optionally validate the input
     if !args.no_validate {
@@ -825,13 +843,13 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     // Step 3: Build conversion report and check for lossiness
     let conv_report = conversion::build_conversion_report(
         &dataset,
-        from_format.to_conversion_format(),
+        effective_from_format.to_conversion_format(),
         args.to.to_conversion_format(),
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
         return Err(PanlabelError::LossyConversionBlocked {
-            from: format_name(from_format).to_string(),
+            from: format_name(effective_from_format).to_string(),
             to: format_name(args.to).to_string(),
             report: Box::new(conv_report),
         });
@@ -846,7 +864,7 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
             println!(
                 "Converted {} ({}) -> {} ({})",
                 source_display,
-                format_name(from_format),
+                format_name(effective_from_format),
                 args.output.display(),
                 format_name(args.to)
             );
@@ -860,6 +878,16 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     }
 
     Ok(())
+}
+
+#[cfg(feature = "hf-remote")]
+fn remote_payload_to_convert_format(payload: hf::acquire::HfAcquirePayloadFormat) -> ConvertFormat {
+    match payload {
+        hf::acquire::HfAcquirePayloadFormat::HfImagefolder => ConvertFormat::HfImagefolder,
+        hf::acquire::HfAcquirePayloadFormat::Yolo => ConvertFormat::Yolo,
+        hf::acquire::HfAcquirePayloadFormat::Voc => ConvertFormat::Voc,
+        hf::acquire::HfAcquirePayloadFormat::Coco => ConvertFormat::Coco,
+    }
 }
 
 fn resolve_from_format(

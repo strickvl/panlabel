@@ -7,20 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-03-01
 
-Improves Hugging Face dataset support and release/distribution readiness.
+First Hugging Face Datasets release for panlabel, including local and remote HF ingestion.
 
 ### Added
 
-- HF zip-style remote split import fallback (for repos shipping `train.zip`/`valid.zip`/`test.zip` layouts)
-- Remote payload auto-routing to existing COCO/YOLO/VOC/HF readers after extraction
-- Safer zip extraction guards (path traversal protection plus extraction limits)
-- Broader remote HF support for split parquet shard layouts in acquisition flow
+- **HF ImageFolder format support (`hf`)** in `convert`, `validate`, and `list-formats`
+- Local HF metadata ingestion:
+  - `metadata.jsonl` read/write
+  - `metadata.parquet` read (feature-gated)
+  - split-parquet shard layout support
+- Remote HF Hub ingestion in `convert` via `--hf-repo`, including:
+  - repo ID/URL resolution
+  - viewer preflight metadata probing
+  - authenticated acquisition with `--token`/`HF_TOKEN`
+- HF-specific CLI options:
+  - `--hf-bbox-format`, `--hf-objects-column`, `--hf-category-map`
+  - `--hf-repo`, `--split`, `--revision`, `--config`, `--token`
+- HF provenance attributes on datasets (repo/revision/split/license/description context)
+- Zip-style remote split fallback (for repos shipping `train.zip`/`valid.zip`/`test.zip`) with payload routing to COCO/YOLO/VOC/HF readers
+- Safer zip extraction guards (path traversal checks + extraction limits)
 
 ### Changed
 
 - COCO reader now accepts `info.year` as either integer or string
-- Improved remote HF provenance propagation across routed payload formats
-- CI/clippy compatibility fixes for feature-gated builds
+- Improved clippy/CI compatibility for feature-gated builds
 
 ## [0.2.0] - 2026-03-01
 

@@ -111,19 +111,18 @@ proptest! {
     }
 }
 
+type VocAttrSem = (
+    proptest_helpers::AnnSem,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 fn voc_attr_signatures(
     dataset: &panlabel::ir::Dataset,
     normalize_bools: bool,
-) -> Result<
-    Vec<(
-        proptest_helpers::AnnSem,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-    )>,
-    String,
-> {
+) -> Result<Vec<VocAttrSem>, String> {
     let image_by_id: BTreeMap<_, _> = dataset
         .images
         .iter()

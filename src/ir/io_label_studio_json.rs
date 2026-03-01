@@ -478,6 +478,7 @@ fn select_prediction_results(
     Ok(sets.pop().map(|set| set.result).unwrap_or_default())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn parse_result(
     result: &LsResult,
     path: &Path,

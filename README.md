@@ -126,6 +126,36 @@ Want to go deeper? The full docs are readable right here on GitHub:
 cargo bench    # Run Criterion benchmarks (COCO parsing, TFOD writing)
 ```
 
+## Testing and fuzzing
+
+```sh
+cargo test                             # unit + integration + proptests
+cargo test --test proptest_ir_json
+cargo test --test proptest_coco
+cargo test --test proptest_tfod
+cargo test --test proptest_label_studio
+cargo test --test proptest_voc
+cargo test --test proptest_yolo
+cargo test --test proptest_cross_format
+
+PROPTEST_CASES=1000 cargo test --test proptest_ir_json   # deeper local exploration
+```
+
+Fuzzing (nightly + `cargo-fuzz`):
+
+> Note: `fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the YOLO line-parser fuzz entrypoint is available to the fuzz crate.
+
+```sh
+cargo +nightly fuzz run coco_json_parse
+cargo +nightly fuzz run voc_xml_parse
+cargo +nightly fuzz run tfod_csv_parse
+cargo +nightly fuzz run label_studio_json_parse
+cargo +nightly fuzz run ir_json_parse
+cargo +nightly fuzz run yolo_label_line_parse
+```
+
+Seed corpora are tracked under `fuzz/corpus/<target>/`.
+
 ## Generating synthetic test data
 
 Need test data? The included generator creates realistic COCO and TFOD datasets:

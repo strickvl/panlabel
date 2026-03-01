@@ -143,9 +143,16 @@ pub fn write_tfod_csv(path: &Path, dataset: &Dataset) -> Result<(), PanlabelErro
 ///
 /// Useful for testing without file I/O.
 pub fn from_tfod_csv_str(csv_str: &str) -> Result<Dataset, PanlabelError> {
-    let mut csv_reader = csv::Reader::from_reader(csv_str.as_bytes());
+    from_tfod_csv_slice(csv_str.as_bytes())
+}
+
+/// Reads a dataset from TFOD CSV bytes.
+///
+/// Useful for fuzzing and processing raw bytes without requiring UTF-8 upfront.
+pub fn from_tfod_csv_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    let mut csv_reader = csv::Reader::from_reader(bytes);
     let mut rows = Vec::new();
-    let dummy_path = Path::new("<string>");
+    let dummy_path = Path::new("<bytes>");
 
     for result in csv_reader.deserialize() {
         let row: TfodRow = result.map_err(|source| PanlabelError::TfodCsvParse {
@@ -451,6 +458,17 @@ mod tests {
             assert!((orig_ann.bbox.xmax() - rest_ann.bbox.xmax()).abs() < 0.01);
             assert!((orig_ann.bbox.ymax() - rest_ann.bbox.ymax()).abs() < 0.01);
         }
+    }
+
+    #[test]
+    fn test_from_slice_roundtrip() {
+        let original = from_tfod_csv_str(sample_tfod_csv()).expect("parse failed");
+        let csv_str = to_tfod_csv_string(&original).expect("serialize failed");
+        let restored = from_tfod_csv_slice(csv_str.as_bytes()).expect("parse failed");
+
+        assert_eq!(original.images, restored.images);
+        assert_eq!(original.categories, restored.categories);
+        assert_eq!(original.annotations.len(), restored.annotations.len());
     }
 
     #[test]

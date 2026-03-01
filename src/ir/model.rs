@@ -16,7 +16,7 @@ use super::space::Pixel;
 /// This is the central data structure that all format conversions work through.
 /// Think of it as the "AST" in a compiler - formats parse into this representation,
 /// and this representation renders out to target formats.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Dataset {
     /// Metadata about the dataset (name, version, license, etc.)
     #[serde(default)]
@@ -37,7 +37,7 @@ pub struct Dataset {
 }
 
 /// Metadata about the dataset.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct DatasetInfo {
     /// Optional name of the dataset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,7 +82,7 @@ impl DatasetInfo {
 }
 
 /// A license that can be associated with images in the dataset.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct License {
     /// Unique identifier for this license.
     pub id: LicenseId,
@@ -120,7 +120,7 @@ impl License {
 }
 
 /// An image in the dataset.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Image {
     /// Unique identifier for this image.
     pub id: ImageId,
@@ -186,7 +186,7 @@ impl From<u64> for ImageId {
 }
 
 /// A category (class label) in the dataset.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Category {
     /// Unique identifier for this category.
     pub id: CategoryId,
@@ -230,7 +230,7 @@ impl From<u64> for CategoryId {
 }
 
 /// An annotation (bounding box with label) in the dataset.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Annotation {
     /// Unique identifier for this annotation.
     pub id: AnnotationId,

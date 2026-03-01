@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 
 [dependencies.panlabel]
 path = ".."
+features = ["fuzzing"]
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -27,6 +28,34 @@ bench = false
 [[bin]]
 name = "voc_xml_parse"
 path = "fuzz_targets/voc_xml_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tfod_csv_parse"
+path = "fuzz_targets/tfod_csv_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "label_studio_json_parse"
+path = "fuzz_targets/label_studio_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ir_json_parse"
+path = "fuzz_targets/ir_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "yolo_label_line_parse"
+path = "fuzz_targets/yolo_label_line_parse.rs"
 test = false
 doc = false
 bench = false

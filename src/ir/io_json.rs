@@ -55,6 +55,13 @@ pub fn from_json_str(json: &str) -> Result<Dataset, serde_json::Error> {
     serde_json::from_str(json)
 }
 
+/// Reads a dataset from JSON bytes in the panlabel IR format.
+///
+/// Useful for fuzzing and processing raw bytes without manual UTF-8 handling.
+pub fn from_json_slice(bytes: &[u8]) -> Result<Dataset, serde_json::Error> {
+    serde_json::from_slice(bytes)
+}
+
 /// Writes a dataset to a JSON string in the panlabel IR format.
 ///
 /// Useful for testing without file I/O.
@@ -121,6 +128,15 @@ mod tests {
         assert_eq!(restored.images[0].file_name, "image001.jpg");
         assert_eq!(restored.categories[1].supercategory, Some("animal".into()));
         assert_eq!(restored.annotations[1].confidence, Some(0.95));
+    }
+
+    #[test]
+    fn test_json_slice_roundtrip() {
+        let original = sample_dataset();
+        let json = to_json_string(&original).expect("serialization failed");
+        let restored = from_json_slice(json.as_bytes()).expect("slice deserialization failed");
+
+        assert_eq!(original, restored);
     }
 
     #[test]

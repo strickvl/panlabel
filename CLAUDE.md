@@ -20,9 +20,18 @@ cargo run -- -V          # Run with arguments (e.g., version flag)
 
 ### Testing
 ```bash
-cargo test               # Run all tests (unit + integration)
+cargo test               # Run all tests (unit + integration + proptests)
 cargo test --test cli    # Run only CLI integration tests
+cargo test --test proptest_ir_json
+cargo test --test proptest_coco
+cargo test --test proptest_tfod
+cargo test --test proptest_label_studio
+cargo test --test proptest_voc
+cargo test --test proptest_yolo
+cargo test --test proptest_cross_format
 cargo test runs          # Run a single test by name
+
+PROPTEST_CASES=1000 cargo test --test proptest_ir_json   # deeper local run
 ```
 
 ### Development
@@ -41,8 +50,15 @@ cargo bench -- --test    # Smoke test benchmarks (no timing)
 
 ### Fuzzing (requires nightly)
 ```bash
-cargo +nightly fuzz run coco_json_parse    # Fuzz COCO JSON parser
+cargo +nightly fuzz run coco_json_parse          # Fuzz COCO JSON parser
+cargo +nightly fuzz run voc_xml_parse            # Fuzz VOC XML parser
+cargo +nightly fuzz run tfod_csv_parse           # Fuzz TFOD CSV parser
+cargo +nightly fuzz run label_studio_json_parse  # Fuzz Label Studio parser
+cargo +nightly fuzz run ir_json_parse            # Fuzz IR JSON parser
+cargo +nightly fuzz run yolo_label_line_parse    # Fuzz YOLO line parser
 ```
+
+`fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the fuzz-only YOLO parser wrapper is available from the fuzz crate.
 
 ### Generate Test Data
 ```bash
@@ -82,16 +98,23 @@ src/
 
 tests/
 ├── cli.rs              # CLI integration tests using assert_cmd
+├── common/mod.rs       # Shared BMP helpers for YOLO-related tests
+├── proptest_helpers/mod.rs # Shared proptest strategies + semantic assertions
+├── proptest_*.rs       # Property tests per adapter + cross-format subset checks
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
 ├── label_studio_roundtrip.rs # Label Studio format roundtrip tests
 └── fixtures/           # Test fixture files
 
+proptest-regressions/
+└── ...                 # Committed proptest shrinking regressions
+
 benches/
 └── microbenches.rs     # Criterion benchmarks for parsing/writing
 
 fuzz/
+├── corpus/             # Seed corpora per fuzz target
 └── fuzz_targets/       # cargo-fuzz targets for parser fuzzing
 
 scripts/

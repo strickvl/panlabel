@@ -34,8 +34,8 @@ before expanding to new annotation tasks (segmentation, classification).
 
 ### Testing & robustness
 
-- ⏳ Property-based testing (proptest: random IR → write → read → roundtrip compare)
-- ⏳ Expand fuzz targets for new format parsers
+- ✅ Property-based testing (proptest: IR JSON exact roundtrip, plus semantic roundtrip/idempotency checks for COCO, TFOD, Label Studio, VOC, and YOLO)
+- ✅ Expanded fuzz targets for parser surfaces (COCO JSON, VOC XML, TFOD CSV, Label Studio JSON, IR JSON, YOLO line parser)
 
 ### UX / CLI
 

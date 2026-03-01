@@ -47,8 +47,8 @@ behavior lives:
 | Lossiness logic | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | User-visible CLI behavior tests | `tests/cli.rs` |
-| YOLO roundtrip behavior tests | `tests/yolo_roundtrip.rs` |
-| VOC roundtrip behavior tests | `tests/voc_roundtrip.rs` |
-| Label Studio roundtrip behavior tests | `tests/label_studio_roundtrip.rs` |
+| Format roundtrip behavior tests | `tests/*_roundtrip.rs` |
+| Property-based adapter invariants | `tests/proptest_*.rs` + `tests/proptest_helpers/mod.rs` |
+| Fuzz parser coverage | `fuzz/fuzz_targets/*.rs` + `fuzz/corpus/*` |
 
 Design notes in `design/` (for example `design/label-studio-plan.md`) are historical background only. For implemented behavior, prefer code + tests + these docs.

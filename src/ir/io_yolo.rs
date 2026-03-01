@@ -513,7 +513,8 @@ fn parse_label_line(
         return Ok(None);
     }
 
-    let tokens: Vec<&str> = trimmed.split_whitespace().collect();
+    // Take at most 6 tokens so pathological inputs do not allocate unbounded memory.
+    let tokens: Vec<&str> = trimmed.split_whitespace().take(6).collect();
 
     if tokens.len() < 5 {
         return Err(PanlabelError::YoloLabelParse {
@@ -555,6 +556,13 @@ fn parse_label_line(
         w,
         h,
     }))
+}
+
+/// Fuzz-only entrypoint for YOLO single-line parsing.
+#[cfg(feature = "fuzzing")]
+pub fn fuzz_parse_label_line(input: &str) -> Result<(), PanlabelError> {
+    let _ = parse_label_line(input, Path::new("<fuzz>"), 1)?;
+    Ok(())
 }
 
 fn parse_f64_token(

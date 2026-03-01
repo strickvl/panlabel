@@ -26,6 +26,7 @@ before expanding to new annotation tasks (segmentation, classification).
 - ✅ CVAT XML
 - ⏳ Broader YOLO family variants only when they fit IR safely
 - ✅ Hugging Face Datasets ImageFolder (`metadata.jsonl` + `metadata.parquet`) — local read/write support (`metadata.jsonl`) plus optional Parquet/remote Hub import support (`--hf-repo` in `convert`, feature-gated in source builds)
+- ✅ HF zip-style remote split archives (`*.zip`) in `convert` with payload routing to supported layouts (COCO/YOLO/VOC/HF)
 
 ### CLI commands
 

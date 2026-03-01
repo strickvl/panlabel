@@ -3,12 +3,12 @@
 ## Project Structure & Module Organization
 - `src/lib.rs` is the library entry point with CLI command dispatch.
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
-- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for Ultralytics-style YOLO.
+- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for Ultralytics-style YOLO and `src/ir/io_voc_xml.rs` for Pascal VOC XML.
 - `src/conversion/` contains conversion lossiness analysis and stable report issue codes.
 - `src/inspect/` contains dataset inspection/statistics logic.
 - `src/validation/` contains dataset validation logic.
 - `tests/cli.rs` contains CLI integration tests using `assert_cmd`.
-- `tests/tfod_csv_roundtrip.rs` and `tests/yolo_roundtrip.rs` cover format-specific integration behavior.
+- `tests/tfod_csv_roundtrip.rs`, `tests/yolo_roundtrip.rs`, and `tests/voc_roundtrip.rs` cover format-specific integration behavior.
 - `docs/` is the durable documentation home for users and contributors.
 - `benches/` contains Criterion benchmarks.
 - `fuzz/` contains cargo-fuzz targets for parser fuzzing.
@@ -31,6 +31,7 @@ cargo doc --open         # Build and view docs
 cargo bench              # Run Criterion benchmarks
 cargo bench -- --test    # Smoke test benchmarks
 cargo +nightly fuzz run coco_json_parse  # Fuzz COCO parser (requires nightly)
+cargo +nightly fuzz run voc_xml_parse    # Fuzz Pascal VOC XML parser (requires nightly)
 
 python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10 --output_dir ./assets
 ```
@@ -52,10 +53,10 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 
 ## Docs Workflow
 - If you change CLI behavior, update `docs/cli.md` and relevant README examples in the same change.
-- If you change format behavior (COCO/TFOD/YOLO/IR), update `docs/formats.md`.
+- If you change format behavior (COCO/TFOD/YOLO/VOC/IR), update `docs/formats.md`.
 - If you change task/use-case support (detection vs segmentation/classification/etc.), update `docs/tasks.md`.
 - If you change conversion/lossiness/report codes, update `docs/conversion.md`.
-- Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`), since user-visible behavior is asserted there.
+- Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`), since user-visible behavior is asserted there.
 - Keep forward-looking priorities in `ROADMAP.md` (separate from current-behavior docs).
 
 ## Configuration & Data Tips

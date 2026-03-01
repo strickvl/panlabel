@@ -224,6 +224,7 @@ fn coco_to_ir(coco: CocoDataset) -> Dataset {
             year: coco_info.year,
             contributor: coco_info.contributor,
             date_created: coco_info.date_created,
+            attributes: BTreeMap::new(),
         }
     } else {
         DatasetInfo::default()

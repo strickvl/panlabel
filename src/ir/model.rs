@@ -66,6 +66,10 @@ pub struct DatasetInfo {
     /// Optional date the dataset was created (ISO 8601 or similar).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date_created: Option<String>,
+
+    /// Adapter-specific dataset attributes and provenance metadata.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub attributes: BTreeMap<String, String>,
 }
 
 impl DatasetInfo {
@@ -78,6 +82,7 @@ impl DatasetInfo {
             && self.year.is_none()
             && self.contributor.is_none()
             && self.date_created.is_none()
+            && self.attributes.is_empty()
     }
 }
 

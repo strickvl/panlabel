@@ -114,6 +114,30 @@ fn create_sample_cvat_export(root: &Path) {
     fs::write(root.join("annotations.xml"), xml).expect("write cvat annotations.xml");
 }
 
+fn create_sample_hf_dataset(root: &Path, xyxy: bool) {
+    fs::create_dir_all(root).expect("create hf root");
+    write_bmp(&root.join("img1.bmp"), 100, 80);
+    write_bmp(&root.join("img2.bmp"), 50, 40);
+
+    let bbox_row_1 = if xyxy {
+        "[[10,20,50,70]]"
+    } else {
+        "[[10,20,40,50]]"
+    };
+    let bbox_row_2 = if xyxy {
+        "[[5,5,20,20]]"
+    } else {
+        "[[5,5,15,15]]"
+    };
+
+    let metadata = format!(
+        "{{\"file_name\":\"img1.bmp\",\"width\":100,\"height\":80,\"objects\":{{\"bbox\":{},\"categories\":[\"person\"]}}}}\n{{\"file_name\":\"img2.bmp\",\"width\":50,\"height\":40,\"objects\":{{\"bbox\":{},\"categories\":[\"car\"]}}}}\n",
+        bbox_row_1, bbox_row_2
+    );
+
+    fs::write(root.join("metadata.jsonl"), metadata).expect("write hf metadata");
+}
+
 #[test]
 fn runs() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -405,6 +429,18 @@ fn validate_cvat_alias_works() {
         "--format",
         "cvat-xml",
     ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_hf_dataset_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_hf_dataset(temp.path(), false);
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["validate", temp.path().to_str().unwrap(), "--format", "hf"]);
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("Validation passed"));
@@ -800,6 +836,110 @@ fn convert_from_yolo_alias_works() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_hf_to_ir_json_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let hf_dir = temp.path().join("sample_hf");
+    create_sample_hf_dataset(&hf_dir, false);
+    let output_path = temp.path().join("hf_to_ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "hf",
+        "-t",
+        "ir-json",
+        "-i",
+        hf_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(hf)"));
+}
+
+#[test]
+fn convert_hf_xyxy_bbox_flag_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let hf_dir = temp.path().join("sample_hf_xyxy");
+    create_sample_hf_dataset(&hf_dir, true);
+    let output_path = temp.path().join("hf_xyxy_to_ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "hf",
+        "-t",
+        "ir-json",
+        "-i",
+        hf_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+        "--hf-bbox-format",
+        "xyxy",
+    ]);
+    cmd.assert().success();
+}
+
+#[test]
+fn convert_hf_specific_flags_fail_for_non_hf_formats() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("bad_flags.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--hf-objects-column",
+        "objects",
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("HF-specific flags"));
+}
+
+#[test]
+fn convert_hf_repo_requires_hf_remote_feature() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("hf_repo.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "hf",
+        "-t",
+        "ir-json",
+        "--hf-repo",
+        "org/dataset",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+
+    #[cfg(feature = "hf-remote")]
+    {
+        // With hf-remote enabled this will attempt network access and fail on missing repo.
+        cmd.assert().failure();
+    }
+
+    #[cfg(not(feature = "hf-remote"))]
+    {
+        cmd.assert()
+            .failure()
+            .stderr(predicates::str::contains("hf-remote"));
+    }
 }
 
 #[test]
@@ -1653,6 +1793,7 @@ fn list_formats_shows_all_formats() {
         .stdout(predicates::str::contains("tfod"))
         .stdout(predicates::str::contains("yolo"))
         .stdout(predicates::str::contains("voc"))
+        .stdout(predicates::str::contains("hf"))
         .stdout(predicates::str::contains("Supported formats"));
 }
 
@@ -1898,6 +2039,56 @@ fn convert_auto_detects_cvat_directory() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(cvat)"));
+}
+
+#[test]
+fn convert_auto_detects_hf_directory() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let hf_dir = temp.path().join("sample_hf");
+    create_sample_hf_dataset(&hf_dir, false);
+    let output_path = temp.path().join("auto_detect_hf.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        hf_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(hf)"));
+}
+
+#[test]
+fn convert_auto_detect_errors_on_hf_yolo_ambiguity() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_hf_dataset(temp.path(), false);
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+    fs::write(temp.path().join("labels/img1.txt"), "0 0.5 0.5 0.2 0.2\n").expect("write label");
+
+    let output_path = temp.path().join("auto_detect_ambiguous_hf_yolo.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("matches both HF and YOLO"));
 }
 
 #[test]

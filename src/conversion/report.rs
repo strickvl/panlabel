@@ -197,6 +197,14 @@ pub enum ConversionIssueCode {
     /// Annotation attributes (other than area/iscrowd) may not be preserved by COCO tools.
     CocoAttributesMayNotBePreserved,
 
+    // IR -> HF lossiness
+    /// HF metadata cannot represent all IR dataset metadata/licensing fields.
+    HfMetadataLost,
+    /// HF metadata loses annotation/image attributes not in the flat schema.
+    HfAttributesLost,
+    /// HF metadata does not represent annotation confidence scores.
+    HfConfidenceLost,
+
     // Policy decisions (Info level)
     /// TFOD reader assigns IDs by lexicographic ordering.
     TfodReaderIdAssignment,
@@ -240,6 +248,10 @@ pub enum ConversionIssueCode {
     CvatReaderAttributePolicy,
     /// CVAT writer default metadata block policy.
     CvatWriterMetaDefaults,
+    /// HF reader category-name resolution precedence.
+    HfReaderCategoryResolution,
+    /// HF writer deterministic output ordering policy.
+    HfWriterDeterministicOrder,
 }
 
 #[cfg(test)]

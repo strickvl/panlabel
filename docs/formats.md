@@ -20,6 +20,7 @@ Current scope: **object detection** bounding boxes only.
 | `tfod` | file (`.csv`) | yes | yes | lossy |
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
 | `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
+| `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
 
 ## IR JSON (`ir-json`)
 
@@ -145,6 +146,44 @@ Writer behavior:
   - `true`/`yes`/`1` -> `1`
   - `false`/`no`/`0` -> `0`
   - any other value -> omitted
+
+## Hugging Face ImageFolder metadata (`hf` / `hf-imagefolder` / `huggingface`)
+
+- Path kind: directory.
+- Accepted local input layout:
+  - dataset root containing `metadata.jsonl` or `metadata.parquet`
+  - or split subdirectories (for example `train/`, `validation/`) each containing metadata
+- Remote Hub import is supported in `convert` via `--hf-repo` (requires `hf-remote` feature).
+
+Reader behavior:
+- object-container auto-detection: `objects` first, then `faces` (override with `--hf-objects-column`)
+- category field aliases: `categories` or `category`
+- category values may be names or integer IDs
+- integer category name resolution precedence:
+  - preflight ClassLabel names (remote)
+  - then `--hf-category-map`
+  - then integer fallback (`"0"`, `"1"`, ...)
+- bbox interpretation is controlled by `--hf-bbox-format`:
+  - `xywh` (default) treats bbox as `[x, y, width, height]`
+  - `xyxy` treats bbox as `[x1, y1, x2, y2]`
+- keeps bbox rows as parsed (validation reports degenerate/OOB issues later)
+- width/height read from metadata when present, otherwise from image headers
+- duplicate `file_name` rows are rejected
+- when both `metadata.jsonl` and `metadata.parquet` are present, JSONL is preferred
+- when only `metadata.parquet` exists, reading requires `hf-parquet`
+
+Writer behavior:
+- writes `metadata.jsonl` (one row per image)
+- writes `file_name`, `width`, `height`, and `objects.{bbox,categories}`
+- deterministic output ordering:
+  - metadata rows by image `file_name` (lexicographic)
+  - per-image annotation lists by annotation ID
+- does **not** copy image binaries
+- output bbox format follows `--hf-bbox-format` (`xywh` default)
+
+IR provenance notes:
+- reader stores HF provenance in `Dataset.info.attributes` (for example `hf_bbox_format`)
+- remote imports may also populate `hf_repo_id`, `hf_revision`, `hf_split`, `hf_license`, `hf_description`
 
 ## CVAT XML (`cvat` / `cvat-xml`)
 

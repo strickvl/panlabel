@@ -22,6 +22,7 @@ Format-level lossiness relative to IR:
 - `tfod`: lossy
 - `yolo`: lossy
 - `voc`: lossy
+- `hf`: lossy
 
 The format-level class is a general capability signal. Conversions are actually blocked only when the report contains one or more `warning` issues.
 
@@ -60,6 +61,9 @@ These codes are designed to be stable for programmatic use.
 | `drop_dataset_info_name` | `info.name` has no COCO equivalent |
 | `coco_attributes_may_not_be_preserved` | Some COCO-tool roundtrips may not preserve nonstandard attributes |
 | `label_studio_rotation_dropped` | Rotated Label Studio boxes are flattened to axis-aligned envelopes; angle is kept as `ls_rotation_deg` attribute |
+| `hf_metadata_lost` | HF metadata cannot represent full IR dataset metadata/licenses/supercategory fields |
+| `hf_attributes_lost` | HF metadata drops image/annotation attributes outside its flat schema |
+| `hf_confidence_lost` | HF metadata does not preserve annotation confidence |
 
 ### Info codes
 
@@ -85,6 +89,8 @@ These codes are designed to be stable for programmatic use.
 | `cvat_reader_id_assignment` | CVAT reader deterministic ID assignment policy |
 | `cvat_reader_attribute_policy` | CVAT reader coordinate + attribute mapping policy |
 | `cvat_writer_meta_defaults` | CVAT writer minimal `<meta>` block policy |
+| `hf_reader_category_resolution` | HF reader category-name resolution precedence policy |
+| `hf_writer_deterministic_order` | HF writer deterministic metadata/annotation ordering policy |
 
 ## Practical guidance
 

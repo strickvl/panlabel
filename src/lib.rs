@@ -67,6 +67,9 @@ enum ConvertFormat {
         alias = "yolov5"
     )]
     Yolo,
+    /// Pascal VOC XML format (directory-based).
+    #[value(name = "voc", alias = "pascal-voc", alias = "voc-xml")]
+    Voc,
 }
 
 impl ConvertFormat {
@@ -77,6 +80,7 @@ impl ConvertFormat {
             ConvertFormat::Coco => conversion::Format::Coco,
             ConvertFormat::Tfod => conversion::Format::Tfod,
             ConvertFormat::Yolo => conversion::Format::Yolo,
+            ConvertFormat::Voc => conversion::Format::Voc,
         }
     }
 }
@@ -104,6 +108,9 @@ enum ConvertFromFormat {
         alias = "yolov5"
     )]
     Yolo,
+    /// Pascal VOC XML format (directory-based).
+    #[value(name = "voc", alias = "pascal-voc", alias = "voc-xml")]
+    Voc,
 }
 
 impl ConvertFromFormat {
@@ -115,6 +122,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::Coco => Some(ConvertFormat::Coco),
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
+            ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
         }
     }
 }
@@ -137,7 +145,7 @@ struct ValidateArgs {
     /// Input path to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'tfod', or 'yolo').
+    /// Input format ('ir-json', 'coco', 'tfod', 'yolo', or 'voc').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -156,7 +164,7 @@ struct InspectArgs {
     /// Input path to inspect.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', or 'tfod').
+    /// Input format ('ir-json', 'coco', 'tfod', 'yolo', or 'voc').
     #[arg(long, value_enum, default_value = "ir-json")]
     format: ConvertFormat,
 
@@ -209,7 +217,7 @@ struct ConvertArgs {
 #[derive(clap::Args)]
 struct ListFormatsArgs {}
 
-const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, tfod, yolo";
+const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, tfod, yolo, voc";
 
 /// Run the panlabel CLI.
 ///
@@ -259,6 +267,7 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
         "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
         "tfod" | "tfod-csv" => ir::io_tfod_csv::read_tfod_csv(&args.input)?,
         "yolo" | "ultralytics" | "yolov8" | "yolov5" => ir::io_yolo::read_yolo_dir(&args.input)?,
+        "voc" | "pascal-voc" | "voc-xml" => ir::io_voc_xml::read_voc_dir(&args.input)?,
         other => {
             return Err(PanlabelError::UnsupportedFormat(format!(
                 "'{}' (supported: {})",
@@ -386,6 +395,7 @@ fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, Panla
         ConvertFormat::Coco => ir::io_coco_json::read_coco_json(path),
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir(path),
+        ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
     }
 }
 
@@ -400,6 +410,7 @@ fn write_dataset(
         ConvertFormat::Coco => ir::io_coco_json::write_coco_json(path, dataset),
         ConvertFormat::Tfod => ir::io_tfod_csv::write_tfod_csv(path, dataset),
         ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
+        ConvertFormat::Voc => ir::io_voc_xml::write_voc_dir(path, dataset),
     }
 }
 
@@ -410,6 +421,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Coco => "coco",
         ConvertFormat::Tfod => "tfod",
         ConvertFormat::Yolo => "yolo",
+        ConvertFormat::Voc => "voc",
     }
 }
 
@@ -443,6 +455,7 @@ fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
             ConvertFormat::Yolo,
             "Ultralytics YOLO .txt (directory-based)",
         ),
+        (ConvertFormat::Voc, "Pascal VOC XML (directory-based)"),
     ];
 
     for (fmt, description) in formats {
@@ -499,21 +512,52 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
 
 fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     let labels_subdir = path.join("labels");
-    if labels_subdir.is_dir() && dir_contains_txt_files(&labels_subdir)? {
+    let is_yolo = (labels_subdir.is_dir() && dir_contains_txt_files(&labels_subdir)?)
+        || (is_labels_dir(path) && dir_contains_txt_files(path)?);
+
+    let annotations_subdir = path.join("Annotations");
+    let images_subdir = path.join("JPEGImages");
+    let is_voc = (annotations_subdir.is_dir()
+        && images_subdir.is_dir()
+        && dir_contains_xml_files(&annotations_subdir)?)
+        || (is_annotations_dir(path)
+            && path
+                .parent()
+                .map(|parent| parent.join("JPEGImages").is_dir())
+                .unwrap_or(false)
+            && dir_contains_xml_files(path)?);
+
+    if is_yolo && is_voc {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "directory matches both YOLO and VOC layouts. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    }
+
+    if is_yolo {
         return Ok(ConvertFormat::Yolo);
     }
 
-    if is_labels_dir(path) && dir_contains_txt_files(path)? {
-        return Ok(ConvertFormat::Yolo);
+    if is_voc {
+        return Ok(ConvertFormat::Voc);
     }
 
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files or VOC Annotations/ with .xml files plus JPEGImages/). Use --from to specify format explicitly.".to_string(),
     })
 }
 
 fn dir_contains_txt_files(path: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_extension_files(path, "txt")
+}
+
+fn dir_contains_xml_files(path: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_extension_files(path, "xml")
+}
+
+fn dir_contains_extension_files(path: &Path, extension: &str) -> Result<bool, PanlabelError> {
     for entry in walkdir::WalkDir::new(path).follow_links(true) {
         let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
@@ -525,7 +569,7 @@ fn dir_contains_txt_files(path: &Path) -> Result<bool, PanlabelError> {
                 .path()
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .map(|ext| ext.eq_ignore_ascii_case("txt"))
+                .map(|ext| ext.eq_ignore_ascii_case(extension))
                 .unwrap_or(false)
         {
             return Ok(true);
@@ -539,6 +583,13 @@ fn is_labels_dir(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
         .map(|name| name.eq_ignore_ascii_case("labels"))
+        .unwrap_or(false)
+}
+
+fn is_annotations_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("annotations"))
         .unwrap_or(false)
 }
 

@@ -93,6 +93,15 @@ pub enum PanlabelError {
     #[error("Failed to write YOLO dataset at {path}: {message}")]
     YoloWriteError { path: PathBuf, message: String },
 
+    #[error("Invalid VOC dataset layout at {path}: {message}")]
+    VocLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse VOC XML from {path}: {message}")]
+    VocXmlParse { path: PathBuf, message: String },
+
+    #[error("Failed to write VOC dataset at {path}: {message}")]
+    VocWriteError { path: PathBuf, message: String },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

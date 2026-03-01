@@ -30,6 +30,7 @@ csv = "1.3"
 serde_yaml = "0.9"
 imagesize = "0.14"
 walkdir = "2.5"
+roxmltree = "0.20"
 
 [dev-dependencies]
 assert_cmd = "2.1"

@@ -141,6 +141,10 @@ pub struct Image {
     /// Optional date the image was captured (ISO 8601 or similar).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date_captured: Option<String>,
+
+    /// Additional image-level attributes (e.g., VOC depth metadata).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub attributes: BTreeMap<String, String>,
 }
 
 impl Image {
@@ -158,6 +162,7 @@ impl Image {
             height,
             license_id: None,
             date_captured: None,
+            attributes: BTreeMap::new(),
         }
     }
 

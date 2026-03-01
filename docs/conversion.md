@@ -19,6 +19,7 @@ Format-level lossiness relative to IR:
 - `coco`: conditional
 - `tfod`: lossy
 - `yolo`: lossy
+- `voc`: lossy
 
 ## JSON report shape
 
@@ -66,6 +67,13 @@ These codes are designed to be stable for programmatic use.
 | `yolo_writer_class_order` | YOLO writer class index assignment policy |
 | `yolo_writer_empty_label_files` | YOLO writer creates empty label files for unannotated images |
 | `yolo_writer_float_precision` | YOLO normalized float precision policy |
+| `voc_reader_id_assignment` | VOC reader deterministic ID assignment policy |
+| `voc_reader_attribute_mapping` | VOC reader mapping of pose/truncated/difficult/occluded attributes |
+| `voc_reader_coordinate_policy` | VOC reader coordinate policy (no 0/1-based adjustment) |
+| `voc_reader_depth_handling` | VOC reader depth metadata handling note |
+| `voc_writer_file_layout` | VOC writer XML path/layout policy |
+| `voc_writer_no_image_copy` | VOC writer placeholder JPEGImages policy |
+| `voc_writer_bool_normalization` | VOC writer boolean normalization policy |
 
 ## Practical guidance
 

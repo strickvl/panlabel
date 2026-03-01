@@ -55,6 +55,45 @@ fn create_sample_yolo_dataset(root: &Path) {
     fs::write(root.join("labels/train/img2.txt"), "").expect("write empty label file");
 }
 
+fn create_sample_voc_dataset(root: &Path) {
+    fs::create_dir_all(root.join("Annotations")).expect("create annotations dir");
+    fs::create_dir_all(root.join("JPEGImages")).expect("create images dir");
+
+    let xml_1 = r#"<?xml version="1.0" encoding="utf-8"?>
+<annotation>
+  <filename>img1.jpg</filename>
+  <size>
+    <width>100</width>
+    <height>80</height>
+    <depth>3</depth>
+  </size>
+  <object>
+    <name>person</name>
+    <bndbox>
+      <xmin>10</xmin>
+      <ymin>20</ymin>
+      <xmax>50</xmax>
+      <ymax>70</ymax>
+    </bndbox>
+  </object>
+</annotation>
+"#;
+
+    let xml_2 = r#"<?xml version="1.0" encoding="utf-8"?>
+<annotation>
+  <filename>img2.jpg</filename>
+  <size>
+    <width>60</width>
+    <height>40</height>
+    <depth>3</depth>
+  </size>
+</annotation>
+"#;
+
+    fs::write(root.join("Annotations/img1.xml"), xml_1).expect("write img1 xml");
+    fs::write(root.join("Annotations/img2.xml"), xml_2).expect("write img2 xml");
+}
+
 #[test]
 fn runs() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -267,6 +306,35 @@ fn validate_yolo_alias_works() {
 }
 
 #[test]
+fn validate_voc_dataset_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_voc_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["validate", temp.path().to_str().unwrap(), "--format", "voc"]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_voc_alias_works() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_voc_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        temp.path().to_str().unwrap(),
+        "--format",
+        "pascal-voc",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
 #[ignore] // Requires large generated dataset in assets/ (not committed)
 fn validate_tfod_large_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -468,6 +536,76 @@ fn convert_yolo_to_coco_succeeds() {
         yolo_dir.to_str().unwrap(),
         "-o",
         output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_voc_to_coco_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let voc_dir = temp.path().join("sample_voc");
+    create_sample_voc_dataset(&voc_dir);
+    let output_path = temp.path().join("voc_to_coco.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "voc",
+        "-t",
+        "coco",
+        "-i",
+        voc_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_ir_json_to_voc_fails_without_allow_lossy() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("voc_out");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "voc",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Lossy conversion"))
+        .stderr(predicates::str::contains("--allow-lossy"));
+}
+
+#[test]
+fn convert_ir_json_to_voc_succeeds_with_allow_lossy() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("voc_out");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "ir-json",
+        "-t",
+        "voc",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
     ]);
     cmd.assert()
         .success()
@@ -747,6 +885,33 @@ fn convert_to_yolo_report_includes_policy_notes() {
         .stdout(predicates::str::contains("yolo_writer_float_precision"));
 }
 
+#[test]
+fn convert_to_voc_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_voc");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "voc",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--report",
+        "json",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"severity\": \"info\""))
+        .stdout(predicates::str::contains("voc_writer_bool_normalization"));
+}
+
 // Inspect subcommand tests
 
 #[test]
@@ -794,6 +959,19 @@ fn inspect_tfod_dataset_succeeds() {
         .success()
         .stdout(predicates::str::contains("Dataset Inspection Report"))
         .stdout(predicates::str::contains("Annotations"));
+}
+
+#[test]
+fn inspect_voc_dataset_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_voc_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["inspect", "--format", "voc", temp.path().to_str().unwrap()]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Inspection Report"))
+        .stdout(predicates::str::contains("Images"));
 }
 
 #[test]
@@ -846,6 +1024,7 @@ fn list_formats_shows_all_formats() {
         .stdout(predicates::str::contains("coco"))
         .stdout(predicates::str::contains("tfod"))
         .stdout(predicates::str::contains("yolo"))
+        .stdout(predicates::str::contains("voc"))
         .stdout(predicates::str::contains("Supported formats"));
 }
 
@@ -995,6 +1174,67 @@ fn convert_auto_detects_yolo_labels_directory() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(yolo)"));
+}
+
+#[test]
+fn convert_auto_detects_voc_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let voc_dir = temp.path().join("sample_voc");
+    create_sample_voc_dataset(&voc_dir);
+    let output_path = temp.path().join("auto_detect_voc.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        voc_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(voc)"));
+}
+
+#[test]
+fn convert_auto_detect_errors_on_yolo_voc_ambiguity() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_yolo_dataset(temp.path());
+
+    fs::create_dir_all(temp.path().join("Annotations")).expect("create annotations dir");
+    fs::write(
+        temp.path().join("Annotations/extra.xml"),
+        r#"<?xml version="1.0" encoding="utf-8"?>
+<annotation>
+  <filename>img_ambiguous.jpg</filename>
+  <size><width>10</width><height>10</height><depth>3</depth></size>
+</annotation>
+"#,
+    )
+    .expect("write xml");
+    fs::create_dir_all(temp.path().join("JPEGImages")).expect("create JPEGImages dir");
+
+    let output_path = temp.path().join("auto_detect_ambiguous.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("matches both YOLO and VOC"));
 }
 
 #[test]

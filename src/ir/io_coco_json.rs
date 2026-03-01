@@ -17,6 +17,7 @@
 //! The writer produces deterministic output by sorting all lists by ID.
 //! This ensures reproducible builds and meaningful diffs.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -250,6 +251,7 @@ fn coco_to_ir(coco: CocoDataset) -> Dataset {
             height: img.height,
             license_id: img.license.map(LicenseId::new),
             date_captured: img.date_captured,
+            attributes: BTreeMap::new(),
         })
         .collect();
 

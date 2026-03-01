@@ -13,6 +13,7 @@ write these formats:
 - **COCO JSON** (`coco` / `coco-json`) — the widely-used COCO format
 - **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
 - **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
+- **Pascal VOC XML** (`voc` / `pascal-voc` / `voc-xml`) — VOC-style XML directories
 
 Not yet supported: segmentation, keypoints/pose, oriented bounding boxes (OBB),
 or classification-only label formats. See the [roadmap](../ROADMAP.md) for
@@ -40,7 +41,9 @@ behavior lives:
 | COCO format behavior | `src/ir/io_coco_json.rs` |
 | TFOD format behavior | `src/ir/io_tfod_csv.rs` |
 | YOLO format behavior | `src/ir/io_yolo.rs` |
+| Pascal VOC format behavior | `src/ir/io_voc_xml.rs` |
 | Lossiness logic | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | User-visible CLI behavior tests | `tests/cli.rs` |
 | YOLO roundtrip behavior tests | `tests/yolo_roundtrip.rs` |
+| VOC roundtrip behavior tests | `tests/voc_roundtrip.rs` |

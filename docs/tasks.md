@@ -31,6 +31,7 @@ within those boundaries.
 | `coco` | yes | yes | bbox `[x,y,w,h]` mapped to/from IR XYXY |
 | `tfod` | yes | yes | normalized CSV format; lossy |
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
+| `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
 
 For per-format details, see [formats.md](./formats.md).
 

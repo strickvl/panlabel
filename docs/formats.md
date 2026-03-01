@@ -17,6 +17,7 @@ Current scope: **object detection** bounding boxes only.
 | `coco` | file (`.json`) | yes | yes | conditional |
 | `tfod` | file (`.csv`) | yes | yes | lossy |
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
+| `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
 
 ## IR JSON (`ir-json`)
 
@@ -74,6 +75,33 @@ Writer behavior:
 - creates empty `.txt` files for images without annotations
 - does **not** copy image binaries
 - writes normalized floats with 6 decimal places
+
+## Pascal VOC XML (`voc` / `pascal-voc` / `voc-xml`)
+
+- Path kind: directory.
+- Accepted input path:
+  - dataset root containing `Annotations/`
+  - or `Annotations/` directory directly (with optional sibling `../JPEGImages/`)
+- Reader uses `<size>/<width>` and `<size>/<height>` from XML (no image-header probing).
+- Reader stores object fields `pose`, `truncated`, `difficult`, `occluded` in `Annotation.attributes`.
+- Reader stores `<size>/<depth>` as image attribute `depth`.
+- Coordinate policy: reads `xmin/ymin/xmax/ymax` exactly as provided (no 0/1-based adjustment).
+- Reader scans `Annotations/` flat (non-recursive); nested XML files are skipped with a warning.
+
+Deterministic policy:
+- reader image IDs: by `<filename>` (lexicographic)
+- reader category IDs: by class name (lexicographic)
+- reader annotation IDs: by XML file order, then `<object>` order
+
+Writer behavior:
+- creates `Annotations/` and `JPEGImages/README.txt`
+- writes one XML per image (including images without annotations)
+- preserves image subdirectory structure in XML output path (`train/001.jpg` -> `Annotations/train/001.xml`)
+- does **not** copy image binaries
+- normalizes boolean attribute values when writing:
+  - `true`/`yes`/`1` -> `1`
+  - `false`/`no`/`0` -> `0`
+  - any other value -> omitted
 
 ## Future expansion rule
 

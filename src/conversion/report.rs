@@ -212,6 +212,20 @@ pub enum ConversionIssueCode {
     YoloWriterEmptyLabelFiles,
     /// YOLO writer outputs normalized floats at 6 decimal places.
     YoloWriterFloatPrecision,
+    /// VOC reader assigns IDs by deterministic ordering.
+    VocReaderIdAssignment,
+    /// VOC reader maps pose/truncated/difficult/occluded to IR attributes.
+    VocReaderAttributeMapping,
+    /// VOC reader keeps bndbox coordinates exactly as provided (no offset adjustment).
+    VocReaderCoordinatePolicy,
+    /// VOC reader stores depth as an image attribute; depth != 3 may need downstream care.
+    VocReaderDepthHandling,
+    /// VOC writer file layout and XML naming policy.
+    VocWriterFileLayout,
+    /// VOC writer creates JPEGImages/README.txt and does not copy images.
+    VocWriterNoImageCopy,
+    /// VOC writer normalizes boolean fields (truncated/difficult/occluded).
+    VocWriterBoolNormalization,
 }
 
 #[cfg(test)]

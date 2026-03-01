@@ -42,6 +42,9 @@ panlabel convert --from auto --to yolo -i annotations.json -o ./yolo_out --allow
 # Convert a YOLO dataset to COCO JSON
 panlabel convert -f yolo -t coco -i ./my_dataset -o coco_output.json
 
+# Convert a Pascal VOC dataset to COCO JSON
+panlabel convert -f voc -t coco -i ./voc_dataset -o coco_output.json
+
 # Check a dataset for problems before training
 panlabel validate --format coco annotations.json
 
@@ -66,6 +69,7 @@ panlabel inspect --format coco annotations.json
 | `coco` | `.json` | COCO object detection format | Conditional |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
 | `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
+| `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 
 Run `panlabel list-formats` for the full details.
 

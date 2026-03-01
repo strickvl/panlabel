@@ -21,7 +21,7 @@ Validate a dataset path and print a validation report.
 
 ### Flags
 - `--format <string>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`
+  - supported values: `ir-json`, `coco`, `coco-json`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
 - `--strict` (treat warnings as errors)
 - `--output <string>` (`text` or `json`, default: `text`)
 
@@ -38,8 +38,8 @@ Convert annotations between formats using IR as the internal hub.
 - `--output`, `-o` output path
 
 ### Format values
-- `--from`: `auto`, `ir-json`, `coco`, `coco-json`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`
-- `--to`: `ir-json`, `coco`, `tfod`, `yolo` (aliases also accepted by clap where configured)
+- `--from`: `auto`, `ir-json`, `coco`, `coco-json`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+- `--to`: `ir-json`, `coco`, `tfod`, `yolo`, `voc` (aliases also accepted by clap where configured)
 
 ### Flags
 - `--strict`
@@ -62,7 +62,7 @@ Show dataset summary statistics.
 - Positional: `input` path
 
 ### Flags
-- `--format <ir-json|coco|tfod|yolo>`
+- `--format <ir-json|coco|tfod|yolo|voc>`
 - `--top <usize>` (default: `10`)
 - `--tolerance <f64>` (default: `0.5`)
 
@@ -83,8 +83,11 @@ The table includes:
 Implemented detection logic:
 
 1. If input path is a directory:
-   - if `<path>/labels` exists and contains `.txt` label files recursively → `yolo`
-   - OR if `<path>` is itself a `labels` directory with `.txt` files recursively → `yolo`
+   - if `<path>/labels` exists and contains `.txt` label files recursively → YOLO marker
+   - OR if `<path>` is itself a `labels` directory with `.txt` files recursively → YOLO marker
+   - if `<path>/Annotations` exists with `.xml` files recursively and `<path>/JPEGImages` exists → VOC marker
+   - OR if `<path>` is itself an `Annotations` directory with `.xml` files recursively and sibling `../JPEGImages` exists → VOC marker
+   - if both YOLO and VOC markers match, detection fails with an ambiguity error (use `--from`)
 2. If input path is a file:
    - `.csv` → `tfod`
    - `.json` → inspect `annotations[0].bbox`
@@ -104,4 +107,7 @@ panlabel convert --from auto --to coco -i /data/my_yolo -o out.json
 
 # Convert IR -> YOLO (lossy, requires opt-in)
 panlabel convert -f ir-json -t yolo -i in.ir.json -o out_yolo --allow-lossy
+
+# Convert Pascal VOC -> COCO
+panlabel convert -f voc -t coco -i ./voc_dataset -o out.json
 ```

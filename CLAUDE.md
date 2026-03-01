@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, TFOD CSV, YOLO directory format, and IR JSON with lossiness tracking.
+**Status:** Early development (v0.1.0) - Full CLI with convert, validate, inspect, and list-formats commands. Supports COCO JSON, TFOD CSV, YOLO directory format, Pascal VOC XML directory format, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -67,6 +67,7 @@ src/
 │   ├── io_coco_json.rs # COCO JSON reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
+│   ├── io_voc_xml.rs   # Pascal VOC XML reader/writer (directory-based)
 │   └── io_json.rs      # IR JSON format (canonical serialization)
 ├── validation/         # Dataset validation
 │   ├── mod.rs          # validate_dataset() function
@@ -82,6 +83,7 @@ tests/
 ├── cli.rs              # CLI integration tests using assert_cmd
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
+├── voc_roundtrip.rs       # VOC format roundtrip tests
 └── fixtures/           # Test fixture files
 
 benches/
@@ -130,6 +132,7 @@ The `--from auto` flag detects format from file extension/content for files and 
 - `.csv` → TFOD
 - `.json` → Peek at `annotations[0].bbox`: array = COCO, object = IR JSON
 - directory with `labels/` containing `.txt` files (or direct `labels/` dir with `.txt`) → YOLO
+- directory with `Annotations/` containing `.xml` and sibling `JPEGImages/` (or direct `Annotations/` with sibling `JPEGImages/`) → VOC
 
 **Key design:** The CLI binary (`main.rs`) is intentionally minimal—it calls `panlabel::run()` from the library and handles errors. All business logic belongs in `lib.rs` (or modules it imports). The IR module uses Rust's type system (phantom types for coordinate spaces, newtypes for IDs) to prevent common annotation bugs at compile time.
 

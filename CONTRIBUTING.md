@@ -23,16 +23,18 @@ If all tests pass, you're ready to go.
 | COCO format adapter | `src/ir/io_coco_json.rs` |
 | TFOD format adapter | `src/ir/io_tfod_csv.rs` |
 | YOLO format adapter | `src/ir/io_yolo.rs` |
+| Pascal VOC format adapter | `src/ir/io_voc_xml.rs` |
 | Lossiness and conversion policy | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | CLI integration tests | `tests/cli.rs` |
 | YOLO roundtrip tests | `tests/yolo_roundtrip.rs` |
+| VOC roundtrip tests | `tests/voc_roundtrip.rs` |
 
 ## What kinds of contributions are most useful?
 
 Here are some areas where help is especially welcome:
 
-- **New format adapters** — Pascal VOC, Label Studio, or other common formats
+- **New format adapters** — Label Studio or other common formats
 - **Better error messages** — if a panlabel error confused you, that's a bug worth fixing
 - **Test coverage** — especially edge cases and roundtrip tests
 - **Documentation improvements** — clearer explanations, better examples, typo fixes

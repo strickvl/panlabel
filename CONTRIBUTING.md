@@ -21,14 +21,65 @@ If all tests pass, you're ready to go.
 |---|---|
 | CLI behavior, command args, auto-detection | `src/lib.rs` |
 | COCO format adapter | `src/ir/io_coco_json.rs` |
+| CVAT format adapter | `src/ir/io_cvat_xml.rs` |
+| Label Studio format adapter | `src/ir/io_label_studio_json.rs` |
 | TFOD format adapter | `src/ir/io_tfod_csv.rs` |
 | YOLO format adapter | `src/ir/io_yolo.rs` |
 | Pascal VOC format adapter | `src/ir/io_voc_xml.rs` |
 | Lossiness and conversion policy | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | CLI integration tests | `tests/cli.rs` |
-| YOLO roundtrip tests | `tests/yolo_roundtrip.rs` |
-| VOC roundtrip tests | `tests/voc_roundtrip.rs` |
+| Format roundtrip tests | `tests/*_roundtrip.rs` |
+
+## Testing
+
+```sh
+cargo test                             # unit + integration + proptests
+cargo test --test cli                  # CLI integration tests only
+cargo test --test proptest_ir_json
+cargo test --test proptest_coco
+cargo test --test proptest_tfod
+cargo test --test proptest_label_studio
+cargo test --test proptest_voc
+cargo test --test proptest_yolo
+cargo test --test proptest_cvat
+cargo test --test proptest_cross_format
+
+PROPTEST_CASES=1000 cargo test --test proptest_ir_json   # deeper local exploration
+```
+
+## Fuzzing
+
+Requires nightly and `cargo-fuzz`:
+
+> Note: `fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the YOLO line-parser fuzz entrypoint is available to the fuzz crate.
+
+```sh
+cargo +nightly fuzz run coco_json_parse
+cargo +nightly fuzz run voc_xml_parse
+cargo +nightly fuzz run cvat_xml_parse
+cargo +nightly fuzz run tfod_csv_parse
+cargo +nightly fuzz run label_studio_json_parse
+cargo +nightly fuzz run ir_json_parse
+cargo +nightly fuzz run yolo_label_line_parse
+```
+
+Seed corpora are tracked under `fuzz/corpus/<target>/`.
+
+## Benchmarks
+
+```sh
+cargo bench    # Run Criterion benchmarks (COCO parsing, TFOD writing)
+```
+
+## Generating synthetic test data
+
+The included generator creates realistic COCO and TFOD datasets:
+
+```sh
+pip install numpy  # or: uv pip install numpy
+python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10 --output_dir ./assets
+```
 
 ## What kinds of contributions are most useful?
 

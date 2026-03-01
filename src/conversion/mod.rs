@@ -25,6 +25,7 @@ pub enum Format {
     Tfod,
     Yolo,
     Voc,
+    HfImagefolder,
 }
 
 /// Classification of how lossy a format is relative to the IR.
@@ -49,6 +50,7 @@ impl Format {
             Format::Tfod => "tfod",
             Format::Yolo => "yolo",
             Format::Voc => "voc",
+            Format::HfImagefolder => "hf",
         }
     }
 
@@ -69,6 +71,7 @@ impl Format {
             Format::Tfod => IrLossiness::Lossy,
             Format::Yolo => IrLossiness::Lossy,
             Format::Voc => IrLossiness::Lossy,
+            Format::HfImagefolder => IrLossiness::Lossy,
         }
     }
 }
@@ -98,6 +101,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Coco => analyze_to_coco(dataset, &mut report),
         Format::Cvat => analyze_to_cvat(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
+        Format::HfImagefolder => analyze_to_hf(dataset, &mut report),
     }
 
     // Add policy notes based on source format
@@ -107,6 +111,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
         Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
         Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
+        Format::HfImagefolder => add_hf_reader_policy(&mut report),
         Format::Coco | Format::IrJson => {}
     }
 
@@ -117,6 +122,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Voc => add_voc_writer_policy(&mut report),
         Format::LabelStudio => add_label_studio_writer_policy(dataset, &mut report),
         Format::Cvat => add_cvat_writer_policy(&mut report),
+        Format::HfImagefolder => add_hf_writer_policy(&mut report),
         Format::Coco | Format::IrJson => {}
     }
 
@@ -519,6 +525,81 @@ fn analyze_to_ir_json(_dataset: &Dataset, report: &mut ConversionReport) {
     report.output = report.input.clone();
 }
 
+/// Analyze conversion to HF ImageFolder metadata format.
+fn analyze_to_hf(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() || !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::HfMetadataLost,
+            "HF ImageFolder metadata.jsonl cannot represent full IR dataset metadata/licenses"
+                .to_string(),
+        ));
+    }
+
+    let images_with_unrepresentable_attrs = dataset
+        .images
+        .iter()
+        .filter(|img| {
+            img.license_id.is_some() || img.date_captured.is_some() || !img.attributes.is_empty()
+        })
+        .count();
+    if images_with_unrepresentable_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::HfAttributesLost,
+            format!(
+                "{} image(s) have metadata/attributes that HF metadata.jsonl cannot represent",
+                images_with_unrepresentable_attrs
+            ),
+        ));
+    }
+
+    let categories_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|category| category.supercategory.is_some())
+        .count();
+    if categories_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::HfMetadataLost,
+            format!(
+                "{} category(s) have supercategory that HF metadata.jsonl cannot represent",
+                categories_with_supercategory
+            ),
+        ));
+    }
+
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::HfConfidenceLost,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+
+    let anns_with_attributes = dataset
+        .annotations
+        .iter()
+        .filter(|ann| !ann.attributes.is_empty())
+        .count();
+    if anns_with_attributes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::HfAttributesLost,
+            format!(
+                "{} annotation(s) have attributes that will be dropped",
+                anns_with_attributes
+            ),
+        ));
+    }
+
+    report.output = report.input.clone();
+}
+
 /// Analyze conversion to CVAT XML format.
 fn analyze_to_cvat(dataset: &Dataset, report: &mut ConversionReport) {
     if !dataset.info.is_empty() {
@@ -757,6 +838,24 @@ fn add_cvat_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::info(
         ConversionIssueCode::CvatWriterMetaDefaults,
         "CVAT writer emits a minimal <meta><task> block with name='panlabel export' and writes labels only for categories referenced by annotations".to_string(),
+    ));
+}
+
+/// Add policy notes for HF reader behavior.
+fn add_hf_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::HfReaderCategoryResolution,
+        "HF reader resolves category names with precedence: ClassLabel/preflight map, then --hf-category-map, then integer fallback"
+            .to_string(),
+    ));
+}
+
+/// Add policy notes for HF writer behavior.
+fn add_hf_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::HfWriterDeterministicOrder,
+        "HF writer orders metadata rows by image file_name and annotation lists by annotation ID"
+            .to_string(),
     ));
 }
 

@@ -18,7 +18,7 @@ dependencies to manage.
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
 
-> **Note**: Panlabel is in active development (v0.2.x). The CLI and library APIs
+> **Note**: Panlabel is in active development (v0.3.x). The CLI and library APIs
 > may change between versions, so pin to a specific version if you're using it in
 > production.
 
@@ -46,6 +46,8 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/strickvl/panlabel/
 
 ```sh
 cargo install panlabel
+# Enable full HF support (remote Hub import + metadata.parquet)
+cargo install panlabel --features hf
 ```
 
 ### Pre-built binaries
@@ -75,6 +77,15 @@ panlabel convert -f label-studio -t coco -i export.json -o coco_output.json
 
 # Convert CVAT XML to COCO JSON
 panlabel convert -f cvat -t coco -i annotations.xml -o coco_output.json
+
+# Convert local HF ImageFolder metadata to COCO JSON
+panlabel convert -f hf -t coco -i ./hf_dataset -o coco_output.json
+
+# Convert remote HF dataset repo to COCO JSON (requires --features hf when building from source)
+panlabel convert -f hf -t coco --hf-repo rishitdagli/cppe-5 --split train -o coco_output.json
+
+# Convert a zip-style HF dataset repo split to IR JSON (auto-detects extracted payload format)
+panlabel convert -f hf -t ir-json --hf-repo keremberke/football-object-detection --split train -o football.ir.json
 
 # Check a dataset for problems before training
 panlabel validate --format coco annotations.json
@@ -111,6 +122,7 @@ panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
 | `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
+| `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
 
 Run `panlabel list-formats` for the full details.
 

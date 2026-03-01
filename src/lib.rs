@@ -15,11 +15,15 @@
 pub mod conversion;
 pub mod diff;
 pub mod error;
+#[cfg(feature = "hf-remote")]
+pub mod hf;
 pub mod ir;
 pub mod sample;
 pub mod stats;
 pub mod validation;
 
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -54,7 +58,7 @@ enum Commands {
 }
 
 /// Supported formats for conversion.
-#[derive(Copy, Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum ConvertFormat {
     /// Panlabel's intermediate representation (JSON).
     #[value(name = "ir-json")]
@@ -82,6 +86,9 @@ enum ConvertFormat {
     /// Pascal VOC XML format (directory-based).
     #[value(name = "voc", alias = "pascal-voc", alias = "voc-xml")]
     Voc,
+    /// Hugging Face ImageFolder metadata format (directory-based).
+    #[value(name = "hf", alias = "hf-imagefolder", alias = "huggingface")]
+    HfImagefolder,
 }
 
 impl ConvertFormat {
@@ -95,6 +102,7 @@ impl ConvertFormat {
             ConvertFormat::Tfod => conversion::Format::Tfod,
             ConvertFormat::Yolo => conversion::Format::Yolo,
             ConvertFormat::Voc => conversion::Format::Voc,
+            ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
         }
     }
 }
@@ -131,6 +139,9 @@ enum ConvertFromFormat {
     /// Pascal VOC XML format (directory-based).
     #[value(name = "voc", alias = "pascal-voc", alias = "voc-xml")]
     Voc,
+    /// Hugging Face ImageFolder metadata format (directory-based).
+    #[value(name = "hf", alias = "hf-imagefolder", alias = "huggingface")]
+    HfImagefolder,
 }
 
 impl ConvertFromFormat {
@@ -145,6 +156,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
             ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
+            ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
         }
     }
 }
@@ -212,13 +224,34 @@ enum CategoryModeArg {
     Annotations,
 }
 
+/// HF bbox format interpretation.
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum HfBboxFormatArg {
+    /// `[x, y, width, height]`
+    #[default]
+    #[value(name = "xywh")]
+    Xywh,
+    /// `[x1, y1, x2, y2]`
+    #[value(name = "xyxy")]
+    Xyxy,
+}
+
+impl HfBboxFormatArg {
+    fn to_hf_bbox_format(self) -> ir::io_hf_imagefolder::HfBboxFormat {
+        match self {
+            HfBboxFormatArg::Xywh => ir::io_hf_imagefolder::HfBboxFormat::Xywh,
+            HfBboxFormatArg::Xyxy => ir::io_hf_imagefolder::HfBboxFormat::Xyxy,
+        }
+    }
+}
+
 /// Arguments for the validate subcommand.
 #[derive(clap::Args)]
 struct ValidateArgs {
     /// Input path to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', or 'voc').
+    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', 'voc', or 'hf').
     #[arg(long, default_value = "ir-json")]
     format: String,
 
@@ -237,7 +270,7 @@ struct StatsArgs {
     /// Input path to analyze.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', or 'voc').
+    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', 'voc', or 'hf').
     ///
     /// If omitted, panlabel auto-detects the format. If detection fails for a JSON
     /// file, stats falls back to reading as ir-json.
@@ -350,9 +383,9 @@ struct ConvertArgs {
     #[arg(short = 't', long = "to", value_enum)]
     to: ConvertFormat,
 
-    /// Input path.
+    /// Input path (required for local inputs; optional with --hf-repo when --from hf).
     #[arg(short = 'i', long = "input")]
-    input: PathBuf,
+    input: Option<PathBuf>,
 
     /// Output path.
     #[arg(short = 'o', long = "output")]
@@ -373,13 +406,45 @@ struct ConvertArgs {
     /// Output format for the conversion report ('text' or 'json').
     #[arg(long, value_enum, default_value = "text")]
     report: ReportFormat,
+
+    /// HF bbox format for --from hf / --to hf (xywh or xyxy).
+    #[arg(long = "hf-bbox-format", value_enum, default_value = "xywh")]
+    hf_bbox_format: HfBboxFormatArg,
+
+    /// Override the object container column in HF metadata (e.g. annotations).
+    #[arg(long = "hf-objects-column")]
+    hf_objects_column: Option<String>,
+
+    /// JSON file mapping integer category IDs to names for HF import.
+    #[arg(long = "hf-category-map")]
+    hf_category_map: Option<PathBuf>,
+
+    /// HF dataset repo ID or dataset page URL for remote import.
+    #[arg(long = "hf-repo")]
+    hf_repo: Option<String>,
+
+    /// HF split name (e.g. train/validation/test).
+    #[arg(long = "split")]
+    split: Option<String>,
+
+    /// HF revision (branch, tag, or commit SHA).
+    #[arg(long = "revision")]
+    revision: Option<String>,
+
+    /// HF config/subset.
+    #[arg(long = "config")]
+    config: Option<String>,
+
+    /// HF auth token (also supports HF_TOKEN env var).
+    #[arg(long = "token", env = "HF_TOKEN")]
+    token: Option<String>,
 }
 
 /// Arguments for the list-formats subcommand.
 #[derive(clap::Args)]
 struct ListFormatsArgs {}
 
-const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, cvat, label-studio, tfod, yolo, voc";
+const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, cvat, label-studio, tfod, yolo, voc, hf";
 
 /// Run the panlabel CLI.
 ///
@@ -565,6 +630,9 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
         "tfod" | "tfod-csv" => ir::io_tfod_csv::read_tfod_csv(&args.input)?,
         "yolo" | "ultralytics" | "yolov8" | "yolov5" => ir::io_yolo::read_yolo_dir(&args.input)?,
         "voc" | "pascal-voc" | "voc-xml" => ir::io_voc_xml::read_voc_dir(&args.input)?,
+        "hf" | "hf-imagefolder" | "huggingface" => {
+            read_hf_dataset_with_default_options(&args.input)?
+        }
         other => {
             return Err(PanlabelError::UnsupportedFormat(format!(
                 "'{}' (supported: {})",
@@ -610,11 +678,147 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
 
 /// Execute the convert subcommand.
 fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
-    // Step 0: Resolve auto-detection if needed
-    let from_format: ConvertFormat = resolve_from_format(args.from, &args.input)?;
+    let from_format = match args.from.as_concrete() {
+        Some(format) => format,
+        None => {
+            let input = args.input.as_ref().ok_or_else(|| {
+                PanlabelError::UnsupportedFormat("--from auto requires --input <path>".to_string())
+            })?;
+            detect_format(input)?
+        }
+    };
+
+    validate_hf_flag_usage(&args, from_format)?;
+
+    #[allow(unused_mut)]
+    let mut hf_read_options = ir::io_hf_imagefolder::HfReadOptions {
+        bbox_format: args.hf_bbox_format.to_hf_bbox_format(),
+        objects_column: args.hf_objects_column.clone(),
+        split: args.split.clone(),
+        category_map: load_hf_category_map(args.hf_category_map.as_deref())?,
+        provenance: Default::default(),
+    };
+    let hf_write_options = ir::io_hf_imagefolder::HfWriteOptions {
+        bbox_format: args.hf_bbox_format.to_hf_bbox_format(),
+    };
+    #[cfg(feature = "hf-remote")]
+    let mut remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
+    #[cfg(not(feature = "hf-remote"))]
+    let remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
+
+    let (effective_input, source_display, effective_from_format) =
+        if from_format == ConvertFormat::HfImagefolder && args.hf_repo.is_some() {
+            #[cfg(feature = "hf-remote")]
+            {
+                let repo_input = args.hf_repo.as_deref().expect("checked is_some");
+                let repo_ref = hf::resolve::parse_hf_input(
+                    repo_input,
+                    args.revision.as_deref(),
+                    args.config.as_deref(),
+                    args.split.as_deref(),
+                )?;
+
+                let preflight = hf::preflight::run_preflight(&repo_ref, args.token.as_deref());
+                if preflight.is_none() {
+                    eprintln!("Note: HF viewer API unavailable; proceeding with direct download.");
+                }
+
+                if let Some(preflight_data) = preflight.as_ref() {
+                    if hf_read_options.objects_column.is_none() {
+                        hf_read_options.objects_column =
+                            preflight_data.detected_objects_column.clone();
+                    }
+
+                    if hf_read_options.category_map.is_empty() {
+                        if let Some(labels) = preflight_data.category_labels.as_ref() {
+                            for (idx, label) in labels.iter().enumerate() {
+                                hf_read_options
+                                    .category_map
+                                    .insert(idx as i64, label.clone());
+                            }
+                        }
+                    }
+
+                    if let Some(license) = preflight_data.license.as_ref() {
+                        hf_read_options
+                            .provenance
+                            .insert("hf_license".to_string(), license.clone());
+                    }
+                    if let Some(description) = preflight_data.description.as_ref() {
+                        hf_read_options
+                            .provenance
+                            .insert("hf_description".to_string(), description.clone());
+                    }
+
+                    if hf_read_options.split.is_none() {
+                        hf_read_options.split = preflight_data.selected_split.clone();
+                    }
+                }
+
+                let acquired =
+                    hf::acquire::acquire(&repo_ref, preflight.as_ref(), args.token.as_deref())?;
+                let revision = repo_ref
+                    .revision
+                    .clone()
+                    .unwrap_or_else(|| "main".to_string());
+                hf_read_options
+                    .provenance
+                    .insert("hf_repo_id".to_string(), repo_ref.repo_id.clone());
+                hf_read_options
+                    .provenance
+                    .insert("hf_revision".to_string(), revision);
+                hf_read_options.provenance.insert(
+                    "hf_bbox_format".to_string(),
+                    args.hf_bbox_format.to_hf_bbox_format().as_str().to_string(),
+                );
+                if let Some(split_name) = acquired
+                    .split_name
+                    .clone()
+                    .or_else(|| repo_ref.split.clone())
+                {
+                    hf_read_options
+                        .provenance
+                        .insert("hf_split".to_string(), split_name);
+                }
+                remote_hf_provenance = Some(hf_read_options.provenance.clone());
+
+                if acquired.payload_format == hf::acquire::HfAcquirePayloadFormat::HfImagefolder
+                    && hf_read_options.split.is_some()
+                    && (acquired.payload_path.join("metadata.jsonl").is_file()
+                        || acquired.payload_path.join("metadata.parquet").is_file())
+                {
+                    hf_read_options.split = None;
+                }
+
+                (
+                    acquired.payload_path,
+                    args.hf_repo.clone().expect("checked is_some"),
+                    remote_payload_to_convert_format(acquired.payload_format),
+                )
+            }
+            #[cfg(not(feature = "hf-remote"))]
+            {
+                return Err(PanlabelError::UnsupportedFormat(
+                    "remote HF import requires the 'hf-remote' feature".to_string(),
+                ));
+            }
+        } else {
+            let input = args.input.clone().ok_or_else(|| {
+                PanlabelError::UnsupportedFormat("missing required --input <path>".to_string())
+            })?;
+            let display = input.display().to_string();
+            (input, display, from_format)
+        };
 
     // Step 1: Read the dataset
-    let dataset = read_dataset(from_format, &args.input)?;
+    let mut dataset = if effective_from_format == ConvertFormat::HfImagefolder {
+        read_dataset_with_options(effective_from_format, &effective_input, &hf_read_options)?
+    } else {
+        read_dataset(effective_from_format, &effective_input)?
+    };
+    if let Some(provenance) = remote_hf_provenance {
+        dataset.info.attributes.extend(provenance);
+    }
 
     // Step 2: Optionally validate the input
     if !args.no_validate {
@@ -626,7 +830,6 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
         let has_errors = validation_report.error_count() > 0;
         let has_warnings = validation_report.warning_count() > 0;
 
-        // Print validation issues if any
         if has_errors || has_warnings {
             eprintln!("{}", validation_report);
         }
@@ -643,43 +846,51 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     // Step 3: Build conversion report and check for lossiness
     let conv_report = conversion::build_conversion_report(
         &dataset,
-        from_format.to_conversion_format(),
+        effective_from_format.to_conversion_format(),
         args.to.to_conversion_format(),
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
         return Err(PanlabelError::LossyConversionBlocked {
-            from: format_name(from_format).to_string(),
+            from: format_name(effective_from_format).to_string(),
             to: format_name(args.to).to_string(),
             report: Box::new(conv_report),
         });
     }
 
     // Step 4: Write the dataset
-    write_dataset(args.to, &args.output, &dataset)?;
+    write_dataset_with_options(args.to, &args.output, &dataset, &hf_write_options)?;
 
     // Step 5: Output the report
     match args.report {
         ReportFormat::Text => {
-            // Success message with conversion report
             println!(
                 "Converted {} ({}) -> {} ({})",
-                args.input.display(),
-                format_name(from_format),
+                source_display,
+                format_name(effective_from_format),
                 args.output.display(),
                 format_name(args.to)
             );
             print!("{}", conv_report);
         }
         ReportFormat::Json => {
-            // JSON-only output for machine consumption
             serde_json::to_writer_pretty(std::io::stdout(), &conv_report)
                 .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!(); // trailing newline
+            println!();
         }
     }
 
     Ok(())
+}
+
+#[cfg(feature = "hf-remote")]
+fn remote_payload_to_convert_format(payload: hf::acquire::HfAcquirePayloadFormat) -> ConvertFormat {
+    match payload {
+        hf::acquire::HfAcquirePayloadFormat::HfImagefolder => ConvertFormat::HfImagefolder,
+        hf::acquire::HfAcquirePayloadFormat::Yolo => ConvertFormat::Yolo,
+        hf::acquire::HfAcquirePayloadFormat::Voc => ConvertFormat::Voc,
+        hf::acquire::HfAcquirePayloadFormat::Coco => ConvertFormat::Coco,
+    }
 }
 
 fn resolve_from_format(
@@ -728,6 +939,110 @@ fn parse_categories_arg(raw: Option<String>) -> Vec<String> {
         .collect()
 }
 
+fn load_hf_category_map(
+    path: Option<&Path>,
+) -> Result<std::collections::BTreeMap<i64, String>, PanlabelError> {
+    let Some(path) = path else {
+        return Ok(Default::default());
+    };
+
+    let file = File::open(path).map_err(PanlabelError::Io)?;
+    let reader = BufReader::new(file);
+    let value: serde_json::Value =
+        serde_json::from_reader(reader).map_err(|source| PanlabelError::HfLayoutInvalid {
+            path: path.to_path_buf(),
+            message: format!("invalid JSON in category map: {source}"),
+        })?;
+
+    let mut map = std::collections::BTreeMap::new();
+    match value {
+        serde_json::Value::Object(obj) => {
+            for (raw_key, raw_value) in obj {
+                let key = raw_key
+                    .parse::<i64>()
+                    .map_err(|_| PanlabelError::HfLayoutInvalid {
+                        path: path.to_path_buf(),
+                        message: format!("category-map key '{}' is not a valid integer", raw_key),
+                    })?;
+                let label = raw_value
+                    .as_str()
+                    .ok_or_else(|| PanlabelError::HfLayoutInvalid {
+                        path: path.to_path_buf(),
+                        message: format!(
+                            "category-map value for key '{}' must be a string",
+                            raw_key
+                        ),
+                    })?;
+                map.insert(key, label.to_string());
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for (idx, item) in items.into_iter().enumerate() {
+                let label = item
+                    .as_str()
+                    .ok_or_else(|| PanlabelError::HfLayoutInvalid {
+                        path: path.to_path_buf(),
+                        message: format!("category-map array entry {} must be a string", idx),
+                    })?;
+                map.insert(idx as i64, label.to_string());
+            }
+        }
+        _ => {
+            return Err(PanlabelError::HfLayoutInvalid {
+                path: path.to_path_buf(),
+                message:
+                    "category map must be either a JSON object {\"0\":\"person\"} or string array"
+                        .to_string(),
+            });
+        }
+    }
+
+    Ok(map)
+}
+
+fn validate_hf_flag_usage(
+    args: &ConvertArgs,
+    from_format: ConvertFormat,
+) -> Result<(), PanlabelError> {
+    let hf_involved =
+        from_format == ConvertFormat::HfImagefolder || args.to == ConvertFormat::HfImagefolder;
+
+    let hf_specific_flags_used = args.hf_repo.is_some()
+        || args.hf_objects_column.is_some()
+        || args.hf_category_map.is_some()
+        || args.split.is_some()
+        || args.revision.is_some()
+        || args.config.is_some()
+        || !matches!(args.hf_bbox_format, HfBboxFormatArg::Xywh);
+
+    if hf_specific_flags_used && !hf_involved {
+        return Err(PanlabelError::UnsupportedFormat(
+            "HF-specific flags (--hf-*) can only be used with --from hf or --to hf".to_string(),
+        ));
+    }
+
+    if args.hf_repo.is_some() && from_format != ConvertFormat::HfImagefolder {
+        return Err(PanlabelError::UnsupportedFormat(
+            "--hf-repo can only be used with --from hf".to_string(),
+        ));
+    }
+
+    if args.hf_repo.is_none() && (args.revision.is_some() || args.config.is_some()) {
+        return Err(PanlabelError::UnsupportedFormat(
+            "--revision/--config require --hf-repo".to_string(),
+        ));
+    }
+
+    if from_format == ConvertFormat::HfImagefolder && args.hf_repo.is_none() && args.input.is_none()
+    {
+        return Err(PanlabelError::UnsupportedFormat(
+            "--from hf requires either --input <path> or --hf-repo <namespace/dataset>".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 fn ensure_unique_image_file_names(dataset: &ir::Dataset, side: &str) -> Result<(), PanlabelError> {
     let mut seen = std::collections::HashSet::new();
     for image in &dataset.images {
@@ -745,6 +1060,18 @@ fn ensure_unique_image_file_names(dataset: &ir::Dataset, side: &str) -> Result<(
 
 /// Read a dataset from a file in the specified format.
 fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, PanlabelError> {
+    read_dataset_with_options(
+        format,
+        path,
+        &ir::io_hf_imagefolder::HfReadOptions::default(),
+    )
+}
+
+fn read_dataset_with_options(
+    format: ConvertFormat,
+    path: &Path,
+    hf_options: &ir::io_hf_imagefolder::HfReadOptions,
+) -> Result<ir::Dataset, PanlabelError> {
     match format {
         ConvertFormat::IrJson => ir::io_json::read_ir_json(path),
         ConvertFormat::Coco => ir::io_coco_json::read_coco_json(path),
@@ -753,6 +1080,7 @@ fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, Panla
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir(path),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
+        ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
     }
 }
 
@@ -761,6 +1089,20 @@ fn write_dataset(
     format: ConvertFormat,
     path: &Path,
     dataset: &ir::Dataset,
+) -> Result<(), PanlabelError> {
+    write_dataset_with_options(
+        format,
+        path,
+        dataset,
+        &ir::io_hf_imagefolder::HfWriteOptions::default(),
+    )
+}
+
+fn write_dataset_with_options(
+    format: ConvertFormat,
+    path: &Path,
+    dataset: &ir::Dataset,
+    hf_options: &ir::io_hf_imagefolder::HfWriteOptions,
 ) -> Result<(), PanlabelError> {
     match format {
         ConvertFormat::IrJson => ir::io_json::write_ir_json(path, dataset),
@@ -772,6 +1114,149 @@ fn write_dataset(
         ConvertFormat::Tfod => ir::io_tfod_csv::write_tfod_csv(path, dataset),
         ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
         ConvertFormat::Voc => ir::io_voc_xml::write_voc_dir(path, dataset),
+        ConvertFormat::HfImagefolder => {
+            ir::io_hf_imagefolder::write_hf_imagefolder_with_options(path, dataset, hf_options)
+        }
+    }
+}
+
+fn read_hf_dataset_with_default_options(path: &Path) -> Result<ir::Dataset, PanlabelError> {
+    read_hf_dataset_with_options(path, &ir::io_hf_imagefolder::HfReadOptions::default())
+}
+
+fn read_hf_dataset_with_options(
+    path: &Path,
+    options: &ir::io_hf_imagefolder::HfReadOptions,
+) -> Result<ir::Dataset, PanlabelError> {
+    #[cfg(feature = "hf-parquet")]
+    {
+        if should_read_hf_parquet(path, options.split.as_deref())? {
+            return ir::io_hf_parquet::read_hf_parquet_with_options(path, options);
+        }
+    }
+
+    ir::io_hf_imagefolder::read_hf_imagefolder_with_options(path, options)
+}
+
+#[cfg(feature = "hf-parquet")]
+fn should_read_hf_parquet(path: &Path, split: Option<&str>) -> Result<bool, PanlabelError> {
+    let has_jsonl = hf_has_metadata(path, split, "metadata.jsonl")?;
+    let has_parquet_layout =
+        hf_has_metadata(path, split, "metadata.parquet")? || hf_has_any_parquet_file(path, split)?;
+    Ok(has_parquet_layout && !has_jsonl)
+}
+
+#[cfg(feature = "hf-parquet")]
+fn hf_has_metadata(
+    path: &Path,
+    split: Option<&str>,
+    metadata_file_name: &str,
+) -> Result<bool, PanlabelError> {
+    if !path.is_dir() {
+        return Ok(false);
+    }
+
+    if path.join(metadata_file_name).is_file() {
+        return Ok(true);
+    }
+
+    if let Some(split_name) = split {
+        let normalized = normalize_split_hint(split_name);
+        return Ok(path.join(&normalized).join(metadata_file_name).is_file());
+    }
+
+    for entry in std::fs::read_dir(path).map_err(PanlabelError::Io)? {
+        let entry = entry.map_err(PanlabelError::Io)?;
+        let entry_path = entry.path();
+        if entry_path.is_dir() && entry_path.join(metadata_file_name).is_file() {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+#[cfg(feature = "hf-parquet")]
+fn hf_has_any_parquet_file(path: &Path, split: Option<&str>) -> Result<bool, PanlabelError> {
+    if !path.is_dir() {
+        return Ok(false);
+    }
+
+    let normalized_split = split.map(normalize_split_hint);
+
+    for entry in walkdir::WalkDir::new(path).follow_links(true) {
+        let entry = entry.map_err(|source| PanlabelError::HfLayoutInvalid {
+            path: path.to_path_buf(),
+            message: format!("failed while scanning parquet files: {source}"),
+        })?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        let entry_path = entry.path();
+        let is_parquet = entry_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("parquet"))
+            .unwrap_or(false);
+        if !is_parquet {
+            continue;
+        }
+
+        if entry_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.eq_ignore_ascii_case("metadata.parquet"))
+            .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+
+        if let Some(split_name) = normalized_split.as_deref() {
+            if parquet_path_matches_split(entry_path, split_name) {
+                return Ok(true);
+            }
+            continue;
+        }
+
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+#[cfg(feature = "hf-parquet")]
+fn parquet_path_matches_split(path: &Path, split: &str) -> bool {
+    let split = normalize_split_hint(split);
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    if file_name.starts_with(&format!("{split}-")) {
+        return true;
+    }
+
+    path.components().any(|component| {
+        component
+            .as_os_str()
+            .to_str()
+            .map(|value| normalize_split_hint(value) == split)
+            .unwrap_or(false)
+    })
+}
+
+#[cfg(feature = "hf-parquet")]
+fn normalize_split_hint(value: &str) -> String {
+    match value.to_ascii_lowercase().as_str() {
+        "val" | "valid" => "validation".to_string(),
+        "validation" => "validation".to_string(),
+        "train" => "train".to_string(),
+        "test" => "test".to_string(),
+        "dev" => "dev".to_string(),
+        _ => value.to_ascii_lowercase(),
     }
 }
 
@@ -785,6 +1270,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Tfod => "tfod",
         ConvertFormat::Yolo => "yolo",
         ConvertFormat::Voc => "voc",
+        ConvertFormat::HfImagefolder => "hf",
     }
 }
 
@@ -824,6 +1310,10 @@ fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
             "Ultralytics YOLO .txt (directory-based)",
         ),
         (ConvertFormat::Voc, "Pascal VOC XML (directory-based)"),
+        (
+            ConvertFormat::HfImagefolder,
+            "Hugging Face ImageFolder metadata (metadata.jsonl/parquet)",
+        ),
     ];
 
     for (fmt, description) in formats {
@@ -897,6 +1387,7 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             && dir_contains_xml_files(path)?);
 
     let is_cvat = path.join("annotations.xml").is_file();
+    let is_hf = dir_contains_hf_metadata(path)?;
 
     if is_yolo && is_voc {
         return Err(PanlabelError::FormatDetectionFailed {
@@ -922,6 +1413,30 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         });
     }
 
+    if is_hf && is_yolo {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "directory matches both HF and YOLO layouts. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    }
+
+    if is_hf && is_voc {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "directory matches both HF and VOC layouts. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    }
+
+    if is_hf && is_cvat {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "directory matches both HF and CVAT layouts. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    }
+
     if is_yolo {
         return Ok(ConvertFormat::Yolo);
     }
@@ -934,9 +1449,13 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         return Ok(ConvertFormat::Cvat);
     }
 
+    if is_hf {
+        return Ok(ConvertFormat::HfImagefolder);
+    }
+
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files, VOC Annotations/ with .xml files plus JPEGImages/, or CVAT directory export with annotations.xml at root). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files, VOC Annotations/ with .xml files plus JPEGImages/, CVAT directory export with annotations.xml at root, or HF metadata.jsonl/metadata.parquet layout). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -946,6 +1465,31 @@ fn dir_contains_txt_files(path: &Path) -> Result<bool, PanlabelError> {
 
 fn dir_contains_xml_files(path: &Path) -> Result<bool, PanlabelError> {
     dir_contains_extension_files(path, "xml")
+}
+
+fn dir_contains_hf_metadata(path: &Path) -> Result<bool, PanlabelError> {
+    if path.join("metadata.jsonl").is_file() || path.join("metadata.parquet").is_file() {
+        return Ok(true);
+    }
+
+    for entry in std::fs::read_dir(path).map_err(|source| PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: format!("failed while inspecting directory: {source}"),
+    })? {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if entry_path.is_dir()
+            && (entry_path.join("metadata.jsonl").is_file()
+                || entry_path.join("metadata.parquet").is_file())
+        {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 fn dir_contains_extension_files(path: &Path, extension: &str) -> Result<bool, PanlabelError> {

@@ -10,7 +10,7 @@ For current, implemented behavior, use:
 ## Current baseline
 
 - ✅ Detection task support (axis-aligned bboxes)
-- ✅ Formats: IR JSON, COCO JSON, Label Studio JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory
+- ✅ Formats: IR JSON, COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory, Hugging Face ImageFolder metadata
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, stats, diff, sample, list-formats
 
@@ -25,7 +25,8 @@ before expanding to new annotation tasks (segmentation, classification).
 - ✅ Label Studio JSON
 - ✅ CVAT XML
 - ⏳ Broader YOLO family variants only when they fit IR safely
-- ⏳ Hugging Face Datasets ImageFolder (`metadata.jsonl`) — read/write HF's standard object detection format (COCO xywh bbox convention by default, with `--hf-bbox-format xyxy` for `detection-datasets`-style uploads). Pure JSON, no Arrow/Parquet dependency. See [`design/huggingface-datasets-research.md`](./design/huggingface-datasets-research.md) for full research notes.
+- ✅ Hugging Face Datasets ImageFolder (`metadata.jsonl` + `metadata.parquet`) — local read/write support (`metadata.jsonl`) plus optional Parquet/remote Hub import support (`--hf-repo` in `convert`, feature-gated in source builds)
+- ✅ HF zip-style remote split archives (`*.zip`) in `convert` with payload routing to supported layouts (COCO/YOLO/VOC/HF)
 
 ### CLI commands
 
@@ -63,8 +64,10 @@ These are deferred until detection format coverage is solid:
 
 - ⏳ Provider-oriented documentation structure when real provider integrations are added
 - ⏳ Better end-to-end examples for common training/export pipelines
-- ⏳ HF Datasets Parquet direct reading (via `arrow-rs`) for Hub dataset conversion without Python export step
-- ⏳ HF Hub streaming / URL-based dataset loading
+- ⏳ HF remote support for `stats` / `sample` / `diff` (remote is currently `convert`-only)
+- ⏳ HF self-contained/viewer-converted Parquet variants (embedded image bytes and Hub auto-converted parquet refs)
+- ⏳ HF split-parquet + external-images layouts that currently fail in the wild (for example `KRAFTON/ArtiBench`)
+- ⏳ HF Hub streaming / partial reads
 
 ## Change policy
 

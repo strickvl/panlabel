@@ -15,6 +15,7 @@ write these formats:
 - **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
 - **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
 - **Pascal VOC XML** (`voc` / `pascal-voc` / `voc-xml`) — VOC-style XML directories
+- **Hugging Face ImageFolder metadata** (`hf` / `hf-imagefolder` / `huggingface`) — `metadata.jsonl` / `metadata.parquet` directories (remote Hub import is supported in `convert`)
 
 Not yet supported: segmentation, keypoints/pose, oriented bounding boxes (OBB),
 or classification-only label formats. See the [roadmap](../ROADMAP.md) for
@@ -44,6 +45,8 @@ behavior lives:
 | Label Studio format behavior | `src/ir/io_label_studio_json.rs` |
 | YOLO format behavior | `src/ir/io_yolo.rs` |
 | Pascal VOC format behavior | `src/ir/io_voc_xml.rs` |
+| HF ImageFolder format behavior | `src/ir/io_hf_imagefolder.rs` (+ `src/ir/io_hf_parquet.rs` with `hf-parquet`) |
+| HF remote resolve/preflight/acquire | `src/hf/` (`hf-remote` feature) |
 | Lossiness logic | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | User-visible CLI behavior tests | `tests/cli.rs` |

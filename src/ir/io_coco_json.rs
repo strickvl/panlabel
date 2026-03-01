@@ -22,7 +22,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 
 use super::model::{Annotation, Category, Dataset, DatasetInfo, Image, License};
 use super::{AnnotationId, BBoxXYXY, CategoryId, ImageId, LicenseId, Pixel};
@@ -51,7 +51,11 @@ struct CocoDataset {
 /// COCO dataset info block.
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct CocoInfo {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_opt_u32_from_string_or_number"
+    )]
     year: Option<u32>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -68,6 +72,38 @@ struct CocoInfo {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     date_created: Option<String>,
+}
+
+fn deserialize_opt_u32_from_string_or_number<'de, D>(
+    deserializer: D,
+) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
+    match value {
+        serde_json::Value::Null => Ok(None),
+        serde_json::Value::Number(number) => {
+            let Some(raw) = number.as_u64() else {
+                return Err(de::Error::custom("expected non-negative integer year"));
+            };
+            u32::try_from(raw)
+                .map(Some)
+                .map_err(|_| de::Error::custom("year is out of range for u32"))
+        }
+        serde_json::Value::String(text) => text
+            .trim()
+            .parse::<u32>()
+            .map(Some)
+            .map_err(|_| de::Error::custom(format!("invalid year string '{text}'"))),
+        other => Err(de::Error::custom(format!(
+            "expected year as integer or string, found {other}"
+        ))),
+    }
 }
 
 /// COCO license entry.
@@ -224,6 +260,7 @@ fn coco_to_ir(coco: CocoDataset) -> Dataset {
             year: coco_info.year,
             contributor: coco_info.contributor,
             date_created: coco_info.date_created,
+            attributes: BTreeMap::new(),
         }
     } else {
         DatasetInfo::default()
@@ -491,6 +528,19 @@ mod tests {
         assert_eq!(ann.bbox.ymin(), 20.0);
         assert_eq!(ann.bbox.xmax(), 100.0); // x + width = 10 + 90
         assert_eq!(ann.bbox.ymax(), 80.0); // y + height = 20 + 60
+    }
+
+    #[test]
+    fn test_coco_info_year_accepts_string() {
+        let input = r#"{
+            "info": {"year": "2022", "version": "1.0"},
+            "images": [{"id": 1, "width": 100, "height": 100, "file_name": "img.jpg"}],
+            "categories": [{"id": 1, "name": "object"}],
+            "annotations": [{"id": 1, "image_id": 1, "category_id": 1, "bbox": [0,0,10,10]}]
+        }"#;
+
+        let dataset = from_coco_str(input).expect("parse failed");
+        assert_eq!(dataset.info.year, Some(2022));
     }
 
     #[test]

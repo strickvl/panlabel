@@ -1,6 +1,6 @@
 [package]
 name = "panlabel"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Alex Strick van Linschoten <panlabel@realemail.net>"]
 description = "The universal annotation converter"
@@ -23,10 +23,14 @@ name = "panlabel"
 path = "src/main.rs"
 
 [features]
+default = []
 fuzzing = []
+hf-parquet = ["dep:arrow", "dep:parquet"]
+hf-remote = ["dep:hf-hub", "dep:ureq", "dep:url", "dep:zip"]
+hf = ["hf-parquet", "hf-remote"]
 
 [dependencies]
-clap = { version = "4.5.20", features = ["cargo", "derive"] }
+clap = { version = "4.5.20", features = ["cargo", "derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -36,6 +40,12 @@ imagesize = "0.14"
 walkdir = "2.5"
 roxmltree = "0.20"
 rand = "0.9"
+hf-hub = { version = "0.5.0", default-features = false, features = ["ureq", "rustls-tls"], optional = true }
+ureq = { version = "3.2", features = ["json"], optional = true }
+url = { version = "2.5", optional = true }
+arrow = { version = "58.0.0", default-features = false, optional = true }
+parquet = { version = "58.0.0", default-features = false, features = ["arrow", "json", "snap", "brotli", "flate2-zlib-rs", "lz4", "zstd"], optional = true }
+zip = { version = "0.6.6", default-features = false, features = ["deflate"], optional = true }
 
 [dev-dependencies]
 assert_cmd = "2.1"

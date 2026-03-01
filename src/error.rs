@@ -128,6 +128,39 @@ pub enum PanlabelError {
     #[error("Failed to write CVAT XML at {path}: {message}")]
     CvatWriteError { path: PathBuf, message: String },
 
+    #[error("Invalid HF ImageFolder layout at {path}: {message}")]
+    HfLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse HF metadata.jsonl at {path}, line {line}: {message}")]
+    HfJsonlParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error("Failed to write HF metadata.jsonl at {path}: {message}")]
+    HfWriteError { path: PathBuf, message: String },
+
+    #[cfg(feature = "hf-parquet")]
+    #[error("Failed to parse HF metadata.parquet at {path}: {message}")]
+    HfParquetParse { path: PathBuf, message: String },
+
+    #[cfg(feature = "hf-remote")]
+    #[error("Invalid HF repo reference '{input}': {message}")]
+    HfResolveError { input: String, message: String },
+
+    #[cfg(feature = "hf-remote")]
+    #[error("HF Hub API error for {repo_id}: {message}")]
+    HfApiError { repo_id: String, message: String },
+
+    #[cfg(feature = "hf-remote")]
+    #[error("Failed to download from HF Hub ({repo_id}): {message}")]
+    HfAcquireError { repo_id: String, message: String },
+
+    #[cfg(feature = "hf-remote")]
+    #[error("Unsupported HF zip payload for {repo_id}: {message}")]
+    HfZipLayoutInvalid { repo_id: String, message: String },
+
     #[error("Validation failed with {error_count} error(s) and {warning_count} warning(s)")]
     ValidationFailed {
         error_count: usize,

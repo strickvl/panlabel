@@ -84,6 +84,7 @@ mod tests {
                 year: None,
                 contributor: None,
                 date_created: None,
+                attributes: std::collections::BTreeMap::new(),
             },
             licenses: vec![],
             images: vec![

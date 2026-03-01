@@ -16,7 +16,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <string>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
+  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
 - `--strict` (treat warnings as errors)
 - `--output <string>` (`text` or `json`, default: `text`)
 
@@ -26,16 +26,33 @@ Validate a dataset path and print a validation report.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`
-- `--input`, `-i`: input path
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
+- `--input`, `-i`: input path (required for local inputs; optional with `--hf-repo` when `--from hf`)
 - `--output`, `-o`: output path
 - `--strict`
 - `--no-validate`
 - `--allow-lossy`
 - `--report <text|json>` (default: `text`)
 
+HF-specific options (meaningful only with `--from hf` or `--to hf`):
+- `--hf-bbox-format <xywh|xyxy>` (default: `xywh`)
+- `--hf-objects-column <name>`
+- `--hf-category-map <path>`
+- `--hf-repo <namespace/dataset-or-url>` (remote import, `convert` only)
+- `--split <name>`
+- `--revision <ref>`
+- `--config <name>`
+- `--token <token>` (also reads `HF_TOKEN`)
+
 With `--report json`, panlabel prints JSON only to stdout.
+
+Notes:
+- `--hf-repo` can only be used with `--from hf`.
+- `--revision`/`--config` require `--hf-repo`.
+- Remote HF import (`--hf-repo`) needs a build with feature `hf-remote` (for full HF support from source: `cargo install panlabel --features hf`).
+- Remote HF parquet datasets commonly use split shard files (for example `data/train-*.parquet`); these are supported with `hf-parquet`.
+- Remote HF zip-style splits (for example `data/train.zip`) are supported when the extracted payload looks like YOLO, VOC, COCO JSON, or HF metadata layout.
 
 ---
 
@@ -102,7 +119,8 @@ Show format capabilities and lossiness class.
    - YOLO marker: `labels/` with `.txt` labels (or path itself is `labels/`)
    - VOC marker: `Annotations/` with `.xml` plus `JPEGImages/` (or path itself is `Annotations/` with sibling `JPEGImages/`)
    - CVAT marker: `annotations.xml` at directory root
-   - if multiple markers match, detection fails (ambiguous)
+   - HF marker: `metadata.jsonl` or `metadata.parquet` at root or in an immediate subdirectory
+   - if multiple markers match, detection fails (ambiguous), including HF+YOLO, HF+VOC, HF+CVAT
 2. If input path is a file:
    - `.csv` -> `tfod`
    - `.xml`:
@@ -129,4 +147,13 @@ panlabel diff --match-by id --detail a.ir.json b.ir.json
 
 # Category-focused sampling
 panlabel sample -i in.coco.json -o out.ir.json --from coco --to ir-json --categories person,car --category-mode images -n 100 --seed 42
+
+# Convert a local HF ImageFolder directory to COCO
+panlabel convert --from hf --to coco -i ./hf_dataset -o out.coco.json
+
+# Convert a remote HF dataset repo to IR JSON (requires build with --features hf)
+panlabel convert --from hf --to ir-json --hf-repo rishitdagli/cppe-5 --split train -o out.ir.json
+
+# Zip-style remote dataset (auto-routed after extraction, still invoked as --from hf)
+panlabel convert --from hf --to ir-json --hf-repo keremberke/football-object-detection --split train -o out.ir.json
 ```

@@ -33,6 +33,7 @@ within those boundaries.
 | `tfod` | yes | yes | normalized CSV format; lossy |
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
 | `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
+| `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
 
 For per-format details, see [formats.md](./formats.md).
 

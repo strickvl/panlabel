@@ -701,7 +701,10 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     let hf_write_options = ir::io_hf_imagefolder::HfWriteOptions {
         bbox_format: args.hf_bbox_format.to_hf_bbox_format(),
     };
+    #[cfg(feature = "hf-remote")]
     let mut remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
+    #[cfg(not(feature = "hf-remote"))]
+    let remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
 
     let (effective_input, source_display, effective_from_format) =
         if from_format == ConvertFormat::HfImagefolder && args.hf_repo.is_some() {

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "panlabel"
-version = "0.4.0"
+dynamic = ["version"]
 description = "The universal annotation converter"
 authors = [{ name = "Alex Strick van Linschoten" }]
 readme = "README.md"

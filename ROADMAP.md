@@ -100,6 +100,7 @@ format that panlabel already supports. Differences are in directory layout and
 - ⏳ Split docs into per-format/per-task pages when content volume justifies it
 - ✅ Keep docs tightly aligned with behavior covered by tests
 - ✅ Keep Label Studio docs aligned with `src/ir/io_label_studio_json.rs` + `tests/label_studio_roundtrip.rs` (strict schema, legacy `completions`, rotation-envelope behavior)
+- ⏳ Format Museum — illustrated archive of every annotation format with history, examples, real dataset links, and timeline (see `design/format-museum.md`); doubles as SEO content and panlabel conversion funnel
 
 ## Later priorities
 

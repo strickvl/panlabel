@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2026-03-10
+## v0.4.0
 
 Auto-detection UX overhaul, CVAT reporting parity, Docker support, and dependency updates.
 
@@ -32,7 +32,7 @@ Auto-detection UX overhaul, CVAT reporting parity, Docker support, and dependenc
 
 - Updated rand 0.9 → 0.10, roxmltree 0.20 → 0.21, zip 0.6.6 → 8.2.0
 
-## [0.3.0] - 2026-03-01
+## v0.3.0
 
 First Hugging Face Datasets release for panlabel, including local and remote HF ingestion.
 
@@ -59,7 +59,7 @@ First Hugging Face Datasets release for panlabel, including local and remote HF 
 - COCO reader now accepts `info.year` as either integer or string
 - Improved clippy/CI compatibility for feature-gated builds
 
-## [0.2.0] - 2026-03-01
+## v0.2.0
 
 First feature-complete release of panlabel with a full CLI and multi-format support.
 
@@ -88,11 +88,7 @@ First feature-complete release of panlabel with a full CLI and multi-format supp
 - **CI**: GitHub Actions with fmt, clippy, test across Linux/macOS/Windows
 - **Documentation hub**: `docs/` with CLI reference, format behavior, conversion semantics
 
-## [0.1.0] - 2025-01-01
+## v0.1.0
 
 Placeholder initial release on crates.io.
 
-[0.4.0]: https://github.com/strickvl/panlabel/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/strickvl/panlabel/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/strickvl/panlabel/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/strickvl/panlabel/releases/tag/v0.1.0

@@ -1219,7 +1219,9 @@ mod tests {
     fn cvat_output_counts_reflect_unused_category_drop() {
         let mut dataset = sample_dataset();
         // Add an unused category
-        dataset.categories.push(Category::new(99u64, "unused_label"));
+        dataset
+            .categories
+            .push(Category::new(99u64, "unused_label"));
 
         let report = build_conversion_report(&dataset, Format::IrJson, Format::Cvat);
 

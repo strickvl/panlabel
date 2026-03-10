@@ -2072,11 +2072,7 @@ fn convert_auto_detect_errors_on_hf_yolo_ambiguity() {
     // Need both labels/ with .txt AND images/ for YOLO to be a complete match.
     fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
     fs::create_dir_all(temp.path().join("images")).expect("create images dir");
-    fs::write(
-        temp.path().join("labels/img1.txt"),
-        "0 0.5 0.5 0.2 0.2\n",
-    )
-    .expect("write label");
+    fs::write(temp.path().join("labels/img1.txt"), "0 0.5 0.5 0.2 0.2\n").expect("write label");
 
     let output_path = temp.path().join("auto_detect_ambiguous_hf_yolo.json");
 
@@ -2104,11 +2100,7 @@ fn convert_auto_detect_partial_yolo_without_images_detects_hf() {
     let temp = tempfile::tempdir().expect("create temp dir");
     create_sample_hf_dataset(temp.path(), false);
     fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
-    fs::write(
-        temp.path().join("labels/img1.txt"),
-        "0 0.5 0.5 0.2 0.2\n",
-    )
-    .expect("write label");
+    fs::write(temp.path().join("labels/img1.txt"), "0 0.5 0.5 0.2 0.2\n").expect("write label");
 
     let output_path = temp.path().join("partial_yolo_hf.json");
 
@@ -2135,11 +2127,7 @@ fn convert_auto_detect_partial_yolo_gives_helpful_error() {
     // the partial match with guidance.
     let temp = tempfile::tempdir().expect("create temp dir");
     fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
-    fs::write(
-        temp.path().join("labels/img1.txt"),
-        "0 0.5 0.5 0.2 0.2\n",
-    )
-    .expect("write label");
+    fs::write(temp.path().join("labels/img1.txt"), "0 0.5 0.5 0.2 0.2\n").expect("write label");
 
     let output_path = temp.path().join("partial_yolo.json");
 
@@ -2328,11 +2316,7 @@ fn convert_auto_detect_ambiguity_shows_evidence() {
     create_sample_hf_dataset(temp.path(), false);
     fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
     fs::create_dir_all(temp.path().join("images")).expect("create images dir");
-    fs::write(
-        temp.path().join("labels/img1.txt"),
-        "0 0.5 0.5 0.2 0.2\n",
-    )
-    .expect("write label");
+    fs::write(temp.path().join("labels/img1.txt"), "0 0.5 0.5 0.2 0.2\n").expect("write label");
 
     let output_path = temp.path().join("evidence.json");
 

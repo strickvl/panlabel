@@ -29,6 +29,7 @@ __pycache__/
 
 # Maturin / wheel build output
 dist/
+uv.lock
 
 # custom gitignores during development
 /assets/

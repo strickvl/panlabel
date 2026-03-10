@@ -68,8 +68,11 @@ dist plan
 # Regenerate release workflow after config changes
 dist generate
 
-# To release: bump version in Cargo.toml, update CHANGELOG.md, then:
-git tag v0.4.0
+# To release:
+# 1. Bump version in Cargo.toml, update CHANGELOG.md
+# 2. IMPORTANT: run `dist generate` to ensure release.yml is in sync
+# 3. Commit, tag, push:
+git tag v0.5.0
 git push && git push --tags
 # The .github/workflows/release.yml workflow handles the rest:
 # - Builds binaries for 5 platforms

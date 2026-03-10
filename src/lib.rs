@@ -1049,8 +1049,7 @@ fn validate_hf_flag_usage(
         from_format == ConvertFormat::HfImagefolder || args.to == ConvertFormat::HfImagefolder;
 
     // --split is valid for HF and YOLO source formats, not just HF
-    let split_allowed =
-        hf_involved || from_format == ConvertFormat::Yolo;
+    let split_allowed = hf_involved || from_format == ConvertFormat::Yolo;
 
     if args.split.is_some() && !split_allowed {
         return Err(PanlabelError::UnsupportedFormat(

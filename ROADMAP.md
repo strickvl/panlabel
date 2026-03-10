@@ -44,7 +44,7 @@ before expanding to new annotation tasks (segmentation, classification).
 ### UX / CLI
 
 - ⏳ Continue improving auto-detection ergonomics and clear error messages
-- ⏳ Continue improving conversion policy explainability
+- ✅ Conversion policy explainability: blocked paths emit full reports, text output shows stable `[code]` brackets, `stage` field in JSON schema, COCO/HF/Label Studio/YOLO adapter policy notes, drift-prevention tests
 
 ### Documentation
 

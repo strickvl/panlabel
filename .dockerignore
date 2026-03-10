@@ -1,0 +1,42 @@
+# Build artifacts
+target/
+debug/
+
+# Version control
+.git/
+.gitignore
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Development / design docs
+design/
+docs/
+*.md
+LICENSE
+
+# Claude / AI config
+.claude/
+
+# Test and dev assets
+assets/
+fuzz/
+benches/
+proptest-regressions/
+tests/
+
+# Python virtualenv and scripts
+.venv/
+scripts/
+__pycache__/
+*.pyc
+
+# CI/CD
+.github/
+
+# OS files
+.DS_Store
+Thumbs.db

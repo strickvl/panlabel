@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.0
+
+Split-aware YOLO reading, conversion report explainability, and documentation improvements.
+
+### Added
+
+- **Split-aware YOLO reading**: datasets with `data.yaml` containing `train:`, `val:`, `test:` path keys (Roboflow/Ultralytics Hub exports) are now supported. Three path patterns recognized: `images/<split>`, `<split>/images`, and `<split>` with sub-directories.
+- `--split <name>` flag now works for YOLO imports (previously HF-only), selecting a single split from a split-aware dataset
+- Default behavior merges all splits with split-prefixed file names (`train/img.jpg`, `val/img.jpg`) for collision avoidance
+- Split provenance stored in `Dataset.info.attributes` (`yolo_layout_mode`, `yolo_splits_found`, `yolo_splits_read`)
+- New `yolo_reader_split_handling` info code in conversion reports
+- Auto-detection recognizes split-aware YOLO layouts via `data.yaml` with split keys
+- **Conversion report explainability**: all format adapters now emit policy notes (info-level issue codes) explaining deterministic behavior, attribute mapping, and writer conventions
+- `ConversionStage` field on report issues (`source_reader`, `analysis`, `target_writer`) for clearer provenance
+- Drift-prevention tests ensure all issue codes are documented in `docs/conversion.md`
+
+### Changed
+
+- `--split` flag help text updated from HF-specific to shared (HF + YOLO)
+- YOLO reader eagerly resolves `data.yaml` names at discovery time (avoids double file read)
+
 ## v0.4.0
 
 Auto-detection UX overhaul, CVAT reporting parity, Docker support, and dependency updates.

@@ -23,7 +23,7 @@ pub mod stats;
 pub mod validation;
 
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -557,6 +557,31 @@ fn run_diff(args: DiffArgs) -> Result<(), PanlabelError> {
     Ok(())
 }
 
+/// Emit a conversion report to stdout in the requested format, then flush.
+///
+/// Used by both `convert` and `sample` to emit reports on both success and
+/// blocked-lossy paths. By flushing stdout before returning, we ensure the
+/// report is fully written before any subsequent stderr output from `main()`.
+fn emit_conversion_report(
+    report: &conversion::ConversionReport,
+    format: ReportFormat,
+) -> Result<(), PanlabelError> {
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    match format {
+        ReportFormat::Text => {
+            write!(handle, "{}", report).map_err(PanlabelError::Io)?;
+        }
+        ReportFormat::Json => {
+            serde_json::to_writer_pretty(&mut handle, report)
+                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+            writeln!(handle).map_err(PanlabelError::Io)?;
+        }
+    }
+    handle.flush().map_err(PanlabelError::Io)?;
+    Ok(())
+}
+
 /// Execute the sample subcommand.
 fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
     let from_format = resolve_from_format(args.from, &args.input)?;
@@ -594,6 +619,7 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
+        emit_conversion_report(&conv_report, ReportFormat::Text)?;
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(from_format).to_string(),
             to: format_name(to_format).to_string(),
@@ -851,6 +877,7 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
+        emit_conversion_report(&conv_report, args.report)?;
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(effective_from_format).to_string(),
             to: format_name(args.to).to_string(),
@@ -871,12 +898,10 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
                 args.output.display(),
                 format_name(args.to)
             );
-            print!("{}", conv_report);
+            emit_conversion_report(&conv_report, ReportFormat::Text)?;
         }
         ReportFormat::Json => {
-            serde_json::to_writer_pretty(std::io::stdout(), &conv_report)
-                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!();
+            emit_conversion_report(&conv_report, ReportFormat::Json)?;
         }
     }
 

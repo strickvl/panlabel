@@ -96,7 +96,23 @@ These codes are designed to be stable for programmatic use.
 | `hf_reader_category_resolution` | HF reader category-name resolution precedence policy |
 | `hf_writer_deterministic_order` | HF writer deterministic metadata/annotation ordering policy |
 
+## Blocked conversions
+
+When a conversion is blocked (lossy without `--allow-lossy`), panlabel still
+emits the full conversion report to **stdout** before printing the blocking
+error to **stderr** and exiting non-zero. This means:
+
+- **Text mode** (default): the report appears on stdout with stable codes in
+  brackets (e.g. `[drop_dataset_info]`), then the error on stderr.
+- **`--report json`**: stdout contains the full JSON report (parseable by
+  downstream tools), stderr contains the concise blocking error.
+
+This lets you inspect exactly what would change before deciding to use
+`--allow-lossy`.
+
 ## Practical guidance
 
-- If conversion is blocked, run once with `--report json` to see exactly which warning codes triggered the block.
+- Blocked conversions print the full report to stdout — review it to understand
+  which warnings triggered the block.
+- Use `--report json` for machine-readable output, even on blocked conversions.
 - Prefer explicit `--allow-lossy` only when you accept those specific losses.

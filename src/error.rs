@@ -181,7 +181,7 @@ pub enum PanlabelError {
         source: serde_json::Error,
     },
 
-    #[error("Lossy conversion from {from} to {to} would drop information (use --allow-lossy to proceed):\n{}", format_lossy_messages(report))]
+    #[error("Lossy conversion from {from} to {to} is blocked — {warning_count} warning(s) found (use --allow-lossy to proceed; see report above)", warning_count = report.warning_count())]
     LossyConversionBlocked {
         from: String,
         to: String,
@@ -202,13 +202,4 @@ pub enum PanlabelError {
         #[source]
         source: serde_json::Error,
     },
-}
-
-/// Format lossy warning messages for error display.
-fn format_lossy_messages(report: &ConversionReport) -> String {
-    report
-        .lossy_messages()
-        .map(|msg| format!("  - {}", msg))
-        .collect::<Vec<_>>()
-        .join("\n")
 }

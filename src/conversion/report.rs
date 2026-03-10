@@ -61,14 +61,6 @@ impl ConversionReport {
     pub fn is_lossy(&self) -> bool {
         self.warning_count() > 0
     }
-
-    /// Iterate over warning messages (for error display compatibility).
-    pub fn lossy_messages(&self) -> impl Iterator<Item = &str> {
-        self.issues
-            .iter()
-            .filter(|i| i.severity == ConversionSeverity::Warning)
-            .map(|i| i.message.as_str())
-    }
 }
 
 impl fmt::Display for ConversionReport {
@@ -102,7 +94,7 @@ impl fmt::Display for ConversionReport {
                     .iter()
                     .filter(|i| i.severity == ConversionSeverity::Warning)
                 {
-                    writeln!(f, "  - {}", issue.message)?;
+                    writeln!(f, "  - [{}] {}", issue.code.as_str(), issue.message)?;
                 }
             }
 
@@ -114,7 +106,7 @@ impl fmt::Display for ConversionReport {
                     .iter()
                     .filter(|i| i.severity == ConversionSeverity::Info)
                 {
-                    writeln!(f, "  - {}", issue.message)?;
+                    writeln!(f, "  - [{}] {}", issue.code.as_str(), issue.message)?;
                 }
             }
         }
@@ -172,6 +164,8 @@ pub enum ConversionSeverity {
 /// Stable issue codes for programmatic consumption.
 ///
 /// These codes are part of the JSON schema and should remain stable.
+/// Use [`ConversionIssueCode::as_str()`] for the canonical string form
+/// shared by both text and JSON output.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConversionIssueCode {
@@ -262,6 +256,53 @@ pub enum ConversionIssueCode {
     HfWriterDeterministicOrder,
 }
 
+impl ConversionIssueCode {
+    /// Canonical stable string form, shared by text and JSON output.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::DropDatasetInfo => "drop_dataset_info",
+            Self::DropLicenses => "drop_licenses",
+            Self::DropImageMetadata => "drop_image_metadata",
+            Self::DropCategorySupercategory => "drop_category_supercategory",
+            Self::DropAnnotationConfidence => "drop_annotation_confidence",
+            Self::DropAnnotationAttributes => "drop_annotation_attributes",
+            Self::DropImagesWithoutAnnotations => "drop_images_without_annotations",
+            Self::DropDatasetInfoName => "drop_dataset_info_name",
+            Self::CocoAttributesMayNotBePreserved => "coco_attributes_may_not_be_preserved",
+            Self::HfMetadataLost => "hf_metadata_lost",
+            Self::HfAttributesLost => "hf_attributes_lost",
+            Self::HfConfidenceLost => "hf_confidence_lost",
+            Self::TfodReaderIdAssignment => "tfod_reader_id_assignment",
+            Self::TfodWriterRowOrder => "tfod_writer_row_order",
+            Self::YoloReaderIdAssignment => "yolo_reader_id_assignment",
+            Self::YoloReaderClassMapSource => "yolo_reader_class_map_source",
+            Self::YoloWriterClassOrder => "yolo_writer_class_order",
+            Self::YoloWriterEmptyLabelFiles => "yolo_writer_empty_label_files",
+            Self::YoloWriterFloatPrecision => "yolo_writer_float_precision",
+            Self::VocReaderIdAssignment => "voc_reader_id_assignment",
+            Self::VocReaderAttributeMapping => "voc_reader_attribute_mapping",
+            Self::VocReaderCoordinatePolicy => "voc_reader_coordinate_policy",
+            Self::VocReaderDepthHandling => "voc_reader_depth_handling",
+            Self::VocWriterFileLayout => "voc_writer_file_layout",
+            Self::VocWriterNoImageCopy => "voc_writer_no_image_copy",
+            Self::VocWriterBoolNormalization => "voc_writer_bool_normalization",
+            Self::LabelStudioRotationDropped => "label_studio_rotation_dropped",
+            Self::LabelStudioReaderIdAssignment => "label_studio_reader_id_assignment",
+            Self::LabelStudioReaderImageRefPolicy => "label_studio_reader_image_ref_policy",
+            Self::LabelStudioWriterFromToDefaults => "label_studio_writer_from_to_defaults",
+            Self::CvatReaderIdAssignment => "cvat_reader_id_assignment",
+            Self::CvatReaderAttributePolicy => "cvat_reader_attribute_policy",
+            Self::CvatWriterMetaDefaults => "cvat_writer_meta_defaults",
+            Self::CvatWriterDeterministicOrder => "cvat_writer_deterministic_order",
+            Self::CvatWriterImageIdReassignment => "cvat_writer_image_id_reassignment",
+            Self::CvatWriterSourceDefault => "cvat_writer_source_default",
+            Self::CvatWriterDropUnusedCategories => "cvat_writer_drop_unused_categories",
+            Self::HfReaderCategoryResolution => "hf_reader_category_resolution",
+            Self::HfWriterDeterministicOrder => "hf_writer_deterministic_order",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -313,5 +354,57 @@ mod tests {
         assert!(json.contains("\"from\":\"coco\""));
         assert!(json.contains("\"severity\":\"warning\""));
         assert!(json.contains("\"code\":\"drop_licenses\""));
+    }
+
+    #[test]
+    fn as_str_matches_serde_json_code() {
+        // Verify that as_str() produces the same string as serde serialization
+        // for a representative sample of codes.
+        let codes = [
+            ConversionIssueCode::DropDatasetInfo,
+            ConversionIssueCode::CocoAttributesMayNotBePreserved,
+            ConversionIssueCode::CvatWriterDeterministicOrder,
+            ConversionIssueCode::HfWriterDeterministicOrder,
+            ConversionIssueCode::LabelStudioRotationDropped,
+            ConversionIssueCode::YoloWriterFloatPrecision,
+        ];
+        for code in codes {
+            let json = serde_json::to_value(code).unwrap();
+            assert_eq!(
+                json.as_str().unwrap(),
+                code.as_str(),
+                "as_str() and serde disagree for {:?}",
+                code
+            );
+        }
+    }
+
+    #[test]
+    fn text_display_includes_stable_codes() {
+        let mut report = ConversionReport::new("coco", "tfod");
+        report.input = ConversionCounts {
+            images: 5,
+            categories: 2,
+            annotations: 10,
+        };
+        report.output = report.input.clone();
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info will be dropped",
+        ));
+        report.add(ConversionIssue::info(
+            ConversionIssueCode::TfodWriterRowOrder,
+            "rows ordered by annotation ID",
+        ));
+
+        let text = format!("{}", report);
+        assert!(
+            text.contains("[drop_dataset_info]"),
+            "text should contain warning code"
+        );
+        assert!(
+            text.contains("[tfod_writer_row_order]"),
+            "text should contain info code"
+        );
     }
 }

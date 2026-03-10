@@ -45,7 +45,9 @@ HF-specific options (meaningful only with `--from hf` or `--to hf`):
 - `--config <name>`
 - `--token <token>` (also reads `HF_TOKEN`)
 
-With `--report json`, panlabel prints JSON only to stdout.
+With `--report json`, the conversion report is printed as JSON to stdout.
+On blocked lossy conversions, stdout still contains the full JSON report
+while the blocking error goes to stderr (exit code 1).
 
 Notes:
 - `--hf-repo` can only be used with `--from hf`.

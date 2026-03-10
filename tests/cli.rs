@@ -578,7 +578,11 @@ fn convert_coco_to_tfod_fails_without_allow_lossy() {
     cmd.assert()
         .failure()
         .stderr(predicates::str::contains("Lossy conversion"))
-        .stderr(predicates::str::contains("--allow-lossy"));
+        .stderr(predicates::str::contains("--allow-lossy"))
+        // Blocked path now emits the full report to stdout
+        .stdout(predicates::str::contains("[drop_dataset_info]"))
+        .stdout(predicates::str::contains("Warnings"))
+        .stdout(predicates::str::contains("Notes"));
 }
 
 #[test]
@@ -604,6 +608,101 @@ fn convert_coco_to_tfod_succeeds_with_allow_lossy() {
         .stdout(predicates::str::contains("Converted"));
 
     // Clean up
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn blocked_convert_json_emits_valid_json_to_stdout() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_blocked_json.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "tfod",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--report",
+        "json",
+    ]);
+    let output = cmd.output().expect("run command");
+    assert!(!output.status.success());
+
+    // stdout should be valid JSON with issue codes
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    assert_eq!(parsed["from"], "coco");
+    assert_eq!(parsed["to"], "tfod");
+    let issues = parsed["issues"]
+        .as_array()
+        .expect("issues should be an array");
+    assert!(issues.iter().any(|i| i["code"] == "drop_dataset_info"));
+
+    // stderr should have the concise error
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Lossy conversion"));
+    assert!(stderr.contains("--allow-lossy"));
+}
+
+#[test]
+fn blocked_convert_text_shows_stable_codes() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_blocked_text_codes.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "tfod",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        // Text output now includes stable codes in brackets
+        .stdout(predicates::str::contains("[drop_dataset_info]"))
+        .stdout(predicates::str::contains("[drop_licenses]"))
+        .stdout(predicates::str::contains("[tfod_writer_row_order]"))
+        // Counts are still shown
+        .stdout(predicates::str::contains("images"))
+        .stdout(predicates::str::contains("annotations"));
+}
+
+#[test]
+fn success_convert_text_shows_stable_codes() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_success_text_codes.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "tfod",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"))
+        // Stable codes in text output
+        .stdout(predicates::str::contains("[drop_dataset_info]"))
+        .stdout(predicates::str::contains("[tfod_writer_row_order]"));
+
     let _ = std::fs::remove_file(&output_path);
 }
 
@@ -1775,7 +1874,10 @@ fn sample_to_tfod_is_blocked_without_allow_lossy() {
     cmd.assert()
         .failure()
         .stderr(predicates::str::contains("Lossy conversion"))
-        .stderr(predicates::str::contains("--allow-lossy"));
+        .stderr(predicates::str::contains("--allow-lossy"))
+        // Blocked sample path also emits the full report to stdout
+        .stdout(predicates::str::contains("[drop_dataset_info]"))
+        .stdout(predicates::str::contains("Warnings"));
 }
 
 // list-formats subcommand tests

@@ -1,7 +1,7 @@
 //! Dataset sampling utilities.
 
 use rand::seq::SliceRandom;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, RngExt, SeedableRng};
 use std::collections::{HashMap, HashSet};
 
 use crate::error::PanlabelError;

@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/strickvl/panlabel/actions/workflows/ci.yml/badge.svg)](https://github.com/strickvl/panlabel/actions/workflows/ci.yml)
 ![Crates.io Version](https://img.shields.io/crates/v/panlabel)
+![PyPI Version](https://img.shields.io/pypi/v/panlabel)
 ![GitHub License](https://img.shields.io/github/license/strickvl/panlabel)
 ![GitHub Repo stars](https://img.shields.io/github/stars/strickvl/panlabel)
 ![Crates.io Total Downloads](https://img.shields.io/crates/d/panlabel)
-![Crates.io Size](https://img.shields.io/crates/size/panlabel)
+![PyPI Downloads](https://img.shields.io/pypi/dm/panlabel)
 
 ## The universal annotation converter
 
@@ -18,11 +19,21 @@ dependencies to manage.
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
 
-> **Note**: Panlabel is in active development (v0.3.x). The CLI and library APIs
+> **Note**: Panlabel is in active development (v0.4.x). The CLI and library APIs
 > may change between versions, so pin to a specific version if you're using it in
 > production.
 
 ## Installation
+
+### pip / uv (any platform)
+
+```sh
+pip install panlabel
+# or
+uv pip install panlabel
+```
+
+This installs a pre-built binary — no Rust toolchain needed.
 
 ### Homebrew (macOS / Linux)
 

@@ -1439,7 +1439,7 @@ mod tests {
         .expect("write label");
 
         let dataset = read_yolo_dir(temp.path()).expect("read flat");
-        assert!(dataset.info.attributes.get("yolo_layout_mode").is_none());
-        assert!(dataset.info.attributes.get("yolo_splits_found").is_none());
+        assert!(!dataset.info.attributes.contains_key("yolo_layout_mode"));
+        assert!(!dataset.info.attributes.contains_key("yolo_splits_found"));
     }
 }

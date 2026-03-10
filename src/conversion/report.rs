@@ -191,6 +191,18 @@ pub enum ConversionIssueCode {
     /// Annotation attributes (other than area/iscrowd) may not be preserved by COCO tools.
     CocoAttributesMayNotBePreserved,
 
+    // IR -> COCO policy (Info level — writer behaviors)
+    /// COCO writer sorts all lists (licenses, images, categories, annotations) by ID.
+    CocoWriterDeterministicOrder,
+    /// COCO writer maps IR confidence to COCO score field.
+    CocoWriterScoreMapping,
+    /// COCO writer maps area/iscrowd via IR annotation attributes.
+    CocoWriterAreaIscrowdMapping,
+    /// COCO writer emits empty segmentation arrays for detection-only output.
+    CocoWriterEmptySegmentation,
+    /// COCO reader maps score to IR confidence and area/iscrowd to annotation attributes.
+    CocoReaderAttributeMapping,
+
     // IR -> HF lossiness
     /// HF metadata cannot represent all IR dataset metadata/licensing fields.
     HfMetadataLost,
@@ -199,7 +211,25 @@ pub enum ConversionIssueCode {
     /// HF metadata does not represent annotation confidence scores.
     HfConfidenceLost,
 
-    // Policy decisions (Info level)
+    // HF policy (Info level)
+    /// HF reader object-container column precedence.
+    HfReaderObjectContainerPrecedence,
+    /// HF reader bbox interpretation depends on --hf-bbox-format.
+    HfReaderBboxFormatDependence,
+
+    // Label Studio policy (Info level — writer behaviors)
+    /// Label Studio writer routes confident annotations to predictions block.
+    LabelStudioWriterConfidenceRouting,
+
+    // YOLO policy (Info level — writer behaviors)
+    /// YOLO writer orders images and labels deterministically.
+    YoloWriterDeterministicOrder,
+    /// YOLO writer does not copy image binaries; only label files are written.
+    YoloWriterNoImageCopy,
+    /// YOLO writer emits data.yaml with class names and directory paths.
+    YoloWriterDataYamlPolicy,
+
+    // Policy decisions (Info level — reader/writer behaviors)
     /// TFOD reader assigns IDs by lexicographic ordering.
     TfodReaderIdAssignment,
     /// TFOD writer orders rows by annotation ID.
@@ -269,9 +299,20 @@ impl ConversionIssueCode {
             Self::DropImagesWithoutAnnotations => "drop_images_without_annotations",
             Self::DropDatasetInfoName => "drop_dataset_info_name",
             Self::CocoAttributesMayNotBePreserved => "coco_attributes_may_not_be_preserved",
+            Self::CocoWriterDeterministicOrder => "coco_writer_deterministic_order",
+            Self::CocoWriterScoreMapping => "coco_writer_score_mapping",
+            Self::CocoWriterAreaIscrowdMapping => "coco_writer_area_iscrowd_mapping",
+            Self::CocoWriterEmptySegmentation => "coco_writer_empty_segmentation",
+            Self::CocoReaderAttributeMapping => "coco_reader_attribute_mapping",
             Self::HfMetadataLost => "hf_metadata_lost",
             Self::HfAttributesLost => "hf_attributes_lost",
             Self::HfConfidenceLost => "hf_confidence_lost",
+            Self::HfReaderObjectContainerPrecedence => "hf_reader_object_container_precedence",
+            Self::HfReaderBboxFormatDependence => "hf_reader_bbox_format_dependence",
+            Self::LabelStudioWriterConfidenceRouting => "label_studio_writer_confidence_routing",
+            Self::YoloWriterDeterministicOrder => "yolo_writer_deterministic_order",
+            Self::YoloWriterNoImageCopy => "yolo_writer_no_image_copy",
+            Self::YoloWriterDataYamlPolicy => "yolo_writer_data_yaml_policy",
             Self::TfodReaderIdAssignment => "tfod_reader_id_assignment",
             Self::TfodWriterRowOrder => "tfod_writer_row_order",
             Self::YoloReaderIdAssignment => "yolo_reader_id_assignment",

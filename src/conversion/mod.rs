@@ -111,8 +111,9 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
         Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
         Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
+        Format::Coco => add_coco_reader_policy(&mut report),
         Format::HfImagefolder => add_hf_reader_policy(&mut report),
-        Format::Coco | Format::IrJson => {}
+        Format::IrJson => {}
     }
 
     // Add policy notes based on target format
@@ -122,8 +123,9 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Voc => add_voc_writer_policy(&mut report),
         Format::LabelStudio => add_label_studio_writer_policy(dataset, &mut report),
         Format::Cvat => add_cvat_writer_policy(&mut report),
+        Format::Coco => add_coco_writer_policy(&mut report),
         Format::HfImagefolder => add_hf_writer_policy(&mut report),
-        Format::Coco | Format::IrJson => {}
+        Format::IrJson => {}
     }
 
     report
@@ -750,6 +752,18 @@ fn add_yolo_writer_policy(report: &mut ConversionReport) {
         ConversionIssueCode::YoloWriterFloatPrecision,
         "YOLO writer outputs normalized coordinates with 6 decimal places".to_string(),
     ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloWriterDeterministicOrder,
+        "YOLO writer orders images and label files by file_name (lexicographic) for deterministic output".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloWriterNoImageCopy,
+        "YOLO writer creates only label files and data.yaml; image binaries are not copied to the output directory".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::YoloWriterDataYamlPolicy,
+        "YOLO writer emits data.yaml with sorted class names, train/val paths, and nc (number of classes)".to_string(),
+    ));
 }
 
 /// Add policy notes for VOC reader behavior.
@@ -837,6 +851,17 @@ fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionRepo
             "Label Studio writer uses from_name='label' and to_name='image' when ls_from_name/ls_to_name attributes are absent".to_string(),
         ));
     }
+
+    let has_confidence = dataset
+        .annotations
+        .iter()
+        .any(|ann| ann.confidence.is_some());
+    if has_confidence {
+        report.add(ConversionIssue::info(
+            ConversionIssueCode::LabelStudioWriterConfidenceRouting,
+            "Label Studio writer routes annotations with confidence scores to the 'predictions' block instead of 'annotations'".to_string(),
+        ));
+    }
 }
 
 /// Add policy notes for CVAT reader behavior.
@@ -878,6 +903,16 @@ fn add_hf_reader_policy(report: &mut ConversionReport) {
         "HF reader resolves category names with precedence: ClassLabel/preflight map, then --hf-category-map, then integer fallback"
             .to_string(),
     ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::HfReaderObjectContainerPrecedence,
+        "HF reader selects the object container with precedence: --hf-objects-column override, then 'objects' column, then 'faces' column"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::HfReaderBboxFormatDependence,
+        "HF reader interprets bounding boxes according to --hf-bbox-format (default: xywh); incorrect setting will produce wrong coordinates"
+            .to_string(),
+    ));
 }
 
 /// Add policy notes for HF writer behavior.
@@ -886,6 +921,37 @@ fn add_hf_writer_policy(report: &mut ConversionReport) {
         ConversionIssueCode::HfWriterDeterministicOrder,
         "HF writer orders metadata rows by image file_name and annotation lists by annotation ID"
             .to_string(),
+    ));
+}
+
+/// Add policy notes for COCO reader behavior.
+fn add_coco_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CocoReaderAttributeMapping,
+        "COCO reader maps score to IR confidence and stores area/iscrowd as annotation attributes"
+            .to_string(),
+    ));
+}
+
+/// Add policy notes for COCO writer behavior.
+fn add_coco_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CocoWriterDeterministicOrder,
+        "COCO writer sorts licenses, images, categories, and annotations by ID for deterministic output"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CocoWriterScoreMapping,
+        "COCO writer maps IR confidence to the COCO score field".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CocoWriterAreaIscrowdMapping,
+        "COCO writer reads area/iscrowd from annotation attributes; defaults to bbox-computed area and iscrowd=0 when absent"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CocoWriterEmptySegmentation,
+        "COCO writer emits an empty segmentation array for detection-only output".to_string(),
     ));
 }
 

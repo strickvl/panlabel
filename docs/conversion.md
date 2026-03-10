@@ -70,6 +70,11 @@ These codes are designed to be stable for programmatic use.
 
 | Code | Meaning |
 |---|---|
+| `coco_reader_attribute_mapping` | COCO reader maps score→confidence and stores area/iscrowd as annotation attributes |
+| `coco_writer_deterministic_order` | COCO writer sorts licenses/images/categories/annotations by ID |
+| `coco_writer_score_mapping` | COCO writer maps IR confidence to the COCO score field |
+| `coco_writer_area_iscrowd_mapping` | COCO writer reads area/iscrowd from attributes; defaults to bbox area and iscrowd=0 |
+| `coco_writer_empty_segmentation` | COCO writer emits empty segmentation arrays for detection-only output |
 | `tfod_reader_id_assignment` | TFOD reader deterministic ID policy |
 | `tfod_writer_row_order` | TFOD writer deterministic row order |
 | `yolo_reader_id_assignment` | YOLO reader deterministic ID policy |
@@ -77,6 +82,9 @@ These codes are designed to be stable for programmatic use.
 | `yolo_writer_class_order` | YOLO writer class index assignment policy |
 | `yolo_writer_empty_label_files` | YOLO writer creates empty label files for unannotated images |
 | `yolo_writer_float_precision` | YOLO normalized float precision policy |
+| `yolo_writer_deterministic_order` | YOLO writer orders images and labels by file_name |
+| `yolo_writer_no_image_copy` | YOLO writer creates only label files; images are not copied |
+| `yolo_writer_data_yaml_policy` | YOLO writer emits data.yaml with class names and paths |
 | `voc_reader_id_assignment` | VOC reader deterministic ID assignment policy |
 | `voc_reader_attribute_mapping` | VOC reader mapping of pose/truncated/difficult/occluded attributes |
 | `voc_reader_coordinate_policy` | VOC reader coordinate policy (no 0/1-based adjustment) |
@@ -87,6 +95,7 @@ These codes are designed to be stable for programmatic use.
 | `label_studio_reader_id_assignment` | Label Studio reader deterministic ID assignment policy |
 | `label_studio_reader_image_ref_policy` | Label Studio reader image reference mapping policy |
 | `label_studio_writer_from_to_defaults` | Label Studio writer default `from_name` / `to_name` policy |
+| `label_studio_writer_confidence_routing` | Label Studio writer routes confident annotations to predictions block |
 | `cvat_reader_id_assignment` | CVAT reader deterministic ID assignment policy |
 | `cvat_reader_attribute_policy` | CVAT reader coordinate + attribute mapping policy |
 | `cvat_writer_meta_defaults` | CVAT writer minimal `<meta>` block policy |
@@ -94,6 +103,8 @@ These codes are designed to be stable for programmatic use.
 | `cvat_writer_image_id_reassignment` | CVAT writer reassigns image IDs sequentially (original `cvat_image_id` not preserved) |
 | `cvat_writer_source_default` | CVAT writer defaults missing `source` attribute to `manual` |
 | `hf_reader_category_resolution` | HF reader category-name resolution precedence policy |
+| `hf_reader_object_container_precedence` | HF reader selects object container: --hf-objects-column, then 'objects', then 'faces' |
+| `hf_reader_bbox_format_dependence` | HF reader bbox interpretation depends on --hf-bbox-format flag |
 | `hf_writer_deterministic_order` | HF writer deterministic metadata/annotation ordering policy |
 
 ## Blocked conversions

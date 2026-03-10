@@ -70,9 +70,8 @@ dist generate
 
 # To release:
 # 1. Bump version in Cargo.toml, update CHANGELOG.md
-# 2. Update the hardcoded version in tests/cli.rs (outputs_tool_name test)
-# 3. IMPORTANT: run `dist generate` to ensure release.yml is in sync
-# 4. Commit, tag, push:
+# 2. IMPORTANT: run `dist generate` to ensure release.yml is in sync
+# 3. Commit, tag, push:
 git tag vX.Y.Z
 git push && git push --tags
 # The .github/workflows/release.yml workflow handles the rest:

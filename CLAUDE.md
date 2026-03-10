@@ -184,8 +184,12 @@ The `--from auto` flag detects format from file extension/content for files and 
   - empty array-root JSON (`[]`) → Label Studio
   - non-empty array-root: check only first task for `data.image` string → Label Studio
   - object-root: requires a non-empty `annotations` array, then peek at `annotations[0].bbox`: array = COCO, object = IR JSON (empty datasets cannot be auto-detected)
-- directory with `labels/` containing `.txt` files (or direct `labels/` dir with `.txt`) → YOLO
-- directory with `Annotations/` containing `.xml` and sibling `JPEGImages/` (or direct `Annotations/` with sibling `JPEGImages/`) → VOC
+- directory with `labels/` containing `.txt` files AND sibling `images/` → YOLO (labels without images is reported as an incomplete layout)
+- directory with `Annotations/` containing top-level `.xml` files → VOC (`JPEGImages/` is optional, matching the reader)
+- directory with `annotations.xml` at root → CVAT
+- directory with `metadata.jsonl`, `metadata.parquet`, or parquet shard files → HF
+- detection uses evidence-based probing (`FormatProbe` + `probe_dir_formats()`) that reports what was found/missing
+- `stats` falls back to `ir-json` for parseable JSON files but surfaces malformed JSON errors directly
 
 **Key design:** The CLI binary (`main.rs`) is intentionally minimal—it calls `panlabel::run()` from the library and handles errors. All business logic belongs in `lib.rs` (or modules it imports). The IR module uses Rust's type system (phantom types for coordinate spaces, newtypes for IDs) to prevent common annotation bugs at compile time.
 

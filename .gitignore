@@ -25,6 +25,7 @@ target/
 
 # Python ignores
 .venv
+__pycache__/
 
 # Maturin / wheel build output
 dist/

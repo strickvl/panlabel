@@ -62,7 +62,8 @@ Show rich dataset statistics.
 
 - Positional: `input`
 - `--format <format>` (optional; if omitted panlabel auto-detects)
-  - when detection fails for a **JSON file**, stats falls back to `ir-json`
+  - when detection fails for a **parseable JSON file**, stats falls back to `ir-json`
+  - malformed JSON surfaces the parse error directly (no silent fallback)
 - `--top <N>` (default: `10`) for label and co-occurrence top lists
 - `--tolerance <PX>` (default: `0.5`) for OOB checks
 - `--output <text|json|html>` (default: `text`)
@@ -116,11 +117,12 @@ Show format capabilities and lossiness class.
 ## Auto-detection rules (`convert --from auto`, `diff --format-* auto`, `sample --from auto`, `stats` without `--format`)
 
 1. If input path is a directory:
-   - YOLO marker: `labels/` with `.txt` labels (or path itself is `labels/`)
-   - VOC marker: `Annotations/` with `.xml` plus `JPEGImages/` (or path itself is `Annotations/` with sibling `JPEGImages/`)
+   - YOLO marker: `labels/` with `.txt` labels AND sibling `images/` directory (or path itself is `labels/` with sibling `images/`). If `labels/` with `.txt` files exist but `images/` is missing, this is reported as an incomplete layout.
+   - VOC marker: `Annotations/` with top-level `.xml` files (or path itself is `Annotations/`). `JPEGImages/` is optional, matching the reader's behavior.
    - CVAT marker: `annotations.xml` at directory root
-   - HF marker: `metadata.jsonl` or `metadata.parquet` at root or in an immediate subdirectory
-   - if multiple markers match, detection fails (ambiguous), including HF+YOLO, HF+VOC, HF+CVAT
+   - HF marker: `metadata.jsonl` or `metadata.parquet` at root or in an immediate subdirectory, or parquet shard files (e.g. `data/train-*.parquet`)
+   - if multiple markers match, detection fails with an ambiguity error listing the evidence for each format
+   - if only partial matches exist (e.g. YOLO labels without images), the error explains what's missing
 2. If input path is a file:
    - `.csv` -> `tfod`
    - `.xml`:
@@ -129,6 +131,7 @@ Show format capabilities and lossiness class.
      - array-root empty or Label Studio task shape -> `label-studio`
      - object-root with `annotations[0].bbox` array -> `coco`
      - object-root with bbox object (`min/max` or `xmin/ymin/xmax/ymax`) -> `ir-json`
+3. `stats` fallback: when detection fails for a `.json` file, stats tries `ir-json` as a fallback — but only if the JSON is parseable. Malformed JSON is reported directly as a parse error.
 
 ## Examples
 

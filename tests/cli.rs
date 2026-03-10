@@ -2069,8 +2069,14 @@ fn convert_auto_detects_hf_directory() {
 fn convert_auto_detect_errors_on_hf_yolo_ambiguity() {
     let temp = tempfile::tempdir().expect("create temp dir");
     create_sample_hf_dataset(temp.path(), false);
+    // Need both labels/ with .txt AND images/ for YOLO to be a complete match.
     fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
-    fs::write(temp.path().join("labels/img1.txt"), "0 0.5 0.5 0.2 0.2\n").expect("write label");
+    fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+    fs::write(
+        temp.path().join("labels/img1.txt"),
+        "0 0.5 0.5 0.2 0.2\n",
+    )
+    .expect("write label");
 
     let output_path = temp.path().join("auto_detect_ambiguous_hf_yolo.json");
 
@@ -2088,7 +2094,71 @@ fn convert_auto_detect_errors_on_hf_yolo_ambiguity() {
     ]);
     cmd.assert()
         .failure()
-        .stderr(predicates::str::contains("matches both HF and YOLO"));
+        .stderr(predicates::str::contains("matches both YOLO and HF"));
+}
+
+#[test]
+fn convert_auto_detect_partial_yolo_without_images_detects_hf() {
+    // labels/ without images/ is a *partial* YOLO layout.
+    // If HF markers are also present, HF should win (only complete match).
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_hf_dataset(temp.path(), false);
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+    fs::write(
+        temp.path().join("labels/img1.txt"),
+        "0 0.5 0.5 0.2 0.2\n",
+    )
+    .expect("write label");
+
+    let output_path = temp.path().join("partial_yolo_hf.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(hf)"));
+}
+
+#[test]
+fn convert_auto_detect_partial_yolo_gives_helpful_error() {
+    // labels/ without images/ and no other complete format should report
+    // the partial match with guidance.
+    let temp = tempfile::tempdir().expect("create temp dir");
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+    fs::write(
+        temp.path().join("labels/img1.txt"),
+        "0 0.5 0.5 0.2 0.2\n",
+    )
+    .expect("write label");
+
+    let output_path = temp.path().join("partial_yolo.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("YOLO"))
+        .stderr(predicates::str::contains("images/ directory"));
 }
 
 #[test]
@@ -2148,4 +2218,139 @@ fn convert_auto_fails_on_unknown_extension() {
     cmd.assert()
         .failure()
         .stderr(predicates::str::contains("unrecognized file extension"));
+}
+
+#[test]
+fn convert_auto_detects_voc_without_jpegimages() {
+    // VOC reader accepts Annotations/ without JPEGImages/, so auto-detect should too.
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let voc_dir = temp.path().join("voc_no_images");
+    fs::create_dir_all(voc_dir.join("Annotations")).expect("create annotations dir");
+    // No JPEGImages/ directory — reader treats it as optional.
+
+    let xml = r#"<?xml version="1.0" encoding="utf-8"?>
+<annotation>
+  <filename>img1.jpg</filename>
+  <size><width>100</width><height>80</height><depth>3</depth></size>
+  <object>
+    <name>person</name>
+    <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>50</xmax><ymax>70</ymax></bndbox>
+  </object>
+</annotation>
+"#;
+    fs::write(voc_dir.join("Annotations/img1.xml"), xml).expect("write xml");
+
+    let output_path = temp.path().join("voc_no_images.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        voc_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(voc)"));
+}
+
+#[test]
+fn stats_malformed_json_does_not_fall_back_to_ir() {
+    // Malformed JSON should surface the parse error directly,
+    // not be silently retried as IR JSON.
+    let temp = tempfile::tempdir().expect("tempdir");
+    let p = temp.path().join("bad.json");
+    fs::write(&p, "{ this is not valid json }").expect("write");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["stats", p.to_str().unwrap()]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("parse JSON"));
+}
+
+#[test]
+fn stats_ambiguous_json_falls_back_to_ir() {
+    // Valid JSON that detection can't classify should still fall back
+    // to IR JSON for stats (the narrow fallback).
+    let temp = tempfile::tempdir().expect("tempdir");
+    let p = temp.path().join("empty_annotations.json");
+    fs::write(
+        &p,
+        r#"{"info":{},"images":[],"categories":[],"annotations":[]}"#,
+    )
+    .expect("write");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["stats", p.to_str().unwrap()]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Dataset Stats Report"));
+}
+
+#[test]
+fn convert_auto_detect_unrecognized_dir_lists_expected_layouts() {
+    // Empty directory should give a helpful error listing expected layouts.
+    let temp = tempfile::tempdir().expect("tempdir");
+
+    let output_path = temp.path().join("output.json");
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("unrecognized directory layout"))
+        .stderr(predicates::str::contains("YOLO"))
+        .stderr(predicates::str::contains("VOC"))
+        .stderr(predicates::str::contains("CVAT"))
+        .stderr(predicates::str::contains("HF"));
+}
+
+#[test]
+fn convert_auto_detect_ambiguity_shows_evidence() {
+    // Ambiguity messages should include what markers were found.
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_hf_dataset(temp.path(), false);
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+    fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+    fs::write(
+        temp.path().join("labels/img1.txt"),
+        "0 0.5 0.5 0.2 0.2\n",
+    )
+    .expect("write label");
+
+    let output_path = temp.path().join("evidence.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        // Evidence should be listed.
+        .stderr(predicates::str::contains("labels/"))
+        .stderr(predicates::str::contains("metadata"));
 }

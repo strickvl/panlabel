@@ -914,6 +914,12 @@ fn resolve_stats_format(
     match detect_format(path) {
         Ok(format) => Ok(format),
         Err(error) => {
+            // If JSON itself is malformed, surface that directly — don't mask
+            // it with an IR fallback that would produce a confusing error.
+            if matches!(&error, PanlabelError::FormatDetectionJsonParse { .. }) {
+                return Err(error);
+            }
+
             let is_json_file = path.is_file()
                 && path
                     .extension()
@@ -1369,102 +1375,169 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     })
 }
 
+/// Evidence collected while probing a directory for a specific format.
+struct FormatProbe {
+    name: &'static str,
+    format: ConvertFormat,
+    found: Vec<String>,
+    missing: Vec<String>,
+}
+
+impl FormatProbe {
+    fn new(name: &'static str, format: ConvertFormat) -> Self {
+        Self {
+            name,
+            format,
+            found: Vec::new(),
+            missing: Vec::new(),
+        }
+    }
+
+    fn is_detected(&self) -> bool {
+        !self.found.is_empty() && self.missing.is_empty()
+    }
+
+    fn is_partial(&self) -> bool {
+        !self.found.is_empty() && !self.missing.is_empty()
+    }
+}
+
 fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
-    let labels_subdir = path.join("labels");
-    let is_yolo = (labels_subdir.is_dir() && dir_contains_txt_files(&labels_subdir)?)
-        || (is_labels_dir(path) && dir_contains_txt_files(path)?);
+    let probes = probe_dir_formats(path)?;
 
-    let annotations_subdir = path.join("Annotations");
-    let images_subdir = path.join("JPEGImages");
-    let is_voc = (annotations_subdir.is_dir()
-        && images_subdir.is_dir()
-        && dir_contains_xml_files(&annotations_subdir)?)
-        || (is_annotations_dir(path)
-            && path
-                .parent()
-                .map(|parent| parent.join("JPEGImages").is_dir())
-                .unwrap_or(false)
-            && dir_contains_xml_files(path)?);
+    let detected: Vec<&FormatProbe> = probes.iter().filter(|p| p.is_detected()).collect();
+    let partial: Vec<&FormatProbe> = probes.iter().filter(|p| p.is_partial()).collect();
 
-    let is_cvat = path.join("annotations.xml").is_file();
-    let is_hf = dir_contains_hf_metadata(path)?;
+    if detected.len() == 1 {
+        return Ok(detected[0].format);
+    }
 
-    if is_yolo && is_voc {
+    if detected.len() > 1 {
+        let names: Vec<&str> = detected.iter().map(|p| p.name).collect();
+        let header = if detected.len() == 2 {
+            format!(
+                "directory matches both {} and {} layouts",
+                names[0], names[1]
+            )
+        } else {
+            format!("directory matches multiple layouts ({})", names.join(", "))
+        };
+
+        let mut reason = format!("{}:\n", header);
+        for p in &detected {
+            reason.push_str(&format!("  - {}: found {}\n", p.name, p.found.join(", ")));
+        }
+        reason.push_str("Use --from to specify format explicitly.");
+
         return Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "directory matches both YOLO and VOC layouts. Use --from to specify format explicitly."
-                .to_string(),
+            reason,
         });
     }
 
-    if is_yolo && is_cvat {
+    // No complete match — check for partial matches (e.g. labels/ without images/).
+    if !partial.is_empty() {
+        let mut reason = String::new();
+        for p in &partial {
+            reason.push_str(&format!(
+                "found {}-style markers ({}), but missing: {}\n",
+                p.name,
+                p.found.join(", "),
+                p.missing.join(", "),
+            ));
+        }
+        reason.push_str("Use --from to specify format explicitly, or fix the directory layout.");
+
         return Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "directory matches both YOLO and CVAT layouts. Use --from to specify format explicitly."
-                .to_string(),
+            reason,
         });
-    }
-
-    if is_voc && is_cvat {
-        return Err(PanlabelError::FormatDetectionFailed {
-            path: path.to_path_buf(),
-            reason: "directory matches both VOC and CVAT layouts. Use --from to specify format explicitly."
-                .to_string(),
-        });
-    }
-
-    if is_hf && is_yolo {
-        return Err(PanlabelError::FormatDetectionFailed {
-            path: path.to_path_buf(),
-            reason: "directory matches both HF and YOLO layouts. Use --from to specify format explicitly."
-                .to_string(),
-        });
-    }
-
-    if is_hf && is_voc {
-        return Err(PanlabelError::FormatDetectionFailed {
-            path: path.to_path_buf(),
-            reason: "directory matches both HF and VOC layouts. Use --from to specify format explicitly."
-                .to_string(),
-        });
-    }
-
-    if is_hf && is_cvat {
-        return Err(PanlabelError::FormatDetectionFailed {
-            path: path.to_path_buf(),
-            reason: "directory matches both HF and CVAT layouts. Use --from to specify format explicitly."
-                .to_string(),
-        });
-    }
-
-    if is_yolo {
-        return Ok(ConvertFormat::Yolo);
-    }
-
-    if is_voc {
-        return Ok(ConvertFormat::Voc);
-    }
-
-    if is_cvat {
-        return Ok(ConvertFormat::Cvat);
-    }
-
-    if is_hf {
-        return Ok(ConvertFormat::HfImagefolder);
     }
 
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized directory layout (expected YOLO labels/ with .txt files, VOC Annotations/ with .xml files plus JPEGImages/, CVAT directory export with annotations.xml at root, or HF metadata.jsonl/metadata.parquet layout). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized directory layout. Expected one of:\n  \
+                 - YOLO: labels/ with .txt files and sibling images/\n  \
+                 - VOC: Annotations/ with .xml files\n  \
+                 - CVAT: annotations.xml at directory root\n  \
+                 - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n\
+                 Use --from to specify format explicitly."
+            .to_string(),
     })
+}
+
+/// Probe a directory for all supported format markers. Returns one probe
+/// per format, each with the markers it found and what's missing (if any).
+fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
+    let mut probes = Vec::with_capacity(4);
+
+    // --- YOLO ---
+    // Aligned with io_yolo::discover_layout: requires labels/ with .txt AND images/.
+    let mut yolo = FormatProbe::new("YOLO", ConvertFormat::Yolo);
+    let (labels_dir_exists, has_txt) = if path.join("labels").is_dir() {
+        (true, dir_contains_txt_files(&path.join("labels"))?)
+    } else if is_labels_dir(path) {
+        (true, dir_contains_txt_files(path)?)
+    } else {
+        (false, false)
+    };
+    if labels_dir_exists && has_txt {
+        yolo.found.push("labels/ with .txt files".into());
+        // Check for images/ sibling — aligned with reader requirement.
+        let images_exists = if is_labels_dir(path) {
+            path.parent()
+                .map(|p| p.join("images").is_dir())
+                .unwrap_or(false)
+        } else {
+            path.join("images").is_dir()
+        };
+        if images_exists {
+            yolo.found.push("images/ directory".into());
+        } else {
+            yolo.missing.push("images/ directory".into());
+        }
+    }
+    probes.push(yolo);
+
+    // --- VOC ---
+    // Aligned with io_voc_xml::discover_layout: requires Annotations/ with
+    // top-level .xml files, but JPEGImages/ is optional.
+    let mut voc = FormatProbe::new("VOC", ConvertFormat::Voc);
+    let (ann_dir, has_top_level_xml) = if path.join("Annotations").is_dir() {
+        let ann = path.join("Annotations");
+        (true, dir_contains_top_level_xml_files(&ann)?)
+    } else if is_annotations_dir(path) {
+        (true, dir_contains_top_level_xml_files(path)?)
+    } else {
+        (false, false)
+    };
+    if ann_dir && has_top_level_xml {
+        voc.found
+            .push("Annotations/ with top-level .xml files".into());
+    }
+    probes.push(voc);
+
+    // --- CVAT ---
+    let mut cvat = FormatProbe::new("CVAT", ConvertFormat::Cvat);
+    if path.join("annotations.xml").is_file() {
+        cvat.found.push("annotations.xml at root".into());
+    }
+    probes.push(cvat);
+
+    // --- HF ---
+    let mut hf = FormatProbe::new("HF", ConvertFormat::HfImagefolder);
+    if dir_contains_hf_metadata(path)? {
+        hf.found.push("metadata.jsonl or metadata.parquet".into());
+    } else if dir_has_parquet_shards(path)? {
+        hf.found.push("parquet shard files".into());
+    }
+    probes.push(hf);
+
+    Ok(probes)
 }
 
 fn dir_contains_txt_files(path: &Path) -> Result<bool, PanlabelError> {
     dir_contains_extension_files(path, "txt")
-}
-
-fn dir_contains_xml_files(path: &Path) -> Result<bool, PanlabelError> {
-    dir_contains_extension_files(path, "xml")
 }
 
 fn dir_contains_hf_metadata(path: &Path) -> Result<bool, PanlabelError> {
@@ -1489,6 +1562,70 @@ fn dir_contains_hf_metadata(path: &Path) -> Result<bool, PanlabelError> {
         }
     }
 
+    Ok(false)
+}
+
+/// Check for HF parquet shard files (e.g. `data/train-00000-of-00001.parquet`).
+/// Scans up to depth 2 for .parquet files that aren't `metadata.parquet`.
+fn dir_has_parquet_shards(path: &Path) -> Result<bool, PanlabelError> {
+    let entries = match std::fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(_) => return Ok(false),
+    };
+    for entry in entries {
+        let entry = entry.map_err(PanlabelError::Io)?;
+        let entry_path = entry.path();
+        if !entry_path.is_dir() {
+            continue;
+        }
+        let sub_entries = match std::fs::read_dir(&entry_path) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for sub_entry in sub_entries {
+            let sub_entry = sub_entry.map_err(PanlabelError::Io)?;
+            let sub_path = sub_entry.path();
+            if sub_path.is_file()
+                && sub_path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.eq_ignore_ascii_case("parquet"))
+                    .unwrap_or(false)
+                && sub_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| !n.eq_ignore_ascii_case("metadata.parquet"))
+                    .unwrap_or(false)
+            {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// Check if a directory contains .xml files at the top level only (non-recursive).
+/// Aligned with VOC reader's `collect_xml_files()` which uses `fs::read_dir`.
+fn dir_contains_top_level_xml_files(path: &Path) -> Result<bool, PanlabelError> {
+    for entry in std::fs::read_dir(path).map_err(|source| PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: format!("failed while inspecting directory: {source}"),
+    })? {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if entry_path.is_file()
+            && entry_path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("xml"))
+                .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+    }
     Ok(false)
 }
 

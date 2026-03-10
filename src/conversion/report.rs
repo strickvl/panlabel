@@ -248,6 +248,14 @@ pub enum ConversionIssueCode {
     CvatReaderAttributePolicy,
     /// CVAT writer default metadata block policy.
     CvatWriterMetaDefaults,
+    /// CVAT writer deterministic ordering policy (images by filename, boxes by annotation ID).
+    CvatWriterDeterministicOrder,
+    /// CVAT writer reassigns image IDs sequentially (original cvat_image_id not preserved).
+    CvatWriterImageIdReassignment,
+    /// CVAT writer defaults missing source attribute to "manual".
+    CvatWriterSourceDefault,
+    /// CVAT writer drops unused categories from <meta><labels>.
+    CvatWriterDropUnusedCategories,
     /// HF reader category-name resolution precedence.
     HfReaderCategoryResolution,
     /// HF writer deterministic output ordering policy.

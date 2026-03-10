@@ -216,14 +216,19 @@ Deterministic policy:
 
 Writer behavior:
 - writes a single XML file (or `annotations.xml` inside output directory)
-- emits minimal `<meta><task>` with `name='panlabel export'`
-- writes labels only for categories referenced by annotations
+- emits minimal `<meta><task>` with `name='panlabel export'`, `mode='annotation'`, and `size` equal to image count
+- writes labels only for categories referenced by annotations (unused categories are dropped)
 - writes `<image>` entries for all images, including unannotated images
+- image ordering: by `file_name` (lexicographic)
+- image IDs are reassigned sequentially (0, 1, 2, ...) by sorted order; original `cvat_image_id` attributes are not preserved in output
 - writes `<box>` entries sorted by annotation ID per image
+- writes `cvat_attr_*` annotation attributes as `<attribute>` children of `<box>`
 - normalizes `occluded` values:
   - `true`/`yes`/`1` -> `1`
   - `false`/`no`/`0` -> `0`
   - otherwise or missing -> `0`
+- defaults missing or empty `source` attribute to `manual`
+- defaults missing or invalid `z_order` to `0`
 
 ## Future expansion rule
 

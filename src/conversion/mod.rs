@@ -685,7 +685,25 @@ fn analyze_to_cvat(dataset: &Dataset, report: &mut ConversionReport) {
         ));
     }
 
+    // CVAT writer drops categories not referenced by any annotation.
+    let used_category_ids: HashSet<_> = dataset.annotations.iter().map(|a| a.category_id).collect();
+    let unused_count = dataset
+        .categories
+        .iter()
+        .filter(|cat| !used_category_ids.contains(&cat.id))
+        .count();
+
     report.output = report.input.clone();
+    if unused_count > 0 {
+        report.output.categories -= unused_count;
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::CvatWriterDropUnusedCategories,
+            format!(
+                "{} category(s) not referenced by any annotation will be dropped from CVAT <meta><labels>",
+                unused_count
+            ),
+        ));
+    }
 }
 
 /// Add policy notes for TFOD reader behavior.
@@ -837,7 +855,19 @@ fn add_cvat_reader_policy(_dataset: &Dataset, report: &mut ConversionReport) {
 fn add_cvat_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::info(
         ConversionIssueCode::CvatWriterMetaDefaults,
-        "CVAT writer emits a minimal <meta><task> block with name='panlabel export' and writes labels only for categories referenced by annotations".to_string(),
+        "CVAT writer emits a minimal <meta><task> block with name='panlabel export', mode='annotation', and size equal to image count".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CvatWriterDeterministicOrder,
+        "CVAT writer orders images by file_name (lexicographic) and boxes within each image by annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CvatWriterImageIdReassignment,
+        "CVAT writer assigns sequential image IDs (0, 1, 2, ...) by sorted order; original cvat_image_id attributes are not preserved in output".to_string(),
+    ));
+    report.add(ConversionIssue::info(
+        ConversionIssueCode::CvatWriterSourceDefault,
+        "CVAT writer defaults missing or empty source attribute to 'manual'".to_string(),
     ));
 }
 
@@ -1171,5 +1201,47 @@ mod tests {
             .issues
             .iter()
             .any(|i| i.code == ConversionIssueCode::CvatWriterMetaDefaults));
+        assert!(to_report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatWriterDeterministicOrder));
+        assert!(to_report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatWriterImageIdReassignment));
+        assert!(to_report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatWriterSourceDefault));
+    }
+
+    #[test]
+    fn cvat_output_counts_reflect_unused_category_drop() {
+        let mut dataset = sample_dataset();
+        // Add an unused category
+        dataset.categories.push(Category::new(99u64, "unused_label"));
+
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::Cvat);
+
+        // Input has all categories, output should drop the unused one
+        assert_eq!(report.input.categories, 2);
+        assert_eq!(report.output.categories, 1);
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatWriterDropUnusedCategories));
+    }
+
+    #[test]
+    fn cvat_no_unused_category_warning_when_all_used() {
+        // sample_dataset has 1 category and 1 annotation using it
+        let dataset = sample_dataset();
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::Cvat);
+
+        assert_eq!(report.input.categories, report.output.categories);
+        assert!(!report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::CvatWriterDropUnusedCategories));
     }
 }

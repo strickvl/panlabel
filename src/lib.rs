@@ -1358,6 +1358,15 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         return detect_dir_format(path);
     }
 
+    // Catch missing files early with a path-contextual message, instead of
+    // letting downstream File::open produce a bare "IO error: No such file".
+    if !path.exists() {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "file does not exist".to_string(),
+        });
+    }
+
     // First try extension-based detection
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext.to_lowercase().as_str() {

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.4.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, YOLO directory format, Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.5.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, YOLO directory format (including split-aware layouts), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -70,9 +70,10 @@ dist generate
 
 # To release:
 # 1. Bump version in Cargo.toml, update CHANGELOG.md
-# 2. IMPORTANT: run `dist generate` to ensure release.yml is in sync
-# 3. Commit, tag, push:
-git tag v0.5.0
+# 2. Update the hardcoded version in tests/cli.rs (outputs_tool_name test)
+# 3. IMPORTANT: run `dist generate` to ensure release.yml is in sync
+# 4. Commit, tag, push:
+git tag vX.Y.Z
 git push && git push --tags
 # The .github/workflows/release.yml workflow handles the rest:
 # - Builds binaries for 5 platforms
@@ -83,7 +84,7 @@ git push && git push --tags
 Release infrastructure:
 - **cargo-dist** (`dist-workspace.toml`) manages cross-platform binary builds and GitHub Releases
 - **Homebrew tap**: `strickvl/homebrew-tap` — auto-updated by release CI (requires `HOMEBREW_TAP_TOKEN` secret)
-- **Tag convention**: `vX.Y.Z` (e.g., `v0.4.0`) — annotated tags trigger the release workflow
+- **Tag convention**: `vX.Y.Z` (e.g., `v0.5.0`) — annotated tags trigger the release workflow
 
 ### Generate Test Data
 ```bash

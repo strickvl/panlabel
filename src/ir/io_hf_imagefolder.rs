@@ -61,6 +61,10 @@ pub(crate) struct ParsedRow {
     width: Option<u32>,
     height: Option<u32>,
     anns: Vec<ParsedAnn>,
+    /// Source metadata file for error provenance.
+    source_path: PathBuf,
+    /// 1-based line number (JSONL) or row index (parquet) for error provenance.
+    source_line: usize,
 }
 
 #[derive(Debug)]
@@ -451,6 +455,8 @@ pub(crate) fn parse_jsonl_row(
         width: Some(width),
         height: Some(height),
         anns,
+        source_path: metadata_path.to_path_buf(),
+        source_line: line,
     })
 }
 
@@ -620,10 +626,17 @@ pub(crate) fn dataset_from_rows(
 ) -> Result<Dataset, PanlabelError> {
     let mut by_file: HashMap<String, ParsedRow> = HashMap::new();
     for row in rows {
-        if by_file.contains_key(&row.file_name) {
+        if let Some(existing) = by_file.get(&row.file_name) {
             return Err(PanlabelError::HfLayoutInvalid {
-                path: PathBuf::from("metadata.jsonl"),
-                message: format!("duplicate file_name '{}' in HF metadata", row.file_name),
+                path: row.source_path.clone(),
+                message: format!(
+                    "duplicate file_name '{}' in HF metadata (first at {}:{}, duplicate at {}:{})",
+                    row.file_name,
+                    existing.source_path.display(),
+                    existing.source_line,
+                    row.source_path.display(),
+                    row.source_line,
+                ),
             });
         }
         by_file.insert(row.file_name.clone(), row);

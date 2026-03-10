@@ -19,14 +19,14 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && \
     echo 'fn main() {}' > src/main.rs && \
     echo '' > src/lib.rs && \
-    cargo build --release --features hf 2>/dev/null || true && \
+    cargo build --release --features hf --bin panlabel 2>/dev/null || true && \
     rm -rf src
 
 # Copy the real source code
 COPY src/ src/
 
 # Build the actual binary
-RUN cargo build --release --features hf && \
+RUN cargo build --release --features hf --bin panlabel && \
     strip target/release/panlabel
 
 # ---- Runtime stage ----

@@ -20,4 +20,6 @@ install-updater = false
 # Homebrew tap for formula publishing
 tap = "strickvl/homebrew-tap"
 # Publish jobs to run in CI
+# Note: crates.io and PyPI publishing are handled by custom jobs in
+# release.yml and publish-pypi.yml respectively (not managed by dist)
 publish-jobs = ["homebrew"]

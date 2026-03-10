@@ -26,6 +26,9 @@ target/
 # Python ignores
 .venv
 
+# Maturin / wheel build output
+dist/
+
 # custom gitignores during development
 /assets/
 

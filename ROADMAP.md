@@ -24,7 +24,9 @@ before expanding to new annotation tasks (segmentation, classification).
 - ✅ Pascal VOC XML
 - ✅ Label Studio JSON
 - ✅ CVAT XML
-- ⏳ Broader YOLO family variants only when they fit IR safely
+- ⏳ YOLO split-aware reading — `data.yaml` with `train:`/`val:`/`test:` path keys (Roboflow, Ultralytics Hub exports)
+- ⏳ YOLO optional confidence token — parse optional 6th float as IR `confidence`
+- ⏳ YOLO Darknet flat-directory layouts (lower priority, only if real demand)
 - ✅ Hugging Face Datasets ImageFolder (`metadata.jsonl` + `metadata.parquet`) — local read/write support (`metadata.jsonl`) plus optional Parquet/remote Hub import support (`--hf-repo` in `convert`, feature-gated in source builds)
 - ✅ HF zip-style remote split archives (`*.zip`) in `convert` with payload routing to supported layouts (COCO/YOLO/VOC/HF)
 
@@ -59,6 +61,12 @@ These are deferred until detection format coverage is solid:
 
 - ⏳ Evaluate IR design options for segmentation support
 - ⏳ Evaluate IR design options for classification-only support
+
+### YOLO variants (blocked by IR design)
+
+- ⏳ YOLO OBB (8-token oriented bbox rows) — requires rotated-bbox IR support
+- ⏳ YOLO segmentation (variable-length polygon rows) — requires polygon/mask IR support
+- ⏳ YOLO pose (keypoint rows) — requires keypoint IR support
 
 ### Provider / workflow support
 

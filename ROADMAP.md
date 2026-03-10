@@ -46,9 +46,9 @@ before expanding to new annotation tasks (segmentation, classification).
 
 ### Documentation
 
-- ⏳ Improve task docs and boundaries for detection workflows
+- ✅ Improve task docs and boundaries for detection workflows
 - ⏳ Split docs into per-format/per-task pages when content volume justifies it
-- ⏳ Keep docs tightly aligned with behavior covered by tests
+- ✅ Keep docs tightly aligned with behavior covered by tests
 - ✅ Keep Label Studio docs aligned with `src/ir/io_label_studio_json.rs` + `tests/label_studio_roundtrip.rs` (strict schema, legacy `completions`, rotation-envelope behavior)
 
 ## Later priorities

@@ -82,9 +82,13 @@ Usage:
 - `--format-a <FORMAT>` (default: `auto`)
 - `--format-b <FORMAT>` (default: `auto`)
 - `--match-by <id|iou>` (default: `id`)
-- `--iou-threshold <FLOAT>` (default: `0.5`, used by `--match-by iou`)
+- `--iou-threshold <FLOAT>` (default: `0.5`, used by `--match-by iou`; must be in `(0.0, 1.0]`)
 - `--detail` for item-level details
 - `--output <text|json>` (default: `text`)
+
+Constraints:
+- Each input dataset must have unique `image.file_name` values for reliable diffing.
+- `--iou-threshold` is validated only when `--match-by iou` is used.
 
 ---
 

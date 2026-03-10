@@ -29,6 +29,7 @@ within those boundaries.
 |---|---|---|---|
 | `ir-json` | yes | yes | canonical/lossless representation |
 | `coco` | yes | yes | bbox `[x,y,w,h]` mapped to/from IR XYXY |
+| `cvat` | yes | yes | CVAT "for images" XML; `<box>` annotations only; absolute pixel coordinates |
 | `label-studio` | yes | yes | task-export JSON (`rectanglelabels`), percentage coordinates, lossy (rotations flattened to axis-aligned bbox envelopes) |
 | `tfod` | yes | yes | normalized CSV format; lossy |
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
@@ -46,9 +47,24 @@ quietly producing incomplete output.
 
 Examples:
 - YOLO rows with more than 5 tokens (often segmentation or pose data) are rejected with a clear error.
-- COCO segmentation payloads are accepted during read but not converted into IR — and the conversion report notes this.
+- COCO segmentation payloads are accepted during read but not converted into IR (bbox-only).
 - Label Studio result types other than `rectanglelabels` are rejected in the current detection-only adapter.
 - Label Studio `rotation` does not add OBB support: geometry is flattened to axis-aligned envelopes (angle retained as metadata).
+
+## Detection boundaries by format
+
+Each adapter enforces detection-only boundaries differently. Here's what each
+format accepts and rejects:
+
+| Format | Accepts | Rejects / ignores |
+|---|---|---|
+| `coco` | bbox annotations (`annotations[].bbox`) | `segmentation` is accepted on read but ignored (not converted to IR); on write, emitted as `[]` |
+| `cvat` | `<box>` annotation elements only | `<polygon>`, `<points>`, `<polyline>`, and other annotation elements are hard parse errors |
+| `label-studio` | `rectanglelabels` results only | Other result types are rejected; `rotation` is flattened to an axis-aligned envelope (angle kept as `ls_rotation_deg` attribute) |
+| `yolo` | 5-token bbox rows (`class x_center y_center w h`) | Rows with 6+ tokens (segmentation, pose, OBB) are rejected with a clear error |
+| `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
+| `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
+| `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |
 
 ## Adding a new task in the future
 

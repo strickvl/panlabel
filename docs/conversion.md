@@ -64,6 +64,7 @@ These codes are designed to be stable for programmatic use.
 | `hf_metadata_lost` | HF metadata cannot represent full IR dataset metadata/licenses/supercategory fields |
 | `hf_attributes_lost` | HF metadata drops image/annotation attributes outside its flat schema |
 | `hf_confidence_lost` | HF metadata does not preserve annotation confidence |
+| `cvat_writer_drop_unused_categories` | CVAT writer drops categories not referenced by any annotation from `<meta><labels>` |
 
 ### Info codes
 
@@ -89,6 +90,9 @@ These codes are designed to be stable for programmatic use.
 | `cvat_reader_id_assignment` | CVAT reader deterministic ID assignment policy |
 | `cvat_reader_attribute_policy` | CVAT reader coordinate + attribute mapping policy |
 | `cvat_writer_meta_defaults` | CVAT writer minimal `<meta>` block policy |
+| `cvat_writer_deterministic_order` | CVAT writer deterministic ordering (images by filename, boxes by annotation ID) |
+| `cvat_writer_image_id_reassignment` | CVAT writer reassigns image IDs sequentially (original `cvat_image_id` not preserved) |
+| `cvat_writer_source_default` | CVAT writer defaults missing `source` attribute to `manual` |
 | `hf_reader_category_resolution` | HF reader category-name resolution precedence policy |
 | `hf_writer_deterministic_order` | HF writer deterministic metadata/annotation ordering policy |
 

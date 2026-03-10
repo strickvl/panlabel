@@ -54,6 +54,16 @@ cargo install panlabel --features hf
 
 Download from the [latest GitHub Release](https://github.com/strickvl/panlabel/releases/latest). Builds are available for macOS (Intel + Apple Silicon), Linux (x86_64 + ARM64), and Windows.
 
+### Docker
+
+```sh
+docker pull strickvl/panlabel
+# Convert a COCO file in your current directory to YOLO
+docker run --rm -v "$PWD":/data strickvl/panlabel convert -f coco -t yolo -i /data/annotations.json -o /data/yolo_out --allow-lossy
+```
+
+Multi-arch images (amd64 + arm64) are published for each release.
+
 ### As a Rust library
 
 ```sh

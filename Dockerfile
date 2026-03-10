@@ -41,8 +41,8 @@ COPY --from=builder /build/target/release/panlabel /usr/local/bin/panlabel
 
 ENTRYPOINT ["panlabel"]
 
-# OCI labels
+ARG VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/strickvl/panlabel" \
       org.opencontainers.image.title="panlabel" \
       org.opencontainers.image.description="The universal annotation converter" \
-      org.opencontainers.image.version="0.3.0"
+      org.opencontainers.image.version="${VERSION}"

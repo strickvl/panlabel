@@ -37,11 +37,17 @@ With `--report json`, output follows this shape:
   "input": {"images": 10, "categories": 3, "annotations": 40},
   "output": {"images": 10, "categories": 3, "annotations": 40},
   "issues": [
-    {"severity": "warning", "code": "drop_dataset_info", "message": "..."},
-    {"severity": "info", "code": "yolo_writer_float_precision", "message": "..."}
+    {"severity": "warning", "stage": "analysis", "code": "drop_dataset_info", "message": "..."},
+    {"severity": "info", "stage": "source_reader", "code": "coco_reader_attribute_mapping", "message": "..."},
+    {"severity": "info", "stage": "target_writer", "code": "yolo_writer_float_precision", "message": "..."}
   ]
 }
 ```
+
+The `stage` field indicates where in the conversion pipeline the issue originates:
+- `analysis`: lossiness analysis (warnings about data loss)
+- `source_reader`: source format reader policy
+- `target_writer`: target format writer policy
 
 ## Stable issue codes
 

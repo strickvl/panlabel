@@ -127,28 +127,63 @@ pub struct ConversionCounts {
 #[derive(Clone, Debug, Serialize)]
 pub struct ConversionIssue {
     pub severity: ConversionSeverity,
+    pub stage: ConversionStage,
     pub code: ConversionIssueCode,
     pub message: String,
 }
 
 impl ConversionIssue {
-    /// Create a warning-level issue (indicates lossiness).
+    /// Create a warning-level issue from lossiness analysis.
     pub fn warning(code: ConversionIssueCode, message: impl Into<String>) -> Self {
         Self {
             severity: ConversionSeverity::Warning,
+            stage: ConversionStage::Analysis,
             code,
             message: message.into(),
         }
     }
 
-    /// Create an info-level issue (policy note, does not block).
-    pub fn info(code: ConversionIssueCode, message: impl Into<String>) -> Self {
+    /// Create an info-level issue for a source reader policy.
+    pub fn reader_info(code: ConversionIssueCode, message: impl Into<String>) -> Self {
         Self {
             severity: ConversionSeverity::Info,
+            stage: ConversionStage::SourceReader,
             code,
             message: message.into(),
         }
     }
+
+    /// Create an info-level issue for a target writer policy.
+    pub fn writer_info(code: ConversionIssueCode, message: impl Into<String>) -> Self {
+        Self {
+            severity: ConversionSeverity::Info,
+            stage: ConversionStage::TargetWriter,
+            code,
+            message: message.into(),
+        }
+    }
+
+    /// Create an info-level issue (generic, for backward compatibility).
+    pub fn info(code: ConversionIssueCode, message: impl Into<String>) -> Self {
+        Self {
+            severity: ConversionSeverity::Info,
+            stage: ConversionStage::Analysis,
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+/// The pipeline stage where a conversion issue originates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConversionStage {
+    /// Lossiness analysis (warnings about data loss).
+    Analysis,
+    /// Source format reader policy.
+    SourceReader,
+    /// Target format writer policy.
+    TargetWriter,
 }
 
 /// Severity level for conversion issues.
@@ -238,6 +273,8 @@ pub enum ConversionIssueCode {
     YoloReaderIdAssignment,
     /// YOLO reader class-map precedence/source.
     YoloReaderClassMapSource,
+    /// YOLO reader split-aware layout handling (merge or selection).
+    YoloReaderSplitHandling,
     /// YOLO writer assigns class indices by category ID order.
     YoloWriterClassOrder,
     /// YOLO writer creates empty label files for images without annotations.
@@ -287,6 +324,60 @@ pub enum ConversionIssueCode {
 }
 
 impl ConversionIssueCode {
+    /// All known issue codes, for drift-prevention testing.
+    pub const ALL: &'static [ConversionIssueCode] = &[
+        Self::DropDatasetInfo,
+        Self::DropLicenses,
+        Self::DropImageMetadata,
+        Self::DropCategorySupercategory,
+        Self::DropAnnotationConfidence,
+        Self::DropAnnotationAttributes,
+        Self::DropImagesWithoutAnnotations,
+        Self::DropDatasetInfoName,
+        Self::CocoAttributesMayNotBePreserved,
+        Self::CocoWriterDeterministicOrder,
+        Self::CocoWriterScoreMapping,
+        Self::CocoWriterAreaIscrowdMapping,
+        Self::CocoWriterEmptySegmentation,
+        Self::CocoReaderAttributeMapping,
+        Self::HfMetadataLost,
+        Self::HfAttributesLost,
+        Self::HfConfidenceLost,
+        Self::HfReaderObjectContainerPrecedence,
+        Self::HfReaderBboxFormatDependence,
+        Self::LabelStudioWriterConfidenceRouting,
+        Self::YoloWriterDeterministicOrder,
+        Self::YoloWriterNoImageCopy,
+        Self::YoloWriterDataYamlPolicy,
+        Self::TfodReaderIdAssignment,
+        Self::TfodWriterRowOrder,
+        Self::YoloReaderIdAssignment,
+        Self::YoloReaderClassMapSource,
+        Self::YoloWriterClassOrder,
+        Self::YoloWriterEmptyLabelFiles,
+        Self::YoloWriterFloatPrecision,
+        Self::VocReaderIdAssignment,
+        Self::VocReaderAttributeMapping,
+        Self::VocReaderCoordinatePolicy,
+        Self::VocReaderDepthHandling,
+        Self::VocWriterFileLayout,
+        Self::VocWriterNoImageCopy,
+        Self::VocWriterBoolNormalization,
+        Self::LabelStudioRotationDropped,
+        Self::LabelStudioReaderIdAssignment,
+        Self::LabelStudioReaderImageRefPolicy,
+        Self::LabelStudioWriterFromToDefaults,
+        Self::CvatReaderIdAssignment,
+        Self::CvatReaderAttributePolicy,
+        Self::CvatWriterMetaDefaults,
+        Self::CvatWriterDeterministicOrder,
+        Self::CvatWriterImageIdReassignment,
+        Self::CvatWriterSourceDefault,
+        Self::CvatWriterDropUnusedCategories,
+        Self::HfReaderCategoryResolution,
+        Self::HfWriterDeterministicOrder,
+    ];
+
     /// Canonical stable string form, shared by text and JSON output.
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -317,6 +408,7 @@ impl ConversionIssueCode {
             Self::TfodWriterRowOrder => "tfod_writer_row_order",
             Self::YoloReaderIdAssignment => "yolo_reader_id_assignment",
             Self::YoloReaderClassMapSource => "yolo_reader_class_map_source",
+            Self::YoloReaderSplitHandling => "yolo_reader_split_handling",
             Self::YoloWriterClassOrder => "yolo_writer_class_order",
             Self::YoloWriterEmptyLabelFiles => "yolo_writer_empty_label_files",
             Self::YoloWriterFloatPrecision => "yolo_writer_float_precision",
@@ -398,18 +490,10 @@ mod tests {
     }
 
     #[test]
-    fn as_str_matches_serde_json_code() {
+    fn as_str_matches_serde_json_for_all_codes() {
         // Verify that as_str() produces the same string as serde serialization
-        // for a representative sample of codes.
-        let codes = [
-            ConversionIssueCode::DropDatasetInfo,
-            ConversionIssueCode::CocoAttributesMayNotBePreserved,
-            ConversionIssueCode::CvatWriterDeterministicOrder,
-            ConversionIssueCode::HfWriterDeterministicOrder,
-            ConversionIssueCode::LabelStudioRotationDropped,
-            ConversionIssueCode::YoloWriterFloatPrecision,
-        ];
-        for code in codes {
+        // for EVERY code in ALL — catches as_str()/serde drift.
+        for code in ConversionIssueCode::ALL {
             let json = serde_json::to_value(code).unwrap();
             assert_eq!(
                 json.as_str().unwrap(),
@@ -418,6 +502,35 @@ mod tests {
                 code
             );
         }
+    }
+
+    #[test]
+    fn all_codes_have_unique_str() {
+        let mut seen = std::collections::HashSet::new();
+        for code in ConversionIssueCode::ALL {
+            assert!(
+                seen.insert(code.as_str()),
+                "duplicate as_str() value: {}",
+                code.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn all_codes_documented_in_conversion_md() {
+        let docs =
+            std::fs::read_to_string("docs/conversion.md").expect("docs/conversion.md should exist");
+        let mut missing = Vec::new();
+        for code in ConversionIssueCode::ALL {
+            if !docs.contains(code.as_str()) {
+                missing.push(code.as_str());
+            }
+        }
+        assert!(
+            missing.is_empty(),
+            "docs/conversion.md is missing these issue codes: {:?}",
+            missing
+        );
     }
 
     #[test]

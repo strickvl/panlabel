@@ -8,6 +8,7 @@ pub mod report;
 
 pub use report::{
     ConversionCounts, ConversionIssue, ConversionIssueCode, ConversionReport, ConversionSeverity,
+    ConversionStage,
 };
 
 use crate::ir::Dataset;
@@ -107,7 +108,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Add policy notes based on source format
     match from {
         Format::Tfod => add_tfod_reader_policy(&mut report),
-        Format::Yolo => add_yolo_reader_policy(&mut report),
+        Format::Yolo => add_yolo_reader_policy(dataset, &mut report),
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
         Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
         Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
@@ -710,7 +711,7 @@ fn analyze_to_cvat(dataset: &Dataset, report: &mut ConversionReport) {
 
 /// Add policy notes for TFOD reader behavior.
 fn add_tfod_reader_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::TfodReaderIdAssignment,
         "TFOD reader assigns IDs deterministically: images by filename (lexicographic), \
          categories by class name (lexicographic), annotations by CSV row order"
@@ -720,47 +721,80 @@ fn add_tfod_reader_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for TFOD writer behavior.
 fn add_tfod_writer_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::TfodWriterRowOrder,
         "TFOD writer orders rows by annotation ID for deterministic output".to_string(),
     ));
 }
 
 /// Add policy notes for YOLO reader behavior.
-fn add_yolo_reader_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+fn add_yolo_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::YoloReaderIdAssignment,
         "YOLO reader assigns IDs deterministically: images by relative path (lexicographic), categories by class index, annotations by label-file order then line number".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::YoloReaderClassMapSource,
         "YOLO reader class map source precedence: data.yaml, then classes.txt, then inferred from label files".to_string(),
     ));
+
+    // Emit split handling note if YOLO split provenance is present
+    if let Some(mode) = dataset.info.attributes.get("yolo_layout_mode") {
+        if mode == "split_aware" {
+            let found = dataset
+                .info
+                .attributes
+                .get("yolo_splits_found")
+                .map(|s| s.as_str())
+                .unwrap_or("?");
+            let read = dataset
+                .info
+                .attributes
+                .get("yolo_splits_read")
+                .map(|s| s.as_str())
+                .unwrap_or("?");
+            let message = if found == read {
+                format!(
+                    "YOLO reader discovered splits [{}] and merged them into one dataset",
+                    found
+                )
+            } else {
+                format!(
+                    "YOLO reader discovered splits [{}]; selected split(s): [{}]",
+                    found, read
+                )
+            };
+            report.add(ConversionIssue::reader_info(
+                ConversionIssueCode::YoloReaderSplitHandling,
+                message,
+            ));
+        }
+    }
 }
 
 /// Add policy notes for YOLO writer behavior.
 fn add_yolo_writer_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterClassOrder,
         "YOLO writer assigns class indices by CategoryId order (sorted ascending)".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterEmptyLabelFiles,
         "YOLO writer creates empty .txt files for images without annotations".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterFloatPrecision,
         "YOLO writer outputs normalized coordinates with 6 decimal places".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterDeterministicOrder,
         "YOLO writer orders images and label files by file_name (lexicographic) for deterministic output".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterNoImageCopy,
         "YOLO writer creates only label files and data.yaml; image binaries are not copied to the output directory".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterDataYamlPolicy,
         "YOLO writer emits data.yaml with sorted class names, train/val paths, and nc (number of classes)".to_string(),
     ));
@@ -768,15 +802,15 @@ fn add_yolo_writer_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for VOC reader behavior.
 fn add_voc_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::VocReaderIdAssignment,
         "VOC reader assigns IDs deterministically: images by <filename> (lexicographic), categories by class name (lexicographic), annotations by XML file order then <object> order".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::VocReaderAttributeMapping,
         "VOC reader maps pose/truncated/difficult/occluded into annotation attributes".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::VocReaderCoordinatePolicy,
         "VOC reader keeps bndbox coordinates exactly as provided (no 0/1-based adjustment)"
             .to_string(),
@@ -789,7 +823,7 @@ fn add_voc_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
         .filter_map(|depth| depth.parse::<u32>().ok())
         .any(|depth| depth != 3);
     if has_non_rgb_depth {
-        report.add(ConversionIssue::info(
+        report.add(ConversionIssue::reader_info(
             ConversionIssueCode::VocReaderDepthHandling,
             "VOC reader preserves <depth> as image attribute 'depth'; non-3 depth values may indicate non-RGB imagery"
                 .to_string(),
@@ -799,16 +833,16 @@ fn add_voc_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
 
 /// Add policy notes for VOC writer behavior.
 fn add_voc_writer_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::VocWriterFileLayout,
         "VOC writer emits one XML per image under Annotations/, preserving image subdirectory structure"
             .to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::VocWriterNoImageCopy,
         "VOC writer creates JPEGImages/README.txt but does not copy image binaries".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::VocWriterBoolNormalization,
         "VOC writer normalizes truncated/difficult/occluded attributes: true/yes/1 -> 1 and false/no/0 -> 0"
             .to_string(),
@@ -817,11 +851,11 @@ fn add_voc_writer_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for Label Studio reader behavior.
 fn add_label_studio_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::LabelStudioReaderIdAssignment,
         "Label Studio reader assigns IDs deterministically: images by derived file_name (lexicographic), categories by label (lexicographic), annotations by image order then result order".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::LabelStudioReaderImageRefPolicy,
         "Label Studio reader derives Image.file_name from data.image basename and preserves full source reference in image attribute ls_image_ref".to_string(),
     ));
@@ -846,7 +880,7 @@ fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionRepo
     });
 
     if used_defaults {
-        report.add(ConversionIssue::info(
+        report.add(ConversionIssue::writer_info(
             ConversionIssueCode::LabelStudioWriterFromToDefaults,
             "Label Studio writer uses from_name='label' and to_name='image' when ls_from_name/ls_to_name attributes are absent".to_string(),
         ));
@@ -857,7 +891,7 @@ fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionRepo
         .iter()
         .any(|ann| ann.confidence.is_some());
     if has_confidence {
-        report.add(ConversionIssue::info(
+        report.add(ConversionIssue::writer_info(
             ConversionIssueCode::LabelStudioWriterConfidenceRouting,
             "Label Studio writer routes annotations with confidence scores to the 'predictions' block instead of 'annotations'".to_string(),
         ));
@@ -866,11 +900,11 @@ fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionRepo
 
 /// Add policy notes for CVAT reader behavior.
 fn add_cvat_reader_policy(_dataset: &Dataset, report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::CvatReaderIdAssignment,
         "CVAT reader assigns IDs deterministically: images by <image name> (lexicographic), categories by label name (lexicographic), annotations by image order then <box> order".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::CvatReaderAttributePolicy,
         "CVAT reader maps xtl/ytl/xbr/ybr to IR pixel XYXY 1:1; custom <attribute> children are stored as annotation attributes with 'cvat_attr_' prefix".to_string(),
     ));
@@ -878,19 +912,19 @@ fn add_cvat_reader_policy(_dataset: &Dataset, report: &mut ConversionReport) {
 
 /// Add policy notes for CVAT writer behavior.
 fn add_cvat_writer_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CvatWriterMetaDefaults,
         "CVAT writer emits a minimal <meta><task> block with name='panlabel export', mode='annotation', and size equal to image count".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CvatWriterDeterministicOrder,
         "CVAT writer orders images by file_name (lexicographic) and boxes within each image by annotation ID".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CvatWriterImageIdReassignment,
         "CVAT writer assigns sequential image IDs (0, 1, 2, ...) by sorted order; original cvat_image_id attributes are not preserved in output".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CvatWriterSourceDefault,
         "CVAT writer defaults missing or empty source attribute to 'manual'".to_string(),
     ));
@@ -898,17 +932,17 @@ fn add_cvat_writer_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for HF reader behavior.
 fn add_hf_reader_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::HfReaderCategoryResolution,
         "HF reader resolves category names with precedence: ClassLabel/preflight map, then --hf-category-map, then integer fallback"
             .to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::HfReaderObjectContainerPrecedence,
         "HF reader selects the object container with precedence: --hf-objects-column override, then 'objects' column, then 'faces' column"
             .to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::HfReaderBboxFormatDependence,
         "HF reader interprets bounding boxes according to --hf-bbox-format (default: xywh); incorrect setting will produce wrong coordinates"
             .to_string(),
@@ -917,7 +951,7 @@ fn add_hf_reader_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for HF writer behavior.
 fn add_hf_writer_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::HfWriterDeterministicOrder,
         "HF writer orders metadata rows by image file_name and annotation lists by annotation ID"
             .to_string(),
@@ -926,7 +960,7 @@ fn add_hf_writer_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for COCO reader behavior.
 fn add_coco_reader_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::reader_info(
         ConversionIssueCode::CocoReaderAttributeMapping,
         "COCO reader maps score to IR confidence and stores area/iscrowd as annotation attributes"
             .to_string(),
@@ -935,21 +969,21 @@ fn add_coco_reader_policy(report: &mut ConversionReport) {
 
 /// Add policy notes for COCO writer behavior.
 fn add_coco_writer_policy(report: &mut ConversionReport) {
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CocoWriterDeterministicOrder,
         "COCO writer sorts licenses, images, categories, and annotations by ID for deterministic output"
             .to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CocoWriterScoreMapping,
         "COCO writer maps IR confidence to the COCO score field".to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CocoWriterAreaIscrowdMapping,
         "COCO writer reads area/iscrowd from annotation attributes; defaults to bbox-computed area and iscrowd=0 when absent"
             .to_string(),
     ));
-    report.add(ConversionIssue::info(
+    report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CocoWriterEmptySegmentation,
         "COCO writer emits an empty segmentation array for detection-only output".to_string(),
     ));

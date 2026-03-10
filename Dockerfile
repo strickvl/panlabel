@@ -15,15 +15,18 @@ WORKDIR /build
 # Copy manifests first for better layer caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create a dummy main/lib so Cargo can fetch and cache dependencies
-RUN mkdir src && \
+# Create dummy source files so Cargo can validate the manifest and cache dependencies.
+# The bench stub satisfies the [[bench]] entry in Cargo.toml (benches/ is dockerignored).
+RUN mkdir -p src benches && \
     echo 'fn main() {}' > src/main.rs && \
     echo '' > src/lib.rs && \
+    echo 'fn main() {}' > benches/microbenches.rs && \
     cargo build --release --features hf --bin panlabel 2>/dev/null || true && \
-    rm -rf src
+    rm -rf src benches
 
-# Copy the real source code
+# Copy the real source code and create bench stub for manifest validation
 COPY src/ src/
+RUN mkdir -p benches && echo 'fn main() {}' > benches/microbenches.rs
 
 # Build the actual binary
 RUN cargo build --release --features hf --bin panlabel && \

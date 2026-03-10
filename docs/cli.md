@@ -35,12 +35,14 @@ Convert annotations between formats using IR as the internal hub.
 - `--allow-lossy`
 - `--report <text|json>` (default: `text`)
 
+Shared options:
+- `--split <name>` — select a single split for HF or YOLO imports (see below)
+
 HF-specific options (meaningful only with `--from hf` or `--to hf`):
 - `--hf-bbox-format <xywh|xyxy>` (default: `xywh`)
 - `--hf-objects-column <name>`
 - `--hf-category-map <path>`
 - `--hf-repo <namespace/dataset-or-url>` (remote import, `convert` only)
-- `--split <name>`
 - `--revision <ref>`
 - `--config <name>`
 - `--token <token>` (also reads `HF_TOKEN`)
@@ -50,6 +52,7 @@ On blocked lossy conversions, stdout still contains the full JSON report
 while the blocking error goes to stderr (exit code 1).
 
 Notes:
+- `--split` can be used with `--from hf` or `--from yolo`. For YOLO, it selects a single split from a split-aware dataset layout (e.g. `--split train`). Without `--split`, all splits are merged.
 - `--hf-repo` can only be used with `--from hf`.
 - `--revision`/`--config` require `--hf-repo`.
 - Remote HF import (`--hf-repo`) needs a build with feature `hf-remote` (for full HF support from source: `cargo install panlabel --features hf`).
@@ -165,4 +168,10 @@ panlabel convert --from hf --to ir-json --hf-repo rishitdagli/cppe-5 --split tra
 
 # Zip-style remote dataset (auto-routed after extraction, still invoked as --from hf)
 panlabel convert --from hf --to ir-json --hf-repo keremberke/football-object-detection --split train -o out.ir.json
+
+# Convert a split-aware YOLO dataset (merges all splits by default)
+panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --allow-lossy
+
+# Convert only the train split from a YOLO dataset
+panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --split train --allow-lossy
 ```

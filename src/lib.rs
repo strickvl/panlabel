@@ -423,7 +423,7 @@ struct ConvertArgs {
     #[arg(long = "hf-repo")]
     hf_repo: Option<String>,
 
-    /// HF split name (e.g. train/validation/test).
+    /// Split name (e.g. train/validation/test) for HF or YOLO imports.
     #[arg(long = "split")]
     split: Option<String>,
 
@@ -837,8 +837,18 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
         };
 
     // Step 1: Read the dataset
-    let mut dataset = if effective_from_format == ConvertFormat::HfImagefolder {
-        read_dataset_with_options(effective_from_format, &effective_input, &hf_read_options)?
+    let yolo_read_options = ir::io_yolo::YoloReadOptions {
+        split: args.split.clone(),
+    };
+    let mut dataset = if effective_from_format == ConvertFormat::HfImagefolder
+        || effective_from_format == ConvertFormat::Yolo
+    {
+        read_dataset_with_options(
+            effective_from_format,
+            &effective_input,
+            &hf_read_options,
+            &yolo_read_options,
+        )?
     } else {
         read_dataset(effective_from_format, &effective_input)?
     };
@@ -1038,10 +1048,20 @@ fn validate_hf_flag_usage(
     let hf_involved =
         from_format == ConvertFormat::HfImagefolder || args.to == ConvertFormat::HfImagefolder;
 
+    // --split is valid for HF and YOLO source formats, not just HF
+    let split_allowed =
+        hf_involved || from_format == ConvertFormat::Yolo;
+
+    if args.split.is_some() && !split_allowed {
+        return Err(PanlabelError::UnsupportedFormat(
+            "--split can only be used with --from hf or --from yolo".to_string(),
+        ));
+    }
+
+    // HF-specific flags (excluding --split, which is shared)
     let hf_specific_flags_used = args.hf_repo.is_some()
         || args.hf_objects_column.is_some()
         || args.hf_category_map.is_some()
-        || args.split.is_some()
         || args.revision.is_some()
         || args.config.is_some()
         || !matches!(args.hf_bbox_format, HfBboxFormatArg::Xywh);
@@ -1095,6 +1115,7 @@ fn read_dataset(format: ConvertFormat, path: &Path) -> Result<ir::Dataset, Panla
         format,
         path,
         &ir::io_hf_imagefolder::HfReadOptions::default(),
+        &ir::io_yolo::YoloReadOptions::default(),
     )
 }
 
@@ -1102,6 +1123,7 @@ fn read_dataset_with_options(
     format: ConvertFormat,
     path: &Path,
     hf_options: &ir::io_hf_imagefolder::HfReadOptions,
+    yolo_options: &ir::io_yolo::YoloReadOptions,
 ) -> Result<ir::Dataset, PanlabelError> {
     match format {
         ConvertFormat::IrJson => ir::io_json::read_ir_json(path),
@@ -1109,7 +1131,7 @@ fn read_dataset_with_options(
         ConvertFormat::Cvat => ir::io_cvat_xml::read_cvat_xml(path),
         ConvertFormat::LabelStudio => ir::io_label_studio_json::read_label_studio_json(path),
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
-        ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir(path),
+        ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir_with_options(path, yolo_options),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
     }
@@ -1506,7 +1528,8 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
     let mut probes = Vec::with_capacity(4);
 
     // --- YOLO ---
-    // Aligned with io_yolo::discover_layout: requires labels/ with .txt AND images/.
+    // Aligned with io_yolo::discover_layout/discover_source: requires labels/ with
+    // .txt AND images/ for flat layout, OR data.yaml with split keys for split-aware.
     let mut yolo = FormatProbe::new("YOLO", ConvertFormat::Yolo);
     let (labels_dir_exists, has_txt) = if path.join("labels").is_dir() {
         (true, dir_contains_txt_files(&path.join("labels"))?)
@@ -1529,6 +1552,15 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
             yolo.found.push("images/ directory".into());
         } else {
             yolo.missing.push("images/ directory".into());
+        }
+    }
+    // Also detect split-aware YOLO via data.yaml with train/val/test keys.
+    if yolo.found.is_empty() {
+        if let Some(split_keys) = data_yaml_has_split_keys(path) {
+            yolo.found.push(format!(
+                "data.yaml with split keys: {}",
+                split_keys.join(", ")
+            ));
         }
     }
     probes.push(yolo);
@@ -1697,6 +1729,26 @@ fn is_annotations_dir(path: &Path) -> bool {
         .and_then(|name| name.to_str())
         .map(|name| name.eq_ignore_ascii_case("annotations"))
         .unwrap_or(false)
+}
+
+/// Check if `data.yaml` exists and contains split keys (train/val/test).
+/// Returns `Some(vec!["train", ...])` if found, `None` otherwise.
+fn data_yaml_has_split_keys(path: &Path) -> Option<Vec<String>> {
+    let yaml_path = path.join("data.yaml");
+    let content = std::fs::read_to_string(&yaml_path).ok()?;
+    let mapping: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
+    let map = mapping.as_mapping()?;
+    let mut found = Vec::new();
+    for key in ["train", "val", "test"] {
+        if map.contains_key(serde_yaml::Value::String(key.to_string())) {
+            found.push(key.to_string());
+        }
+    }
+    if found.is_empty() {
+        None
+    } else {
+        Some(found)
+    }
 }
 
 /// Detect whether a JSON file is Label Studio, COCO, or IR JSON format.

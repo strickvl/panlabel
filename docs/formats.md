@@ -113,6 +113,26 @@ Reader behavior:
 - expected image extensions (lookup order): `jpg`, `png`, `jpeg`, `bmp`, `webp`
 - lines with more than 5 tokens are rejected (segmentation/pose not supported)
 
+### Split-aware reading
+
+When `data.yaml` contains `train:`, `val:`, or `test:` path keys (common in Roboflow/Ultralytics Hub exports), panlabel detects a split-aware layout and reads all splits.
+
+Supported path patterns in `data.yaml`:
+- Pattern A: `images/<split>` (e.g. `train: images/train`, labels inferred at `labels/train`)
+- Pattern B: `<split>/images` (e.g. `train: train/images`, labels at `train/labels`)
+- Pattern C: bare `<split>` pointing to a directory containing `images/` + `labels/`
+
+Behavior:
+- **Default (no `--split`):** all found splits are merged into a single IR Dataset. Image `file_name` values are prefixed with the split name (e.g. `train/img001.jpg`, `val/img002.jpg`) to avoid collisions.
+- **`--split <name>`:** only the named split is read. Image `file_name` values are still prefixed with the split name for provenance.
+- Class map: resolved from `data.yaml` `names:` when present, otherwise inferred across all selected label directories.
+- `data.yaml` `path:` key (if present) is used as the base for resolving split-relative paths.
+- Split provenance is stored in `Dataset.info.attributes`:
+  - `yolo_layout_mode`: `"split_aware"` or `"flat"`
+  - `yolo_splits_found`: comma-separated list of splits found (e.g. `"train,val,test"`)
+  - `yolo_splits_read`: comma-separated list of splits actually read
+- An error is raised if `--split` names a split not present in `data.yaml`, or if `--split` is used on a flat (non-split-aware) layout.
+
 Writer behavior:
 - creates output `images/` and `labels/` directories
 - writes `data.yaml` class map

@@ -1,7 +1,8 @@
 //! Ultralytics-style YOLO reader and writer.
 //!
 //! This module handles directory-based YOLO datasets with `images/` and `labels/`
-//! trees. The canonical IR representation remains pixel-space XYXY boxes.
+//! trees, including split-aware layouts (train/val/test) specified in `data.yaml`.
+//! The canonical IR representation remains pixel-space XYXY boxes.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -18,28 +19,106 @@ use crate::error::PanlabelError;
 const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "png", "jpeg", "bmp", "webp"];
 const LABEL_EXTENSION: &str = "txt";
 
+/// Options for controlling YOLO dataset reading behavior.
+#[derive(Clone, Debug, Default)]
+pub struct YoloReadOptions {
+    /// If set, read only the named split (e.g., "train", "val", "test").
+    /// When None, all available splits are merged into a single dataset.
+    pub split: Option<String>,
+}
+
 /// Read a YOLO dataset directory into IR.
 ///
 /// `path` may be the dataset root containing `images/` + `labels/`, or the
-/// `labels/` directory itself.
+/// `labels/` directory itself. Equivalent to `read_yolo_dir_with_options`
+/// with default options (merge all splits).
 pub fn read_yolo_dir(path: &Path) -> Result<Dataset, PanlabelError> {
-    let layout = discover_layout(path)?;
-    let class_map = read_class_map(&layout)?;
+    read_yolo_dir_with_options(path, &YoloReadOptions::default())
+}
 
-    let mut image_files = collect_files_with_extensions(&layout.images_dir, &IMAGE_EXTENSIONS)?;
-    image_files.sort_by_cached_key(|image_path| rel_string(&layout.images_dir, image_path));
+/// Read a YOLO dataset directory into IR with configurable options.
+///
+/// Supports both flat layouts (`images/` + `labels/`) and split-aware
+/// layouts where `data.yaml` contains `train:`, `val:`, and/or `test:`
+/// path keys. In split-aware mode, IR image file names are prefixed with
+/// the split name (e.g. `train/img.jpg`) for collision avoidance.
+pub fn read_yolo_dir_with_options(
+    path: &Path,
+    options: &YoloReadOptions,
+) -> Result<Dataset, PanlabelError> {
+    let source = discover_source(path)?;
 
-    let mut images = Vec::with_capacity(image_files.len());
+    // Select which splits to read
+    let selected_splits: Vec<&YoloSplitLayout> = match &options.split {
+        Some(requested) => {
+            if !source.is_split_aware {
+                return Err(PanlabelError::YoloLayoutInvalid {
+                    path: path.to_path_buf(),
+                    message: format!(
+                        "--split '{}' was specified but this is a flat YOLO layout \
+                         (no train/val/test paths in data.yaml)",
+                        requested
+                    ),
+                });
+            }
+            let split = source
+                .splits
+                .iter()
+                .find(|s| s.split_name == *requested)
+                .ok_or_else(|| PanlabelError::YoloLayoutInvalid {
+                    path: path.to_path_buf(),
+                    message: format!(
+                        "requested split '{}' not found; available splits: {}",
+                        requested,
+                        source
+                            .splits
+                            .iter()
+                            .map(|s| s.split_name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                })?;
+            vec![split]
+        }
+        None => source.splits.iter().collect(),
+    };
+
+    // Resolve class map
+    let labels_dirs: Vec<&Path> = selected_splits
+        .iter()
+        .map(|s| s.labels_dir.as_path())
+        .collect();
+    let class_map = resolve_class_map(&source.class_map_source, &labels_dirs)?;
+
+    // Phase 1: Collect all images across selected splits with logical names
+    let mut all_image_entries: Vec<(String, PathBuf)> = Vec::new();
+
+    for split in &selected_splits {
+        let mut image_files =
+            collect_files_with_extensions(&split.images_dir, &IMAGE_EXTENSIONS)?;
+        image_files.sort_by_cached_key(|p| rel_string(&split.images_dir, p));
+
+        for image_path in image_files {
+            let rel = rel_string(&split.images_dir, &image_path);
+            let name = logical_name(source.is_split_aware, &split.split_name, rel);
+            all_image_entries.push((name, image_path));
+        }
+    }
+
+    // Sort globally by logical name for deterministic IDs
+    all_image_entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // Build images and lookup
+    let mut images = Vec::with_capacity(all_image_entries.len());
     let mut image_lookup: BTreeMap<String, ImageMeta> = BTreeMap::new();
 
-    for (index, image_path) in image_files.iter().enumerate() {
-        let rel = rel_string(&layout.images_dir, image_path);
+    for (index, (logical_name, image_path)) in all_image_entries.iter().enumerate() {
         let (width, height) = read_image_dimensions(image_path)?;
         let image_id = ImageId::new((index + 1) as u64);
 
-        images.push(Image::new(image_id, rel.clone(), width, height));
+        images.push(Image::new(image_id, logical_name.clone(), width, height));
         image_lookup.insert(
-            rel,
+            logical_name.clone(),
             ImageMeta {
                 id: image_id,
                 width,
@@ -48,6 +127,7 @@ pub fn read_yolo_dir(path: &Path) -> Result<Dataset, PanlabelError> {
         );
     }
 
+    // Build categories
     let categories: Vec<Category> = class_map
         .names
         .iter()
@@ -55,44 +135,75 @@ pub fn read_yolo_dir(path: &Path) -> Result<Dataset, PanlabelError> {
         .map(|(i, name)| Category::new((i + 1) as u64, name.clone()))
         .collect();
 
-    let mut label_files = collect_files_with_extensions(&layout.labels_dir, &[LABEL_EXTENSION])?;
-    label_files.sort_by_cached_key(|label_path| rel_string(&layout.labels_dir, label_path));
+    // Phase 2: Collect all labels across selected splits
+    let mut all_label_entries: Vec<(String, PathBuf, usize)> = Vec::new();
 
+    for (split_idx, split) in selected_splits.iter().enumerate() {
+        let mut label_files =
+            collect_files_with_extensions(&split.labels_dir, &[LABEL_EXTENSION])?;
+        label_files.sort_by_cached_key(|p| rel_string(&split.labels_dir, p));
+
+        for label_path in label_files {
+            let rel = rel_string(&split.labels_dir, &label_path);
+            let name = logical_name(source.is_split_aware, &split.split_name, rel);
+            all_label_entries.push((name, label_path, split_idx));
+        }
+    }
+
+    // Sort globally by logical label path for deterministic annotation IDs
+    all_label_entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // Parse labels and create annotations
     let mut annotations = Vec::new();
     let mut next_annotation_id: u64 = 1;
 
-    for label_path in label_files {
-        let label_rel = label_path.strip_prefix(&layout.labels_dir).map_err(|_| {
-            PanlabelError::YoloLayoutInvalid {
-                path: label_path.clone(),
-                message: format!(
-                    "label path '{}' is outside labels dir '{}'",
-                    label_path.display(),
-                    layout.labels_dir.display()
-                ),
-            }
-        })?;
+    for (_, label_path, split_idx) in &all_label_entries {
+        let split = &selected_splits[*split_idx];
 
-        let image_path = find_image_for_label(&layout.images_dir, label_rel).ok_or_else(|| {
-            PanlabelError::YoloImageNotFound {
-                label_path: label_path.clone(),
-                expected_stem: rel_string(&layout.labels_dir, &label_path.with_extension("")),
-            }
-        })?;
-
-        let image_rel = rel_string(&layout.images_dir, &image_path);
-        let image_meta =
-            image_lookup
-                .get(&image_rel)
-                .ok_or_else(|| PanlabelError::YoloImageNotFound {
-                    label_path: label_path.clone(),
-                    expected_stem: rel_string(&layout.labels_dir, &label_path.with_extension("")),
+        let label_rel =
+            label_path
+                .strip_prefix(&split.labels_dir)
+                .map_err(|_| PanlabelError::YoloLayoutInvalid {
+                    path: label_path.clone(),
+                    message: format!(
+                        "label path '{}' is outside labels dir '{}'",
+                        label_path.display(),
+                        split.labels_dir.display()
+                    ),
                 })?;
 
-        let content = fs::read_to_string(&label_path).map_err(PanlabelError::Io)?;
+        // Find image in same split
+        let image_path =
+            find_image_for_label(&split.images_dir, label_rel).ok_or_else(|| {
+                PanlabelError::YoloImageNotFound {
+                    label_path: label_path.clone(),
+                    expected_stem: rel_string(
+                        &split.labels_dir,
+                        &label_path.with_extension(""),
+                    ),
+                }
+            })?;
+
+        // Compute logical image name (same key used in image_lookup)
+        let image_rel = rel_string(&split.images_dir, &image_path);
+        let logical_image_name =
+            logical_name(source.is_split_aware, &split.split_name, image_rel);
+
+        let image_meta =
+            image_lookup
+                .get(&logical_image_name)
+                .ok_or_else(|| PanlabelError::YoloImageNotFound {
+                    label_path: label_path.clone(),
+                    expected_stem: rel_string(
+                        &split.labels_dir,
+                        &label_path.with_extension(""),
+                    ),
+                })?;
+
+        let content = fs::read_to_string(label_path).map_err(PanlabelError::Io)?;
         for (line_idx, line) in content.lines().enumerate() {
             let line_num = line_idx + 1;
-            let Some(parsed) = parse_label_line(line, &label_path, line_num)? else {
+            let Some(parsed) = parse_label_line(line, label_path, line_num)? else {
                 continue;
             };
 
@@ -122,8 +233,29 @@ pub fn read_yolo_dir(path: &Path) -> Result<Dataset, PanlabelError> {
         }
     }
 
+    // Build dataset info with provenance for split-aware mode
+    let mut info = DatasetInfo::default();
+    if source.is_split_aware {
+        let all_split_names: Vec<&str> =
+            source.splits.iter().map(|s| s.split_name.as_str()).collect();
+        let read_split_names: Vec<&str> = selected_splits
+            .iter()
+            .map(|s| s.split_name.as_str())
+            .collect();
+        info.attributes
+            .insert("yolo_layout_mode".to_string(), "split_aware".to_string());
+        info.attributes.insert(
+            "yolo_splits_found".to_string(),
+            all_split_names.join(","),
+        );
+        info.attributes.insert(
+            "yolo_splits_read".to_string(),
+            read_split_names.join(","),
+        );
+    }
+
     Ok(Dataset {
-        info: DatasetInfo::default(),
+        info,
         licenses: vec![],
         images,
         categories,
@@ -225,6 +357,10 @@ pub fn write_yolo_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelErro
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Internal types
+// ---------------------------------------------------------------------------
+
 #[derive(Clone, Copy)]
 struct ImageMeta {
     id: ImageId,
@@ -232,18 +368,27 @@ struct ImageMeta {
     height: u32,
 }
 
+/// Discovery result describing one or more YOLO split layouts.
 #[derive(Clone, Debug)]
-struct YoloLayout {
-    #[cfg_attr(not(test), allow(dead_code))]
-    root: PathBuf,
+struct YoloSource {
+    is_split_aware: bool,
+    splits: Vec<YoloSplitLayout>,
+    class_map_source: YoloClassMapSource,
+}
+
+/// A single images+labels pair, optionally associated with a named split.
+#[derive(Clone, Debug)]
+struct YoloSplitLayout {
+    /// Empty string for flat layouts, otherwise "train"/"val"/"test".
+    split_name: String,
     images_dir: PathBuf,
     labels_dir: PathBuf,
-    class_map_source: YoloClassMapSource,
 }
 
 #[derive(Clone, Debug)]
 enum YoloClassMapSource {
-    DataYaml(PathBuf),
+    /// Names already parsed from data.yaml — avoids re-reading the file.
+    DataYaml(Vec<String>),
     ClassesTxt(PathBuf),
     Inferred,
 }
@@ -262,7 +407,25 @@ struct YoloLabelRow {
     h: f64,
 }
 
-fn discover_layout(input: &Path) -> Result<YoloLayout, PanlabelError> {
+// ---------------------------------------------------------------------------
+// Discovery
+// ---------------------------------------------------------------------------
+
+/// Expanded data.yaml for split-aware discovery.
+///
+/// All fields are optional so that any valid YAML mapping can be parsed
+/// (real data.yaml files contain many extra fields like `nc`, `download`, etc.).
+#[derive(Debug, Deserialize)]
+struct DataYamlFull {
+    names: Option<DataYamlNames>,
+    train: Option<String>,
+    val: Option<String>,
+    test: Option<String>,
+    path: Option<String>,
+}
+
+/// Discover the YOLO source layout: flat or split-aware.
+fn discover_source(input: &Path) -> Result<YoloSource, PanlabelError> {
     if !input.is_dir() {
         return Err(PanlabelError::YoloLayoutInvalid {
             path: input.to_path_buf(),
@@ -270,27 +433,103 @@ fn discover_layout(input: &Path) -> Result<YoloLayout, PanlabelError> {
         });
     }
 
-    let (root, labels_dir) = if input.join("labels").is_dir() {
-        (input.to_path_buf(), input.join("labels"))
-    } else if is_dir_named(input, "labels") {
-        let root = input
+    // Determine root directory
+    let root = if is_dir_named(input, "labels") {
+        input
             .parent()
             .ok_or_else(|| PanlabelError::YoloLayoutInvalid {
                 path: input.to_path_buf(),
                 message: "labels directory has no parent directory".to_string(),
             })?
-            .to_path_buf();
-        (root, input.to_path_buf())
+            .to_path_buf()
     } else {
+        input.to_path_buf()
+    };
+
+    // Try to parse data.yaml for split information
+    let data_yaml_path = root.join("data.yaml");
+    let mut parsed_full: Option<DataYamlFull> = if data_yaml_path.is_file() {
+        let data = fs::read_to_string(&data_yaml_path).map_err(PanlabelError::Io)?;
+        Some(
+            serde_yaml::from_str(&data).map_err(|source| PanlabelError::YoloDataYamlParse {
+                path: data_yaml_path.clone(),
+                source,
+            })?,
+        )
+    } else {
+        None
+    };
+
+    // Check for split-aware mode (take ownership of parsed_full to move names out)
+    let has_splits = parsed_full
+        .as_ref()
+        .map(|p| p.train.is_some() || p.val.is_some() || p.test.is_some())
+        .unwrap_or(false);
+
+    if has_splits {
+        let parsed = parsed_full.take().expect("checked is_some via has_splits");
+
+        // Resolve base path for split-relative paths
+        let base_path = match &parsed.path {
+            Some(p) => {
+                let p = Path::new(p);
+                if p.is_absolute() {
+                    p.to_path_buf()
+                } else {
+                    root.join(p)
+                }
+            }
+            None => root.clone(),
+        };
+
+        // Determine class map source (eagerly resolve names to avoid re-reading)
+        let classes_txt = root.join("classes.txt");
+        let class_map_source = if let Some(names) = parsed.names {
+            YoloClassMapSource::DataYaml(resolve_data_yaml_names(names))
+        } else if classes_txt.is_file() {
+            YoloClassMapSource::ClassesTxt(classes_txt)
+        } else {
+            YoloClassMapSource::Inferred
+        };
+
+        // Resolve each split
+        let mut splits = Vec::new();
+        for (name, raw_path) in [
+            ("train", &parsed.train),
+            ("val", &parsed.val),
+            ("test", &parsed.test),
+        ] {
+            if let Some(raw) = raw_path {
+                let split_layout = resolve_split_layout(&base_path, name, raw)?;
+                splits.push(split_layout);
+            }
+        }
+
+        return Ok(YoloSource {
+            is_split_aware: true,
+            splits,
+            class_map_source,
+        });
+    }
+
+    // Flat layout fallback
+    let images_dir = root.join("images");
+    let labels_dir = if is_dir_named(input, "labels") {
+        input.to_path_buf()
+    } else {
+        root.join("labels")
+    };
+
+    // Validate flat layout
+    if !labels_dir.is_dir() {
         return Err(PanlabelError::YoloLayoutInvalid {
             path: input.to_path_buf(),
             message:
                 "expected a YOLO dataset root containing labels/ or a labels/ directory itself"
                     .to_string(),
         });
-    };
+    }
 
-    let images_dir = root.join("images");
     if !images_dir.is_dir() {
         return Err(PanlabelError::YoloLayoutInvalid {
             path: images_dir,
@@ -298,60 +537,125 @@ fn discover_layout(input: &Path) -> Result<YoloLayout, PanlabelError> {
         });
     }
 
-    if !labels_dir.is_dir() {
-        return Err(PanlabelError::YoloLayoutInvalid {
-            path: labels_dir,
-            message: "missing labels/ directory".to_string(),
-        });
-    }
-
-    let data_yaml = root.join("data.yaml");
+    // Determine class map source for flat mode (eagerly resolve names)
     let classes_txt = root.join("classes.txt");
-    let class_map_source = if data_yaml.is_file() {
-        YoloClassMapSource::DataYaml(data_yaml)
-    } else if classes_txt.is_file() {
-        YoloClassMapSource::ClassesTxt(classes_txt)
-    } else {
-        YoloClassMapSource::Inferred
-    };
+    let class_map_source =
+        if let Some(names) = parsed_full.and_then(|p| p.names) {
+            YoloClassMapSource::DataYaml(resolve_data_yaml_names(names))
+        } else if classes_txt.is_file() {
+            YoloClassMapSource::ClassesTxt(classes_txt)
+        } else {
+            YoloClassMapSource::Inferred
+        };
 
-    Ok(YoloLayout {
-        root,
-        images_dir,
-        labels_dir,
+    Ok(YoloSource {
+        is_split_aware: false,
+        splits: vec![YoloSplitLayout {
+            split_name: String::new(),
+            images_dir,
+            labels_dir,
+        }],
         class_map_source,
     })
 }
 
-fn read_class_map(layout: &YoloLayout) -> Result<YoloClassMap, PanlabelError> {
-    match &layout.class_map_source {
-        YoloClassMapSource::DataYaml(path) => read_data_yaml_names(path),
+/// Resolve a single split from data.yaml into concrete images + labels dirs.
+///
+/// Supports three common path styles:
+/// - Pattern A: `train: images/train` — swap `images` component to `labels`
+/// - Pattern B: `train: train/images` — swap `images` component to `labels`
+/// - Pattern C: `train: train` — expect `images/` + `labels/` inside
+fn resolve_split_layout(
+    base_path: &Path,
+    split_name: &str,
+    raw_path: &str,
+) -> Result<YoloSplitLayout, PanlabelError> {
+    let resolved = if Path::new(raw_path).is_absolute() {
+        PathBuf::from(raw_path)
+    } else {
+        base_path.join(raw_path)
+    };
+
+    // Pattern C: resolved is a split root containing images/ + labels/
+    if resolved.join("images").is_dir() && resolved.join("labels").is_dir() {
+        return Ok(YoloSplitLayout {
+            split_name: split_name.to_string(),
+            images_dir: resolved.join("images"),
+            labels_dir: resolved.join("labels"),
+        });
+    }
+
+    // Pattern A/B: resolved is an images directory; derive labels by swapping
+    // the "images" component in raw_path with "labels"
+    if resolved.is_dir() {
+        if let Some(labels_dir) = derive_labels_path(base_path, raw_path) {
+            if labels_dir.is_dir() {
+                return Ok(YoloSplitLayout {
+                    split_name: split_name.to_string(),
+                    images_dir: resolved,
+                    labels_dir,
+                });
+            }
+        }
+    }
+
+    Err(PanlabelError::YoloLayoutInvalid {
+        path: resolved,
+        message: format!(
+            "split '{}' path '{}' could not be resolved to a valid YOLO layout. \
+             Expected: a directory with images/ + labels/ inside, or \
+             a path containing an 'images' component with a corresponding 'labels' sibling",
+            split_name, raw_path
+        ),
+    })
+}
+
+/// Derive the labels directory path by replacing the rightmost "images"
+/// component in `raw_path` with "labels", then joining onto `base_path`.
+fn derive_labels_path(base_path: &Path, raw_path: &str) -> Option<PathBuf> {
+    let normalized = raw_path.replace('\\', "/");
+    let parts: Vec<&str> = normalized.split('/').collect();
+
+    for i in (0..parts.len()).rev() {
+        if parts[i].eq_ignore_ascii_case("images") {
+            let mut new_parts = parts.clone();
+            new_parts[i] = "labels";
+            let labels_raw = new_parts.join("/");
+            return Some(base_path.join(labels_raw));
+        }
+    }
+
+    None
+}
+
+// ---------------------------------------------------------------------------
+// Class map resolution
+// ---------------------------------------------------------------------------
+
+/// Resolve the class map from a source, scanning multiple labels dirs if inferred.
+fn resolve_class_map(
+    class_map_source: &YoloClassMapSource,
+    labels_dirs: &[&Path],
+) -> Result<YoloClassMap, PanlabelError> {
+    match class_map_source {
+        YoloClassMapSource::DataYaml(names) => Ok(YoloClassMap {
+            names: names.clone(),
+        }),
         YoloClassMapSource::ClassesTxt(path) => read_classes_txt(path),
-        YoloClassMapSource::Inferred => infer_class_map(&layout.labels_dir),
+        YoloClassMapSource::Inferred => infer_class_map_from_dirs(labels_dirs),
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct DataYaml {
-    names: DataYamlNames,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 enum DataYamlNames {
     Sequence(Vec<String>),
     Mapping(BTreeMap<usize, String>),
 }
 
-fn read_data_yaml_names(path: &Path) -> Result<YoloClassMap, PanlabelError> {
-    let data = fs::read_to_string(path).map_err(PanlabelError::Io)?;
-    let parsed: DataYaml =
-        serde_yaml::from_str(&data).map_err(|source| PanlabelError::YoloDataYamlParse {
-            path: path.to_path_buf(),
-            source,
-        })?;
-
-    let names = match parsed.names {
+/// Convert a `DataYamlNames` enum into a flat `Vec<String>`.
+fn resolve_data_yaml_names(raw: DataYamlNames) -> Vec<String> {
+    match raw {
         DataYamlNames::Sequence(names) => names,
         DataYamlNames::Mapping(mapping) => {
             if mapping.is_empty() {
@@ -370,9 +674,7 @@ fn read_data_yaml_names(path: &Path) -> Result<YoloClassMap, PanlabelError> {
                 names
             }
         }
-    };
-
-    Ok(YoloClassMap { names })
+    }
 }
 
 fn write_data_yaml(output_root: &Path, categories: &[&Category]) -> Result<(), PanlabelError> {
@@ -411,20 +713,22 @@ fn read_classes_txt(path: &Path) -> Result<YoloClassMap, PanlabelError> {
     Ok(YoloClassMap { names })
 }
 
-fn infer_class_map(labels_dir: &Path) -> Result<YoloClassMap, PanlabelError> {
-    let mut label_files = collect_files_with_extensions(labels_dir, &[LABEL_EXTENSION])?;
-    label_files.sort_by_cached_key(|label_path| rel_string(labels_dir, label_path));
-
+/// Infer the class map by scanning multiple labels directories.
+fn infer_class_map_from_dirs(labels_dirs: &[&Path]) -> Result<YoloClassMap, PanlabelError> {
     let mut class_ids = BTreeSet::new();
 
-    for label_path in label_files {
-        let content = fs::read_to_string(&label_path).map_err(PanlabelError::Io)?;
-        for (line_idx, line) in content.lines().enumerate() {
-            let line_num = line_idx + 1;
-            let Some(parsed) = parse_label_line(line, &label_path, line_num)? else {
-                continue;
-            };
-            class_ids.insert(parsed.class_id);
+    for labels_dir in labels_dirs {
+        let label_files = collect_files_with_extensions(labels_dir, &[LABEL_EXTENSION])?;
+
+        for label_path in label_files {
+            let content = fs::read_to_string(&label_path).map_err(PanlabelError::Io)?;
+            for (line_idx, line) in content.lines().enumerate() {
+                let line_num = line_idx + 1;
+                let Some(parsed) = parse_label_line(line, &label_path, line_num)? else {
+                    continue;
+                };
+                class_ids.insert(parsed.class_id);
+            }
         }
     }
 
@@ -436,6 +740,10 @@ fn infer_class_map(labels_dir: &Path) -> Result<YoloClassMap, PanlabelError> {
 
     Ok(YoloClassMap { names })
 }
+
+// ---------------------------------------------------------------------------
+// Filesystem helpers
+// ---------------------------------------------------------------------------
 
 fn collect_files_with_extensions(
     root: &Path,
@@ -502,6 +810,10 @@ fn find_image_for_label(images_dir: &Path, label_rel_path: &Path) -> Option<Path
     }
     None
 }
+
+// ---------------------------------------------------------------------------
+// Label parsing
+// ---------------------------------------------------------------------------
 
 fn parse_label_line(
     line: &str,
@@ -579,6 +891,15 @@ fn parse_f64_token(
         })
 }
 
+/// Prefix a relative path with the split name when in split-aware mode.
+fn logical_name(is_split_aware: bool, split_name: &str, rel: String) -> String {
+    if is_split_aware {
+        format!("{}/{}", split_name, rel)
+    } else {
+        rel
+    }
+}
+
 fn is_dir_named(path: &Path, dir_name: &str) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
@@ -590,6 +911,10 @@ fn rel_string(root: &Path, path: &Path) -> String {
     let rel = path.strip_prefix(root).unwrap_or(path);
     rel.to_string_lossy().replace('\\', "/")
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -675,16 +1000,17 @@ mod tests {
         let temp = tempfile::tempdir().expect("create temp dir");
         create_basic_layout(temp.path());
 
-        let root_layout = discover_layout(temp.path()).expect("discover from root");
-        assert_eq!(root_layout.root, temp.path());
-        assert_eq!(root_layout.images_dir, temp.path().join("images"));
-        assert_eq!(root_layout.labels_dir, temp.path().join("labels"));
+        let root_source = discover_source(temp.path()).expect("discover from root");
+        assert!(!root_source.is_split_aware);
+        assert_eq!(root_source.splits.len(), 1);
+        assert_eq!(root_source.splits[0].images_dir, temp.path().join("images"));
+        assert_eq!(root_source.splits[0].labels_dir, temp.path().join("labels"));
 
-        let labels_layout =
-            discover_layout(&temp.path().join("labels")).expect("discover from labels dir");
-        assert_eq!(labels_layout.root, temp.path());
-        assert_eq!(labels_layout.images_dir, temp.path().join("images"));
-        assert_eq!(labels_layout.labels_dir, temp.path().join("labels"));
+        let labels_source =
+            discover_source(&temp.path().join("labels")).expect("discover from labels dir");
+        assert!(!labels_source.is_split_aware);
+        assert_eq!(labels_source.splits[0].images_dir, temp.path().join("images"));
+        assert_eq!(labels_source.splits[0].labels_dir, temp.path().join("labels"));
     }
 
     #[test]
@@ -699,8 +1025,9 @@ mod tests {
         .expect("write data yaml");
         fs::write(temp.path().join("classes.txt"), "wrong\nvalues\n").expect("write classes");
 
-        let layout = discover_layout(temp.path()).expect("discover layout");
-        let class_map = read_class_map(&layout).expect("read class map");
+        let source = discover_source(temp.path()).expect("discover source");
+        let labels_dirs: Vec<&Path> = source.splits.iter().map(|s| s.labels_dir.as_path()).collect();
+        let class_map = resolve_class_map(&source.class_map_source, &labels_dirs).expect("read class map");
         assert_eq!(class_map.names, vec!["person", "bicycle"]);
     }
 
@@ -715,8 +1042,9 @@ mod tests {
         )
         .expect("write label file");
 
-        let layout = discover_layout(temp.path()).expect("discover layout");
-        let class_map = read_class_map(&layout).expect("read class map");
+        let source = discover_source(temp.path()).expect("discover source");
+        let labels_dirs: Vec<&Path> = source.splits.iter().map(|s| s.labels_dir.as_path()).collect();
+        let class_map = resolve_class_map(&source.class_map_source, &labels_dirs).expect("read class map");
         assert_eq!(class_map.names, vec!["class_0", "class_1", "class_2"]);
     }
 
@@ -822,5 +1150,310 @@ mod tests {
             .is_empty());
         assert!(temp.path().join("images").is_dir());
         assert!(!temp.path().join("images/train/no_ann.bmp").exists());
+    }
+
+    // -------------------------------------------------------------------
+    // Split-aware tests
+    // -------------------------------------------------------------------
+
+    /// Helper to create a split-aware YOLO layout (images/X + labels/X style).
+    fn create_split_layout_images_style(root: &Path, splits: &[&str]) {
+        for split in splits {
+            fs::create_dir_all(root.join(format!("images/{}", split)))
+                .expect("create images split dir");
+            fs::create_dir_all(root.join(format!("labels/{}", split)))
+                .expect("create labels split dir");
+        }
+    }
+
+    #[test]
+    fn discover_source_detects_split_aware_layout() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_split_layout_images_style(temp.path(), &["train", "val"]);
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\n  - dog\ntrain: images/train\nval: images/val\n",
+        )
+        .expect("write data yaml");
+
+        let source = discover_source(temp.path()).expect("discover source");
+        assert!(source.is_split_aware);
+        assert_eq!(source.splits.len(), 2);
+        assert_eq!(source.splits[0].split_name, "train");
+        assert_eq!(source.splits[1].split_name, "val");
+    }
+
+    #[test]
+    fn discover_source_flat_fallback_when_no_split_keys() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_basic_layout(temp.path());
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\n",
+        )
+        .expect("write data yaml");
+
+        let source = discover_source(temp.path()).expect("discover source");
+        assert!(!source.is_split_aware);
+        assert_eq!(source.splits.len(), 1);
+        assert_eq!(source.splits[0].split_name, "");
+    }
+
+    #[test]
+    fn split_aware_read_merges_all_splits() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_split_layout_images_style(temp.path(), &["train", "val"]);
+
+        write_bmp(&temp.path().join("images/train/a.bmp"), 10, 10);
+        write_bmp(&temp.path().join("images/val/b.bmp"), 20, 10);
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\ntrain: images/train\nval: images/val\n",
+        )
+        .expect("write data yaml");
+
+        fs::write(
+            temp.path().join("labels/train/a.txt"),
+            "0 0.5 0.5 0.5 0.5\n",
+        )
+        .expect("write train label");
+        fs::write(
+            temp.path().join("labels/val/b.txt"),
+            "0 0.3 0.3 0.2 0.2\n",
+        )
+        .expect("write val label");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read split-aware dataset");
+
+        assert_eq!(dataset.images.len(), 2);
+        assert_eq!(dataset.annotations.len(), 2);
+
+        // Images should be split-prefixed and sorted lexicographically
+        assert_eq!(dataset.images[0].file_name, "train/a.bmp");
+        assert_eq!(dataset.images[1].file_name, "val/b.bmp");
+
+        // Provenance attributes should record split info
+        assert_eq!(
+            dataset.info.attributes.get("yolo_layout_mode"),
+            Some(&"split_aware".to_string())
+        );
+        assert_eq!(
+            dataset.info.attributes.get("yolo_splits_found"),
+            Some(&"train,val".to_string())
+        );
+        assert_eq!(
+            dataset.info.attributes.get("yolo_splits_read"),
+            Some(&"train,val".to_string())
+        );
+    }
+
+    #[test]
+    fn split_aware_read_selects_single_split() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_split_layout_images_style(temp.path(), &["train", "val"]);
+
+        write_bmp(&temp.path().join("images/train/a.bmp"), 10, 10);
+        write_bmp(&temp.path().join("images/val/b.bmp"), 20, 10);
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\ntrain: images/train\nval: images/val\n",
+        )
+        .expect("write data yaml");
+
+        fs::write(
+            temp.path().join("labels/train/a.txt"),
+            "0 0.5 0.5 0.5 0.5\n",
+        )
+        .expect("write train label");
+        fs::write(
+            temp.path().join("labels/val/b.txt"),
+            "0 0.3 0.3 0.2 0.2\n",
+        )
+        .expect("write val label");
+
+        let options = YoloReadOptions {
+            split: Some("val".to_string()),
+        };
+        let dataset =
+            read_yolo_dir_with_options(temp.path(), &options).expect("read single split");
+
+        assert_eq!(dataset.images.len(), 1);
+        assert_eq!(dataset.annotations.len(), 1);
+
+        // Even with --split, file names are split-prefixed (option A)
+        assert_eq!(dataset.images[0].file_name, "val/b.bmp");
+
+        // Provenance records which splits were found vs read
+        assert_eq!(
+            dataset.info.attributes.get("yolo_splits_found"),
+            Some(&"train,val".to_string())
+        );
+        assert_eq!(
+            dataset.info.attributes.get("yolo_splits_read"),
+            Some(&"val".to_string())
+        );
+    }
+
+    #[test]
+    fn split_aware_read_errors_on_missing_split() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_split_layout_images_style(temp.path(), &["train"]);
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\ntrain: images/train\n",
+        )
+        .expect("write data yaml");
+
+        let options = YoloReadOptions {
+            split: Some("val".to_string()),
+        };
+        let err = read_yolo_dir_with_options(temp.path(), &options).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("val"), "error should mention requested split: {msg}");
+        assert!(msg.contains("train"), "error should list available splits: {msg}");
+    }
+
+    #[test]
+    fn split_flag_errors_on_flat_layout() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_basic_layout(temp.path());
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\n",
+        )
+        .expect("write data yaml");
+
+        let options = YoloReadOptions {
+            split: Some("train".to_string()),
+        };
+        let err = read_yolo_dir_with_options(temp.path(), &options).unwrap_err();
+        assert!(err.to_string().contains("flat YOLO layout"));
+    }
+
+    #[test]
+    fn split_aware_supports_split_root_style() {
+        // Pattern C: train: train -> expects train/images + train/labels
+        let temp = tempfile::tempdir().expect("create temp dir");
+        fs::create_dir_all(temp.path().join("train/images")).expect("create dir");
+        fs::create_dir_all(temp.path().join("train/labels")).expect("create dir");
+
+        write_bmp(&temp.path().join("train/images/a.bmp"), 10, 10);
+
+        fs::write(
+            temp.path().join("data.yaml"),
+            "names:\n  - cat\ntrain: train\n",
+        )
+        .expect("write data yaml");
+
+        fs::write(
+            temp.path().join("train/labels/a.txt"),
+            "0 0.5 0.5 0.5 0.5\n",
+        )
+        .expect("write label");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read split-root style");
+
+        assert_eq!(dataset.images.len(), 1);
+        assert_eq!(dataset.images[0].file_name, "train/a.bmp");
+    }
+
+    #[test]
+    fn split_aware_supports_data_yaml_path_key() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        let data_root = temp.path().join("datasets/mydata");
+        fs::create_dir_all(data_root.join("images/train")).expect("create dir");
+        fs::create_dir_all(data_root.join("labels/train")).expect("create dir");
+
+        write_bmp(&data_root.join("images/train/a.bmp"), 10, 10);
+
+        fs::write(
+            data_root.join("labels/train/a.txt"),
+            "0 0.5 0.5 0.5 0.5\n",
+        )
+        .expect("write label");
+
+        // data.yaml with path: key pointing to the data root
+        fs::write(
+            temp.path().join("data.yaml"),
+            format!(
+                "path: {}\nnames:\n  - cat\ntrain: images/train\n",
+                data_root.display()
+            ),
+        )
+        .expect("write data yaml");
+
+        // Create the minimal YOLO structure at temp root so discover_source
+        // doesn't fail on flat layout validation (it won't reach flat path
+        // because data.yaml has split keys, but we need data.yaml to be
+        // at root)
+        // Actually, data.yaml is at temp.path(), and discover_source reads
+        // root/data.yaml. The root is temp.path(). data.yaml has train: key,
+        // so we enter split-aware mode. base_path = data_root (absolute path).
+        // resolve_split_layout(data_root, "train", "images/train") ->
+        //   resolved = data_root/images/train -> check labels sibling
+
+        let source = discover_source(temp.path()).expect("discover with path key");
+        assert!(source.is_split_aware);
+        assert_eq!(source.splits[0].images_dir, data_root.join("images/train"));
+        assert_eq!(source.splits[0].labels_dir, data_root.join("labels/train"));
+    }
+
+    #[test]
+    fn split_aware_class_map_inferred_across_splits() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_split_layout_images_style(temp.path(), &["train", "val"]);
+
+        write_bmp(&temp.path().join("images/train/a.bmp"), 10, 10);
+        write_bmp(&temp.path().join("images/val/b.bmp"), 10, 10);
+
+        // data.yaml with splits but NO names -> inferred class map
+        fs::write(
+            temp.path().join("data.yaml"),
+            "train: images/train\nval: images/val\n",
+        )
+        .expect("write data yaml");
+
+        // Class 0 in train, class 2 in val -> inferred names should cover 0..2
+        fs::write(
+            temp.path().join("labels/train/a.txt"),
+            "0 0.5 0.5 0.5 0.5\n",
+        )
+        .expect("write train label");
+        fs::write(
+            temp.path().join("labels/val/b.txt"),
+            "2 0.3 0.3 0.2 0.2\n",
+        )
+        .expect("write val label");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read with inferred class map");
+        assert_eq!(dataset.categories.len(), 3);
+        assert_eq!(dataset.categories[0].name, "class_0");
+        assert_eq!(dataset.categories[1].name, "class_1");
+        assert_eq!(dataset.categories[2].name, "class_2");
+    }
+
+    #[test]
+    fn flat_read_has_no_split_provenance() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        create_basic_layout(temp.path());
+
+        write_bmp(&temp.path().join("images/train/a.bmp"), 10, 10);
+        fs::write(temp.path().join("data.yaml"), "names:\n  - cat\n")
+            .expect("write data yaml");
+        fs::write(
+            temp.path().join("labels/train/a.txt"),
+            "0 0.5 0.5 0.5 0.5\n",
+        )
+        .expect("write label");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read flat");
+        assert!(dataset.info.attributes.get("yolo_layout_mode").is_none());
+        assert!(dataset.info.attributes.get("yolo_splits_found").is_none());
     }
 }

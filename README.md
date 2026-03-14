@@ -111,6 +111,9 @@ panlabel convert -f hf -t ir-json --hf-repo keremberke/football-object-detection
 # Check a dataset for problems before training
 panlabel validate --format coco annotations.json
 
+# Get machine-readable validation output
+panlabel validate --format coco annotations.json --output-format json
+
 # Get a quick overview of what's in a dataset
 panlabel stats --format coco annotations.json
 
@@ -119,6 +122,18 @@ panlabel diff --format-a auto --format-b auto old.json new.json
 
 # Sample a smaller subset for quick experiments
 panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42
+
+# Preview a conversion without writing output files
+panlabel convert --from auto --to ir-json -i annotations.json -o preview.ir.json --dry-run
+
+# Preview a deterministic sample without writing output files
+panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42 --dry-run
+
+# Ask for a machine-readable conversion/sample report
+panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42 --output-format json
+
+# Discover supported formats as JSON
+panlabel list-formats --output json
 ```
 
 ## What can panlabel do?
@@ -129,8 +144,8 @@ panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -
 | `validate` | Check your dataset for common problems — duplicate IDs, missing references, invalid bounding boxes |
 | `stats` | Show rich dataset statistics in text, JSON, or HTML |
 | `diff` | Compare two datasets semantically (summary or detailed output) |
-| `sample` | Create subset datasets (random or stratified), with optional category filtering |
-| `list-formats` | Show which formats are supported and their read/write/lossiness capabilities |
+| `sample` | Create subset datasets (random or stratified), with optional category filtering and JSON reports |
+| `list-formats` | Show which formats are supported and their read/write/lossiness capabilities, including JSON discovery output |
 
 ## Supported formats
 
@@ -145,9 +160,9 @@ panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
 
-Run `panlabel list-formats` for the full details.
+Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 
-`list-formats` shows canonical names (for example `label-studio`), while commands also accept aliases (for example `ls`, `label-studio-json`).
+`list-formats` shows canonical names (for example `label-studio`), while commands also accept aliases (for example `ls`, `label-studio-json`). Across commands, `--output-format` is the consistent way to request JSON reports; `convert` and `sample` also keep `--report` as an alias. JSON is pretty-printed on a terminal and compact when piped or captured, which makes it friendlier for scripts and agents. `stats` also adapts its text renderer: rich/Unicode on a terminal, plain text layout when piped.
 
 ### More convert examples
 
@@ -160,7 +175,15 @@ panlabel convert -f ir-json -t tfod -i input.json -o output.csv --allow-lossy
 
 # Auto-detect input format from file extension/content or directory layout
 panlabel convert --from auto -t coco -i input.csv -o output.json
+
+# Request a machine-readable conversion report
+panlabel convert --from auto -t coco -i input.csv -o output.json --output-format json
+
+# Preview a conversion without touching the output path
+panlabel convert --from auto -t coco -i input.csv -o output.json --dry-run
 ```
+
+Dry runs still do the real thinking work — format detection, validation, sampling/conversion analysis, and lossiness checks — but they skip the final filesystem write. That means they are good for “what would happen?” checks, but they do **not** prove that the output path is writable.
 
 ### Getting help
 

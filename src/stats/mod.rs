@@ -8,7 +8,7 @@ mod report;
 pub use report::{
     AnnotationDensityStats, AreaDistribution, AspectRatioBucket, AspectRatioDistribution,
     BBoxStats, CooccurrencePair, CooccurrenceTopPairs, ImageResolutionStats, LabelCount,
-    LabelsSection, PerCategoryBBoxStats, StatsReport, SummarySection,
+    LabelsSection, PerCategoryBBoxStats, StatsReport, SummarySection, TextReportStyle,
 };
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};

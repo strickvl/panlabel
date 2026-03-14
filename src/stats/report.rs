@@ -166,8 +166,41 @@ pub struct CooccurrenceTopPairs {
     pub pairs: Vec<CooccurrencePair>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum TextReportStyle {
+    Rich,
+    Plain,
+}
+
+pub struct StatsReportDisplay<'a> {
+    report: &'a StatsReport,
+    style: TextReportStyle,
+}
+
+impl fmt::Display for StatsReportDisplay<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.style {
+            TextReportStyle::Rich => self.report.fmt_rich(f),
+            TextReportStyle::Plain => self.report.fmt_plain(f),
+        }
+    }
+}
+
 impl fmt::Display for StatsReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.display(TextReportStyle::Rich), f)
+    }
+}
+
+impl StatsReport {
+    pub fn display(&self, style: TextReportStyle) -> StatsReportDisplay<'_> {
+        StatsReportDisplay {
+            report: self,
+            style,
+        }
+    }
+
+    fn fmt_rich(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
         writeln!(
             f,
@@ -203,9 +236,347 @@ impl fmt::Display for StatsReport {
 
         Ok(())
     }
-}
 
-impl StatsReport {
+    fn fmt_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Dataset Stats Report")?;
+        writeln!(f)?;
+        self.fmt_summary_plain(f)?;
+        writeln!(f)?;
+        self.fmt_labels_plain(f)?;
+        writeln!(f)?;
+        self.fmt_bboxes_plain(f)?;
+        writeln!(f)?;
+        self.fmt_image_resolutions_plain(f)?;
+        writeln!(f)?;
+        self.fmt_annotation_density_plain(f)?;
+        writeln!(f)?;
+        self.fmt_area_distribution_plain(f)?;
+        writeln!(f)?;
+        self.fmt_aspect_ratios_plain(f)?;
+        writeln!(f)?;
+        self.fmt_per_category_bbox_plain(f)?;
+        writeln!(f)?;
+        self.fmt_cooccurrence_plain(f)?;
+        Ok(())
+    }
+
+    fn fmt_summary_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = &self.summary;
+        fmt_plain_section_header(f, "Summary")?;
+        writeln!(f, "Images: {}", format_number(s.images))?;
+        writeln!(f, "Categories: {}", format_number(s.categories))?;
+        writeln!(f, "Annotations: {}", format_number(s.annotations))?;
+        if s.licenses > 0 {
+            writeln!(f, "Licenses: {}", format_number(s.licenses))?;
+        }
+        let pct = if s.images > 0 {
+            (s.annotated_images as f64 / s.images as f64) * 100.0
+        } else {
+            0.0
+        };
+        writeln!(
+            f,
+            "Annotated images: {} of {} ({:.1}%)",
+            format_number(s.annotated_images),
+            format_number(s.images),
+            pct
+        )?;
+        Ok(())
+    }
+
+    fn fmt_labels_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let l = &self.labels;
+        let header = if l.total_distinct > l.top_n {
+            format!("Labels (top {} of {})", l.top_n, l.total_distinct)
+        } else {
+            format!("Labels ({})", l.total_distinct)
+        };
+        fmt_plain_section_header(f, &header)?;
+
+        if l.entries.is_empty() {
+            writeln!(f, "No annotations found.")?;
+            return Ok(());
+        }
+
+        let max_count = l.entries.iter().map(|entry| entry.count).max().unwrap_or(1);
+        for entry in &l.entries {
+            let pct = if l.total_annotations > 0 {
+                (entry.count as f64 / l.total_annotations as f64) * 100.0
+            } else {
+                0.0
+            };
+            writeln!(
+                f,
+                "{:<16} {:>7} {:>5.1}%  {}",
+                truncate_label_ascii(&entry.label, 16),
+                format_number(entry.count),
+                pct,
+                pad_bar(
+                    &render_ascii_bar(entry.count, max_count, self.bar_width),
+                    self.bar_width
+                )
+            )?;
+        }
+
+        if l.other_count > 0 {
+            let pct = if l.total_annotations > 0 {
+                (l.other_count as f64 / l.total_annotations as f64) * 100.0
+            } else {
+                0.0
+            };
+            writeln!(
+                f,
+                "{:<16} {:>7} {:>5.1}%  {}",
+                "(other)",
+                format_number(l.other_count),
+                pct,
+                pad_bar(
+                    &render_ascii_bar(l.other_count, max_count, self.bar_width),
+                    self.bar_width
+                )
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn fmt_bboxes_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let b = &self.bboxes;
+        fmt_plain_section_header(f, "Bounding Boxes")?;
+
+        if b.total == 0 {
+            writeln!(f, "No bounding boxes found.")?;
+            return Ok(());
+        }
+
+        if let (Some(min_w), Some(max_w), Some(min_h), Some(max_h)) =
+            (b.min_width, b.max_width, b.min_height, b.max_height)
+        {
+            writeln!(f, "Width (px): min {min_w:>8.1} max {max_w:>8.1}")?;
+            writeln!(f, "Height (px): min {min_h:>7.1} max {max_h:>8.1}")?;
+        } else {
+            writeln!(f, "Width/Height: No valid bounding boxes to measure")?;
+        }
+
+        writeln!(f)?;
+        writeln!(f, "Quality metrics:")?;
+        writeln!(
+            f,
+            "  OK   finite coords:    {:>7} / {:>7} ({:>5})",
+            format_number(b.finite),
+            format_number(b.total),
+            fmt_percent(b.finite, b.total)
+        )?;
+        writeln!(
+            f,
+            "  OK   properly ordered: {:>7} / {:>7} ({:>5})",
+            format_number(b.ordered),
+            format_number(b.total),
+            fmt_percent(b.ordered, b.total)
+        )?;
+
+        let has_issues = b.degenerate_area > 0
+            || b.out_of_bounds > 0
+            || b.missing_image_ref > 0
+            || b.finite < b.total;
+
+        if has_issues {
+            writeln!(f)?;
+            writeln!(f, "Issues found:")?;
+
+            if b.degenerate_area > 0 {
+                writeln!(
+                    f,
+                    "  WARN degenerate area:  {:>7} / {:>7} ({:>5})",
+                    format_number(b.degenerate_area),
+                    format_number(b.total),
+                    fmt_percent(b.degenerate_area, b.total)
+                )?;
+            }
+
+            if b.out_of_bounds > 0 {
+                writeln!(
+                    f,
+                    "  WARN out of bounds:    {:>7} / {:>7} ({:>5})",
+                    format_number(b.out_of_bounds),
+                    format_number(b.oob_checked),
+                    fmt_percent(b.out_of_bounds, b.oob_checked)
+                )?;
+            }
+
+            if b.missing_image_ref > 0 {
+                writeln!(
+                    f,
+                    "  ERR  missing image ref:{:>8} / {:>7} ({:>5})",
+                    format_number(b.missing_image_ref),
+                    format_number(b.total),
+                    fmt_percent(b.missing_image_ref, b.total)
+                )?;
+            }
+
+            if b.finite < b.total {
+                let non_finite = b.total - b.finite;
+                writeln!(
+                    f,
+                    "  ERR  non-finite coords:{:>8} / {:>7} ({:>5})",
+                    format_number(non_finite),
+                    format_number(b.total),
+                    fmt_percent(non_finite, b.total)
+                )?;
+            }
+        } else {
+            writeln!(f)?;
+            writeln!(f, "No issues detected.")?;
+        }
+
+        Ok(())
+    }
+
+    fn fmt_image_resolutions_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = &self.image_resolutions;
+        fmt_plain_section_header(f, "Image Resolutions")?;
+        writeln!(
+            f,
+            "Width (px): min {:>6} mean {:>8.1} max {:>6}",
+            s.min_w, s.mean_w, s.max_w
+        )?;
+        writeln!(
+            f,
+            "Height (px): min {:>5} mean {:>8.1} max {:>6}",
+            s.min_h, s.mean_h, s.max_h
+        )?;
+        Ok(())
+    }
+
+    fn fmt_annotation_density_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = &self.annotation_density;
+        fmt_plain_section_header(f, "Annotation Density")?;
+        writeln!(
+            f,
+            "Per image: min {:>6} mean {:>8.2} max {:>6}",
+            s.min_per_image, s.mean_per_image, s.max_per_image
+        )?;
+        writeln!(
+            f,
+            "Images with 0 annotations: {}",
+            format_number(s.zero_annotation_images)
+        )?;
+        Ok(())
+    }
+
+    fn fmt_area_distribution_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let a = &self.area_distribution;
+        let max_count = [a.small, a.medium, a.large].into_iter().max().unwrap_or(1);
+        fmt_plain_section_header(f, "Area Distribution (COCO: small<1024, medium<9216)")?;
+        writeln!(
+            f,
+            "small   {:>7}  {}",
+            format_number(a.small),
+            pad_bar(
+                &render_ascii_bar(a.small, max_count, self.bar_width),
+                self.bar_width
+            )
+        )?;
+        writeln!(
+            f,
+            "medium  {:>7}  {}",
+            format_number(a.medium),
+            pad_bar(
+                &render_ascii_bar(a.medium, max_count, self.bar_width),
+                self.bar_width
+            )
+        )?;
+        writeln!(
+            f,
+            "large   {:>7}  {}",
+            format_number(a.large),
+            pad_bar(
+                &render_ascii_bar(a.large, max_count, self.bar_width),
+                self.bar_width
+            )
+        )?;
+        writeln!(f, "invalid {:>7}", format_number(a.invalid))?;
+        Ok(())
+    }
+
+    fn fmt_aspect_ratios_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let a = &self.aspect_ratios;
+        let max_count = a
+            .buckets
+            .iter()
+            .map(|bucket| bucket.count)
+            .max()
+            .unwrap_or(1);
+        fmt_plain_section_header(f, "Aspect Ratios (w/h)")?;
+        for bucket in &a.buckets {
+            writeln!(
+                f,
+                "{:<8} {:>7}  {}",
+                bucket.name,
+                format_number(bucket.count),
+                pad_bar(
+                    &render_ascii_bar(bucket.count, max_count, self.bar_width),
+                    self.bar_width
+                )
+            )?;
+        }
+        writeln!(f, "invalid  {:>7}", format_number(a.invalid))?;
+        Ok(())
+    }
+
+    fn fmt_per_category_bbox_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_plain_section_header(f, "Per-category BBox Area (top)")?;
+        if self.per_category_bbox.is_empty() {
+            writeln!(f, "No per-category bbox stats available.")?;
+            return Ok(());
+        }
+
+        for row in &self.per_category_bbox {
+            let min = row
+                .min_area
+                .map(|value| format!("{value:.1}"))
+                .unwrap_or_else(|| "n/a".to_string());
+            let mean = row
+                .mean_area
+                .map(|value| format!("{value:.1}"))
+                .unwrap_or_else(|| "n/a".to_string());
+            let max = row
+                .max_area
+                .map(|value| format!("{value:.1}"))
+                .unwrap_or_else(|| "n/a".to_string());
+            writeln!(
+                f,
+                "{:<14} n={:>5} min {:>8} mean {:>8} max {:>8}",
+                truncate_label_ascii(&row.category, 14),
+                row.annotations,
+                min,
+                mean,
+                max
+            )?;
+        }
+        Ok(())
+    }
+
+    fn fmt_cooccurrence_plain(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let c = &self.cooccurrence_top_pairs;
+        fmt_plain_section_header(f, "Co-occurrence Top Pairs")?;
+        if c.pairs.is_empty() {
+            writeln!(f, "No co-occurring category pairs found.")?;
+            return Ok(());
+        }
+
+        for pair in &c.pairs {
+            let label = format!("{} + {}", pair.a, pair.b);
+            writeln!(
+                f,
+                "{:<38} {:>9}",
+                truncate_label_ascii(&label, 38),
+                format_number(pair.count)
+            )?;
+        }
+        Ok(())
+    }
+
     fn fmt_summary(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = &self.summary;
 
@@ -781,11 +1152,27 @@ fn render_bar(count: usize, max_count: usize, width: usize) -> String {
     "█".repeat(filled) + &"░".repeat(width - filled)
 }
 
+/// Render a horizontal bar using plain ASCII characters.
+fn render_ascii_bar(count: usize, max_count: usize, width: usize) -> String {
+    if max_count == 0 || width == 0 {
+        return String::new();
+    }
+
+    let filled = (count * width) / max_count;
+    let filled = filled.min(width);
+    "#".repeat(filled) + &"-".repeat(width - filled)
+}
+
 /// Pad a bar string to ensure consistent column alignment.
 fn pad_bar(bar: &str, width: usize) -> String {
     let visual_len = bar.chars().count();
     let padding = (width + 2).saturating_sub(visual_len);
     format!("{}{}", bar, " ".repeat(padding))
+}
+
+fn fmt_plain_section_header(f: &mut fmt::Formatter<'_>, title: &str) -> fmt::Result {
+    writeln!(f, "{title}")?;
+    writeln!(f, "{}", "-".repeat(title.len()))
 }
 
 /// Truncate a label to fit in the display column.
@@ -794,6 +1181,17 @@ fn truncate_label(label: &str, max_len: usize) -> String {
         label.to_string()
     } else {
         format!("{}…", &label[..max_len - 1])
+    }
+}
+
+/// Truncate a label for plain ASCII output.
+fn truncate_label_ascii(label: &str, max_len: usize) -> String {
+    if label.chars().count() <= max_len {
+        label.to_string()
+    } else {
+        let keep = max_len.saturating_sub(3);
+        let prefix: String = label.chars().take(keep).collect();
+        format!("{prefix}...")
     }
 }
 
@@ -824,8 +1222,121 @@ mod tests {
     }
 
     #[test]
+    fn test_render_ascii_bar() {
+        assert_eq!(render_ascii_bar(5, 10, 10), "#####-----");
+        assert_eq!(render_ascii_bar(10, 10, 10), "##########");
+        assert_eq!(render_ascii_bar(0, 10, 10), "----------");
+    }
+
+    #[test]
     fn test_truncate_label() {
         assert_eq!(truncate_label("short", 10), "short");
         assert_eq!(truncate_label("verylonglabel", 10), "verylongl…");
+    }
+
+    #[test]
+    fn test_truncate_label_ascii() {
+        assert_eq!(truncate_label_ascii("short", 10), "short");
+        assert_eq!(truncate_label_ascii("verylonglabel", 10), "verylon...");
+    }
+
+    #[test]
+    fn test_truncate_label_ascii_handles_unicode_safely() {
+        assert_eq!(truncate_label_ascii("überraschung", 8), "überr...");
+    }
+
+    #[test]
+    fn test_plain_display_uses_ascii_only_markers() {
+        let report = StatsReport {
+            summary: SummarySection {
+                images: 3,
+                categories: 2,
+                annotations: 4,
+                licenses: 0,
+                annotated_images: 2,
+            },
+            labels: LabelsSection {
+                top_n: 5,
+                total_distinct: 2,
+                total_annotations: 4,
+                entries: vec![
+                    LabelCount {
+                        label: "person".to_string(),
+                        count: 3,
+                    },
+                    LabelCount {
+                        label: "car".to_string(),
+                        count: 1,
+                    },
+                ],
+                other_count: 0,
+            },
+            bboxes: BBoxStats {
+                total: 4,
+                finite: 4,
+                ordered: 4,
+                oob_checked: 4,
+                out_of_bounds: 0,
+                degenerate_area: 0,
+                missing_image_ref: 0,
+                min_width: Some(10.0),
+                max_width: Some(20.0),
+                min_height: Some(5.0),
+                max_height: Some(15.0),
+            },
+            image_resolutions: ImageResolutionStats {
+                min_w: 640,
+                max_w: 1280,
+                mean_w: 960.0,
+                min_h: 480,
+                max_h: 720,
+                mean_h: 600.0,
+            },
+            annotation_density: AnnotationDensityStats {
+                min_per_image: 0,
+                max_per_image: 2,
+                mean_per_image: 1.3,
+                zero_annotation_images: 1,
+            },
+            area_distribution: AreaDistribution {
+                small: 1,
+                medium: 2,
+                large: 1,
+                invalid: 0,
+            },
+            aspect_ratios: AspectRatioDistribution {
+                buckets: vec![AspectRatioBucket {
+                    name: "square".to_string(),
+                    count: 4,
+                }],
+                invalid: 0,
+            },
+            per_category_bbox: vec![PerCategoryBBoxStats {
+                category: "person".to_string(),
+                annotations: 3,
+                min_area: Some(10.0),
+                max_area: Some(20.0),
+                mean_area: Some(15.0),
+            }],
+            cooccurrence_top_pairs: CooccurrenceTopPairs {
+                top_n: 5,
+                pairs: vec![CooccurrencePair {
+                    a: "car".to_string(),
+                    b: "person".to_string(),
+                    count: 1,
+                }],
+            },
+            bar_width: 10,
+        };
+
+        let output = format!("{}", report.display(TextReportStyle::Plain));
+        assert!(output.contains("Dataset Stats Report"));
+        assert!(output.contains("Summary"));
+        assert!(output.contains("Bounding Boxes"));
+        assert!(output.contains("#####"));
+        assert!(!output.contains('📊'));
+        assert!(!output.contains('╭'));
+        assert!(!output.contains('█'));
+        assert!(!output.contains('…'));
     }
 }

@@ -23,7 +23,7 @@ pub mod stats;
 pub mod validation;
 
 use std::fs::File;
-use std::io::{BufReader, Write};
+use std::io::{BufReader, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -186,6 +186,41 @@ enum StatsOutputFormat {
     /// Self-contained HTML report.
     #[value(name = "html")]
     Html,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum JsonStyle {
+    Pretty,
+    Compact,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct OutputContext {
+    stdout_is_terminal: bool,
+}
+
+impl OutputContext {
+    fn detect() -> Self {
+        Self {
+            stdout_is_terminal: std::io::stdout().is_terminal(),
+        }
+    }
+
+    fn json_style(self) -> JsonStyle {
+        if self.stdout_is_terminal {
+            JsonStyle::Pretty
+        } else {
+            JsonStyle::Compact
+        }
+    }
+
+    fn stats_text_style(self) -> stats::TextReportStyle {
+        if self.stdout_is_terminal {
+            stats::TextReportStyle::Rich
+        } else {
+            stats::TextReportStyle::Plain
+        }
+    }
 }
 
 /// Annotation matching strategy for dataset diff.
@@ -386,6 +421,10 @@ struct SampleArgs {
     #[arg(long = "allow-lossy")]
     allow_lossy: bool,
 
+    /// Run the sampling pipeline and report what would be written, without writing output files.
+    #[arg(long = "dry-run")]
+    dry_run: bool,
+
     /// Output format for the sampling report.
     #[arg(
         long = "output-format",
@@ -426,6 +465,10 @@ struct ConvertArgs {
     /// Allow conversions that drop information (e.g., metadata, images without annotations).
     #[arg(long = "allow-lossy")]
     allow_lossy: bool,
+
+    /// Run detection/validation/reporting without writing output files.
+    #[arg(long = "dry-run")]
+    dry_run: bool,
 
     /// Output format for the conversion report.
     #[arg(
@@ -566,14 +609,15 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
 /// This is the main entry point for the CLI, called from `main.rs`.
 pub fn run() -> Result<(), PanlabelError> {
     let cli = Cli::parse();
+    let output = OutputContext::detect();
 
     match cli.command {
-        Some(Commands::Validate(args)) => run_validate(args),
-        Some(Commands::Convert(args)) => run_convert(args),
-        Some(Commands::Stats(args)) => run_stats(args),
-        Some(Commands::Diff(args)) => run_diff(args),
-        Some(Commands::Sample(args)) => run_sample(args),
-        Some(Commands::ListFormats(args)) => run_list_formats(args),
+        Some(Commands::Validate(args)) => run_validate(args, output),
+        Some(Commands::Convert(args)) => run_convert(args, output),
+        Some(Commands::Stats(args)) => run_stats(args, output),
+        Some(Commands::Diff(args)) => run_diff(args, output),
+        Some(Commands::Sample(args)) => run_sample(args, output),
+        Some(Commands::ListFormats(args)) => run_list_formats(args, output),
         None => {
             // No subcommand: just print help hint and exit successfully
             // This keeps backward compatibility with the existing test
@@ -587,8 +631,24 @@ pub fn run() -> Result<(), PanlabelError> {
     }
 }
 
+fn write_json_stdout<T: serde::Serialize>(
+    value: &T,
+    output: OutputContext,
+) -> Result<(), PanlabelError> {
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    match output.json_style() {
+        JsonStyle::Pretty => serde_json::to_writer_pretty(&mut handle, value),
+        JsonStyle::Compact => serde_json::to_writer(&mut handle, value),
+    }
+    .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+    writeln!(handle).map_err(PanlabelError::Io)?;
+    handle.flush().map_err(PanlabelError::Io)?;
+    Ok(())
+}
+
 /// Execute the stats subcommand.
-fn run_stats(args: StatsArgs) -> Result<(), PanlabelError> {
+fn run_stats(args: StatsArgs, output: OutputContext) -> Result<(), PanlabelError> {
     let format = resolve_stats_format(args.format, &args.input)?;
     let dataset = read_dataset(format, &args.input)?;
 
@@ -602,12 +662,8 @@ fn run_stats(args: StatsArgs) -> Result<(), PanlabelError> {
     let report = stats::stats_dataset(&dataset, &opts);
 
     match args.output_format {
-        StatsOutputFormat::Text => print!("{}", report),
-        StatsOutputFormat::Json => {
-            serde_json::to_writer_pretty(std::io::stdout(), &report)
-                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!();
-        }
+        StatsOutputFormat::Text => print!("{}", report.display(output.stats_text_style())),
+        StatsOutputFormat::Json => write_json_stdout(&report, output)?,
         StatsOutputFormat::Html => {
             let html = stats::html::render_html(&report)?;
             print!("{html}");
@@ -618,7 +674,7 @@ fn run_stats(args: StatsArgs) -> Result<(), PanlabelError> {
 }
 
 /// Execute the diff subcommand.
-fn run_diff(args: DiffArgs) -> Result<(), PanlabelError> {
+fn run_diff(args: DiffArgs, output: OutputContext) -> Result<(), PanlabelError> {
     if matches!(args.match_by, DiffMatchBy::Iou)
         && !(0.0 < args.iou_threshold && args.iou_threshold <= 1.0)
     {
@@ -662,11 +718,7 @@ fn run_diff(args: DiffArgs) -> Result<(), PanlabelError> {
             println!();
             print!("{}", report);
         }
-        ReportFormat::Json => {
-            serde_json::to_writer_pretty(std::io::stdout(), &report)
-                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!();
-        }
+        ReportFormat::Json => write_json_stdout(&report, output)?,
     }
 
     Ok(())
@@ -680,25 +732,22 @@ fn run_diff(args: DiffArgs) -> Result<(), PanlabelError> {
 fn emit_conversion_report(
     report: &conversion::ConversionReport,
     format: ReportFormat,
+    output: OutputContext,
 ) -> Result<(), PanlabelError> {
-    let stdout = std::io::stdout();
-    let mut handle = stdout.lock();
     match format {
         ReportFormat::Text => {
+            let stdout = std::io::stdout();
+            let mut handle = stdout.lock();
             write!(handle, "{}", report).map_err(PanlabelError::Io)?;
+            handle.flush().map_err(PanlabelError::Io)?;
         }
-        ReportFormat::Json => {
-            serde_json::to_writer_pretty(&mut handle, report)
-                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            writeln!(handle).map_err(PanlabelError::Io)?;
-        }
+        ReportFormat::Json => write_json_stdout(report, output)?,
     }
-    handle.flush().map_err(PanlabelError::Io)?;
     Ok(())
 }
 
 /// Execute the sample subcommand.
-fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
+fn run_sample(args: SampleArgs, output: OutputContext) -> Result<(), PanlabelError> {
     let from_format = resolve_from_format(args.from, &args.input)?;
     let to_format = match args.to {
         Some(target) => target,
@@ -734,7 +783,7 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
-        emit_conversion_report(&conv_report, args.output_format)?;
+        emit_conversion_report(&conv_report, args.output_format, output)?;
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(from_format).to_string(),
             to: format_name(to_format).to_string(),
@@ -742,12 +791,19 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
         });
     }
 
-    write_dataset(to_format, &args.output, &sampled_dataset)?;
+    if !args.dry_run {
+        write_dataset(to_format, &args.output, &sampled_dataset)?;
+    }
 
     match args.output_format {
         ReportFormat::Text => {
             println!(
-                "Sampled {} images -> {} images: {} ({}) -> {} ({})",
+                "{} {} images -> {} images: {} ({}) -> {} ({})",
+                if args.dry_run {
+                    "Dry run: would sample"
+                } else {
+                    "Sampled"
+                },
                 dataset.images.len(),
                 sampled_dataset.images.len(),
                 args.input.display(),
@@ -755,10 +811,10 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
                 args.output.display(),
                 format_name(to_format)
             );
-            emit_conversion_report(&conv_report, ReportFormat::Text)?;
+            emit_conversion_report(&conv_report, ReportFormat::Text, output)?;
         }
         ReportFormat::Json => {
-            emit_conversion_report(&conv_report, ReportFormat::Json)?;
+            emit_conversion_report(&conv_report, ReportFormat::Json, output)?;
         }
     }
 
@@ -766,7 +822,7 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
 }
 
 /// Execute the validate subcommand.
-fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
+fn run_validate(args: ValidateArgs, output: OutputContext) -> Result<(), PanlabelError> {
     let dataset = read_dataset(args.format, &args.input)?;
 
     // Validate
@@ -777,11 +833,7 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
 
     // Output results
     match args.output_format {
-        ReportFormat::Json => {
-            serde_json::to_writer_pretty(std::io::stdout(), &report.as_json())
-                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!();
-        }
+        ReportFormat::Json => write_json_stdout(&report.as_json(), output)?,
         ReportFormat::Text => print!("{}", report),
     }
 
@@ -801,7 +853,7 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
 }
 
 /// Execute the convert subcommand.
-fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
+fn run_convert(args: ConvertArgs, output: OutputContext) -> Result<(), PanlabelError> {
     let from_format = match args.from.as_concrete() {
         Some(format) => format,
         None => {
@@ -985,7 +1037,7 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
-        emit_conversion_report(&conv_report, args.output_format)?;
+        emit_conversion_report(&conv_report, args.output_format, output)?;
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(effective_from_format).to_string(),
             to: format_name(args.to).to_string(),
@@ -994,22 +1046,29 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     }
 
     // Step 4: Write the dataset
-    write_dataset_with_options(args.to, &args.output, &dataset, &hf_write_options)?;
+    if !args.dry_run {
+        write_dataset_with_options(args.to, &args.output, &dataset, &hf_write_options)?;
+    }
 
     // Step 5: Output the report
     match args.output_format {
         ReportFormat::Text => {
             println!(
-                "Converted {} ({}) -> {} ({})",
+                "{} {} ({}) -> {} ({})",
+                if args.dry_run {
+                    "Dry run: would convert"
+                } else {
+                    "Converted"
+                },
                 source_display,
                 format_name(effective_from_format),
                 args.output.display(),
                 format_name(args.to)
             );
-            emit_conversion_report(&conv_report, ReportFormat::Text)?;
+            emit_conversion_report(&conv_report, ReportFormat::Text, output)?;
         }
         ReportFormat::Json => {
-            emit_conversion_report(&conv_report, ReportFormat::Json)?;
+            emit_conversion_report(&conv_report, ReportFormat::Json, output)?;
         }
     }
 
@@ -1450,7 +1509,7 @@ fn list_format_entries() -> Vec<ListFormatEntry> {
 }
 
 /// Execute the list-formats subcommand.
-fn run_list_formats(args: ListFormatsArgs) -> Result<(), PanlabelError> {
+fn run_list_formats(args: ListFormatsArgs, output: OutputContext) -> Result<(), PanlabelError> {
     let entries = list_format_entries();
 
     match args.output_format {
@@ -1486,12 +1545,7 @@ fn run_list_formats(args: ListFormatsArgs) -> Result<(), PanlabelError> {
             println!("Tip: Use '--from auto' with 'convert' for automatic format detection.");
             Ok(())
         }
-        ReportFormat::Json => {
-            serde_json::to_writer_pretty(std::io::stdout(), &entries)
-                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!();
-            Ok(())
-        }
+        ReportFormat::Json => write_json_stdout(&entries, output),
     }
 }
 

@@ -5,7 +5,7 @@
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
 - `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for Ultralytics-style YOLO, `src/ir/io_voc_xml.rs` for Pascal VOC XML, and `src/ir/io_label_studio_json.rs` for Label Studio JSON.
 - `src/conversion/` contains conversion lossiness analysis and stable report issue codes.
-- `src/inspect/` contains dataset inspection/statistics logic.
+- `src/stats/` contains dataset statistics logic and HTML/text/JSON reporting.
 - `src/validation/` contains dataset validation logic.
 - `tests/cli.rs` contains CLI integration tests using `assert_cmd`.
 - `tests/tfod_csv_roundtrip.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, and `tests/label_studio_roundtrip.rs` cover format-specific integration behavior.
@@ -61,6 +61,16 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 - Add unit tests in `src/` with `#[cfg(test)]` when appropriate.
 - Generated datasets belong in `assets/` (gitignored). Use the deterministic seed (42) when modifying the generator to keep data reproducible.
 
+## Agent Usage Guidance
+- When automating the CLI, prefer machine-readable stdout:
+  - `--output-format json` is the consistent cross-command spelling.
+  - Read-only commands (`validate`, `stats`, `diff`, `list-formats`) also accept `--output json`.
+  - `convert` and `sample` still accept `--report json` as a compatibility alias.
+- Prefer `--from auto` unless the source format is already known.
+- Review the conversion/sample report before adding `--allow-lossy`; the stable issue codes explain exactly what will be dropped or normalized.
+- JSON/report payloads are written to stdout. Fatal errors go to stderr.
+- If you change CLI behavior, update `tests/cli.rs`, `docs/cli.md`, and relevant README examples in the same change.
+
 ## Commit & Pull Request Guidelines
 - Commit messages in this repo are short and imperative (e.g., “Add basic CLI test”, “Update README”). Avoid prefixes unless needed.
 - PRs should include: a clear description, test commands run, and any user-facing changes (help text, README) noted. Link an issue for larger changes.
@@ -77,7 +87,7 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 ## Configuration & Data Tips
 - For the dataset generator, use a fresh Python virtual environment and install `numpy`.
 - Keep generated assets out of git; only commit code and fixtures that are meant to be versioned.
-- Never add anything under `design/` to git history (it is gitignored for a reason).
+- Do not edit or commit files under `design/` unless a task explicitly asks for a specific design-file update.
 - If local design notes exist, treat them as historical background; implemented behavior belongs in `docs/` and tests.
 - `fuzz/Cargo.toml` enables the crate `fuzzing` feature so fuzz-only parser entrypoints are available to fuzz targets.
 - Keep `proptest-regressions/` in git to retain minimized repro cases from previous failures.

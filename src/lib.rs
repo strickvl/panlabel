@@ -251,17 +251,22 @@ struct ValidateArgs {
     /// Input path to validate.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', 'voc', or 'hf').
-    #[arg(long, default_value = "ir-json")]
-    format: String,
+    /// Input format.
+    #[arg(long, value_enum, default_value_t = ConvertFormat::IrJson)]
+    format: ConvertFormat,
 
     /// Treat warnings as errors (exit non-zero if any warnings).
     #[arg(long)]
     strict: bool,
 
-    /// Output format for the report ('text' or 'json').
-    #[arg(long, default_value = "text")]
-    output: String,
+    /// Output format for the report.
+    #[arg(
+        long = "output-format",
+        visible_alias = "output",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
 }
 
 /// Arguments for the stats subcommand.
@@ -286,8 +291,13 @@ struct StatsArgs {
     tolerance: f64,
 
     /// Output format for the stats report.
-    #[arg(long, value_enum, default_value = "text")]
-    output: StatsOutputFormat,
+    #[arg(
+        long = "output-format",
+        visible_alias = "output",
+        value_enum,
+        default_value_t = StatsOutputFormat::Text
+    )]
+    output_format: StatsOutputFormat,
 }
 
 /// Arguments for the diff subcommand.
@@ -320,8 +330,13 @@ struct DiffArgs {
     detail: bool,
 
     /// Output format for diff report.
-    #[arg(long, value_enum, default_value = "text")]
-    output: ReportFormat,
+    #[arg(
+        long = "output-format",
+        visible_alias = "output",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
 }
 
 /// Arguments for the sample subcommand.
@@ -370,6 +385,15 @@ struct SampleArgs {
     /// Allow lossy output format conversions.
     #[arg(long = "allow-lossy")]
     allow_lossy: bool,
+
+    /// Output format for the sampling report.
+    #[arg(
+        long = "output-format",
+        visible_alias = "report",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
 }
 
 /// Arguments for the convert subcommand.
@@ -403,9 +427,14 @@ struct ConvertArgs {
     #[arg(long = "allow-lossy")]
     allow_lossy: bool,
 
-    /// Output format for the conversion report ('text' or 'json').
-    #[arg(long, value_enum, default_value = "text")]
-    report: ReportFormat,
+    /// Output format for the conversion report.
+    #[arg(
+        long = "output-format",
+        visible_alias = "report",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
 
     /// HF bbox format for --from hf / --to hf (xywh or xyxy).
     #[arg(long = "hf-bbox-format", value_enum, default_value = "xywh")]
@@ -442,9 +471,95 @@ struct ConvertArgs {
 
 /// Arguments for the list-formats subcommand.
 #[derive(clap::Args)]
-struct ListFormatsArgs {}
+struct ListFormatsArgs {
+    /// Output format for the format catalog.
+    #[arg(
+        long = "output-format",
+        visible_alias = "output",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
+}
 
-const SUPPORTED_VALIDATE_FORMATS: &str = "ir-json, coco, cvat, label-studio, tfod, yolo, voc, hf";
+struct FormatCatalogEntry {
+    format: ConvertFormat,
+    aliases: &'static [&'static str],
+    description: &'static str,
+    file_based: bool,
+    directory_based: bool,
+}
+
+#[derive(serde::Serialize)]
+struct ListFormatEntry {
+    name: &'static str,
+    aliases: &'static [&'static str],
+    read: bool,
+    write: bool,
+    lossiness: &'static str,
+    description: &'static str,
+    file_based: bool,
+    directory_based: bool,
+}
+
+const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
+    FormatCatalogEntry {
+        format: ConvertFormat::IrJson,
+        aliases: &[],
+        description: "Panlabel's intermediate representation (JSON)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Coco,
+        aliases: &["coco-json"],
+        description: "COCO object detection format (JSON)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Cvat,
+        aliases: &["cvat-xml"],
+        description: "CVAT for images XML annotation export",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::LabelStudio,
+        aliases: &["label-studio-json", "ls"],
+        description: "Label Studio task export (JSON)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Tfod,
+        aliases: &["tfod-csv"],
+        description: "TensorFlow Object Detection format (CSV)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Yolo,
+        aliases: &["ultralytics", "yolov8", "yolov5"],
+        description: "Ultralytics YOLO .txt (directory-based)",
+        file_based: false,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Voc,
+        aliases: &["pascal-voc", "voc-xml"],
+        description: "Pascal VOC XML (directory-based)",
+        file_based: false,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::HfImagefolder,
+        aliases: &["hf-imagefolder", "huggingface"],
+        description: "Hugging Face ImageFolder metadata (metadata.jsonl/parquet)",
+        file_based: false,
+        directory_based: true,
+    },
+];
 
 /// Run the panlabel CLI.
 ///
@@ -486,7 +601,7 @@ fn run_stats(args: StatsArgs) -> Result<(), PanlabelError> {
 
     let report = stats::stats_dataset(&dataset, &opts);
 
-    match args.output {
+    match args.output_format {
         StatsOutputFormat::Text => print!("{}", report),
         StatsOutputFormat::Json => {
             serde_json::to_writer_pretty(std::io::stdout(), &report)
@@ -537,7 +652,7 @@ fn run_diff(args: DiffArgs) -> Result<(), PanlabelError> {
 
     let report = diff::diff_datasets(&dataset_a, &dataset_b, &opts);
 
-    match args.output {
+    match args.output_format {
         ReportFormat::Text => {
             println!(
                 "Dataset Diff: {} vs {}",
@@ -619,7 +734,7 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
-        emit_conversion_report(&conv_report, ReportFormat::Text)?;
+        emit_conversion_report(&conv_report, args.output_format)?;
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(from_format).to_string(),
             to: format_name(to_format).to_string(),
@@ -629,43 +744,30 @@ fn run_sample(args: SampleArgs) -> Result<(), PanlabelError> {
 
     write_dataset(to_format, &args.output, &sampled_dataset)?;
 
-    println!(
-        "Sampled {} images -> {} images: {} ({}) -> {} ({})",
-        dataset.images.len(),
-        sampled_dataset.images.len(),
-        args.input.display(),
-        format_name(from_format),
-        args.output.display(),
-        format_name(to_format)
-    );
-    print!("{}", conv_report);
+    match args.output_format {
+        ReportFormat::Text => {
+            println!(
+                "Sampled {} images -> {} images: {} ({}) -> {} ({})",
+                dataset.images.len(),
+                sampled_dataset.images.len(),
+                args.input.display(),
+                format_name(from_format),
+                args.output.display(),
+                format_name(to_format)
+            );
+            emit_conversion_report(&conv_report, ReportFormat::Text)?;
+        }
+        ReportFormat::Json => {
+            emit_conversion_report(&conv_report, ReportFormat::Json)?;
+        }
+    }
 
     Ok(())
 }
 
 /// Execute the validate subcommand.
 fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
-    // Load the dataset based on format
-    let dataset = match args.format.as_str() {
-        "ir-json" => ir::io_json::read_ir_json(&args.input)?,
-        "coco" | "coco-json" => ir::io_coco_json::read_coco_json(&args.input)?,
-        "cvat" | "cvat-xml" => ir::io_cvat_xml::read_cvat_xml(&args.input)?,
-        "label-studio" | "label-studio-json" | "ls" => {
-            ir::io_label_studio_json::read_label_studio_json(&args.input)?
-        }
-        "tfod" | "tfod-csv" => ir::io_tfod_csv::read_tfod_csv(&args.input)?,
-        "yolo" | "ultralytics" | "yolov8" | "yolov5" => ir::io_yolo::read_yolo_dir(&args.input)?,
-        "voc" | "pascal-voc" | "voc-xml" => ir::io_voc_xml::read_voc_dir(&args.input)?,
-        "hf" | "hf-imagefolder" | "huggingface" => {
-            read_hf_dataset_with_default_options(&args.input)?
-        }
-        other => {
-            return Err(PanlabelError::UnsupportedFormat(format!(
-                "'{}' (supported: {})",
-                other, SUPPORTED_VALIDATE_FORMATS
-            )));
-        }
-    };
+    let dataset = read_dataset(args.format, &args.input)?;
 
     // Validate
     let opts = validation::ValidateOptions {
@@ -674,17 +776,13 @@ fn run_validate(args: ValidateArgs) -> Result<(), PanlabelError> {
     let report = validation::validate_dataset(&dataset, &opts);
 
     // Output results
-    match args.output.as_str() {
-        "json" => {
-            // JSON output for programmatic use (using serde for proper escaping)
+    match args.output_format {
+        ReportFormat::Json => {
             serde_json::to_writer_pretty(std::io::stdout(), &report.as_json())
                 .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
-            println!(); // trailing newline
+            println!();
         }
-        _ => {
-            // Default text output
-            print!("{}", report);
-        }
+        ReportFormat::Text => print!("{}", report),
     }
 
     // Determine exit status
@@ -887,7 +985,7 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     );
 
     if conv_report.is_lossy() && !args.allow_lossy {
-        emit_conversion_report(&conv_report, args.report)?;
+        emit_conversion_report(&conv_report, args.output_format)?;
         return Err(PanlabelError::LossyConversionBlocked {
             from: format_name(effective_from_format).to_string(),
             to: format_name(args.to).to_string(),
@@ -899,7 +997,7 @@ fn run_convert(args: ConvertArgs) -> Result<(), PanlabelError> {
     write_dataset_with_options(args.to, &args.output, &dataset, &hf_write_options)?;
 
     // Step 5: Output the report
-    match args.report {
+    match args.output_format {
         ReportFormat::Text => {
             println!(
                 "Converted {} ({}) -> {} ({})",
@@ -1172,10 +1270,6 @@ fn write_dataset_with_options(
     }
 }
 
-fn read_hf_dataset_with_default_options(path: &Path) -> Result<ir::Dataset, PanlabelError> {
-    read_hf_dataset_with_options(path, &ir::io_hf_imagefolder::HfReadOptions::default())
-}
-
 fn read_hf_dataset_with_options(
     path: &Path,
     options: &ir::io_hf_imagefolder::HfReadOptions,
@@ -1326,75 +1420,79 @@ fn format_name(format: ConvertFormat) -> &'static str {
     }
 }
 
-/// Execute the list-formats subcommand.
-fn run_list_formats(_args: ListFormatsArgs) -> Result<(), PanlabelError> {
-    use conversion::IrLossiness;
-
-    println!("Supported formats:");
-    println!();
-    println!(
-        "  {:<12} {:<6} {:<6} {:<12} DESCRIPTION",
-        "FORMAT", "READ", "WRITE", "LOSSINESS"
-    );
-    println!(
-        "  {:<12} {:<6} {:<6} {:<12} -----------",
-        "------", "----", "-----", "---------"
-    );
-
-    // Define format info
-    let formats = [
-        (
-            ConvertFormat::IrJson,
-            "Panlabel's intermediate representation (JSON)",
-        ),
-        (ConvertFormat::Coco, "COCO object detection format (JSON)"),
-        (ConvertFormat::Cvat, "CVAT for images XML annotation export"),
-        (
-            ConvertFormat::LabelStudio,
-            "Label Studio task export (JSON)",
-        ),
-        (
-            ConvertFormat::Tfod,
-            "TensorFlow Object Detection format (CSV)",
-        ),
-        (
-            ConvertFormat::Yolo,
-            "Ultralytics YOLO .txt (directory-based)",
-        ),
-        (ConvertFormat::Voc, "Pascal VOC XML (directory-based)"),
-        (
-            ConvertFormat::HfImagefolder,
-            "Hugging Face ImageFolder metadata (metadata.jsonl/parquet)",
-        ),
-    ];
-
-    for (fmt, description) in formats {
-        let lossiness = fmt.to_conversion_format().lossiness_relative_to_ir();
-        let lossiness_str = match lossiness {
-            IrLossiness::Lossless => "lossless",
-            IrLossiness::Conditional => "conditional",
-            IrLossiness::Lossy => "lossy",
-        };
-
-        println!(
-            "  {:<12} {:<6} {:<6} {:<12} {}",
-            format_name(fmt),
-            "yes",
-            "yes",
-            lossiness_str,
-            description
-        );
+fn lossiness_name(lossiness: conversion::IrLossiness) -> &'static str {
+    match lossiness {
+        conversion::IrLossiness::Lossless => "lossless",
+        conversion::IrLossiness::Conditional => "conditional",
+        conversion::IrLossiness::Lossy => "lossy",
     }
+}
 
-    println!();
-    println!("Lossiness key:");
-    println!("  lossless    - Format preserves all IR information");
-    println!("  conditional - Format may lose info depending on dataset content");
-    println!("  lossy       - Format always loses some IR information");
-    println!();
-    println!("Tip: Use '--from auto' with 'convert' for automatic format detection.");
+fn list_format_entries() -> Vec<ListFormatEntry> {
+    FORMAT_CATALOG
+        .iter()
+        .map(|entry| ListFormatEntry {
+            name: format_name(entry.format),
+            aliases: entry.aliases,
+            read: true,
+            write: true,
+            lossiness: lossiness_name(
+                entry
+                    .format
+                    .to_conversion_format()
+                    .lossiness_relative_to_ir(),
+            ),
+            description: entry.description,
+            file_based: entry.file_based,
+            directory_based: entry.directory_based,
+        })
+        .collect()
+}
 
-    Ok(())
+/// Execute the list-formats subcommand.
+fn run_list_formats(args: ListFormatsArgs) -> Result<(), PanlabelError> {
+    let entries = list_format_entries();
+
+    match args.output_format {
+        ReportFormat::Text => {
+            println!("Supported formats:");
+            println!();
+            println!(
+                "  {:<12} {:<6} {:<6} {:<12} DESCRIPTION",
+                "FORMAT", "READ", "WRITE", "LOSSINESS"
+            );
+            println!(
+                "  {:<12} {:<6} {:<6} {:<12} -----------",
+                "------", "----", "-----", "---------"
+            );
+
+            for entry in &entries {
+                println!(
+                    "  {:<12} {:<6} {:<6} {:<12} {}",
+                    entry.name,
+                    if entry.read { "yes" } else { "no" },
+                    if entry.write { "yes" } else { "no" },
+                    entry.lossiness,
+                    entry.description
+                );
+            }
+
+            println!();
+            println!("Lossiness key:");
+            println!("  lossless    - Format preserves all IR information");
+            println!("  conditional - Format may lose info depending on dataset content");
+            println!("  lossy       - Format always loses some IR information");
+            println!();
+            println!("Tip: Use '--from auto' with 'convert' for automatic format detection.");
+            Ok(())
+        }
+        ReportFormat::Json => {
+            serde_json::to_writer_pretty(std::io::stdout(), &entries)
+                .map_err(|source| PanlabelError::ReportJsonWrite { source })?;
+            println!();
+            Ok(())
+        }
+    }
 }
 
 /// Detect the format of an input path based on extension/content (files)

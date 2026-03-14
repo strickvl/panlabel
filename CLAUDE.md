@@ -117,9 +117,10 @@ src/
 ├── conversion/         # Format conversion reporting
 │   ├── mod.rs          # build_conversion_report(), Format enum, IrLossiness
 │   └── report.rs       # ConversionReport with lossiness warnings
-└── inspect/            # Dataset inspection and statistics
-    ├── mod.rs          # inspect_dataset() function
-    └── report.rs       # InspectReport with terminal formatting
+└── stats/              # Dataset statistics + HTML/text/JSON reporting
+    ├── mod.rs          # stats_dataset() function
+    ├── report.rs       # StatsReport with terminal formatting
+    └── html.rs         # Self-contained HTML report renderer
 
 tests/
 ├── cli.rs              # CLI integration tests using assert_cmd
@@ -176,8 +177,15 @@ If command behavior, format semantics, or conversion issue codes change, update 
 | `convert` | Convert between formats with lossiness tracking |
 | `stats` | Display statistics (counts, label histogram, bbox quality metrics) |
 | `diff` | Compare two datasets semantically |
-| `sample` | Create subset datasets (random or stratified) |
-| `list-formats` | Show supported formats with read/write and lossiness info |
+| `sample` | Create subset datasets (random or stratified), with JSON report output available |
+| `list-formats` | Show supported formats with read/write and lossiness info, including JSON discovery output |
+
+### Machine-readable output
+
+- `--output-format json` is the consistent cross-command spelling for structured stdout.
+- Read-only commands (`validate`, `stats`, `diff`, `list-formats`) also accept `--output json`.
+- `convert` and `sample` keep `--report json` as a compatibility alias.
+- JSON/report payloads go to stdout; fatal errors go to stderr.
 
 ### Convert with Auto-Detection
 

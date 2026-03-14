@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- `list-formats --output json` machine-readable format discovery, including aliases and file/directory layout hints
+- `sample --output-format json` structured conversion/sample reports (with `--report` alias support)
+
+### Changed
+
+- `validate` now uses typed enum parsing for `--format` and report output mode values
+- `--output-format` is now the consistent cross-command spelling for structured stdout (`validate`, `stats`, `diff`, and `list-formats` also keep `--output`; `convert` and `sample` keep `--report` as an alias)
+- Contributor guidance (`AGENTS.md`, `CLAUDE.md`) now reflects the current `stats` module and agent-oriented CLI usage guidance
+
 ## v0.5.0
 
 Split-aware YOLO reading, conversion report explainability, and documentation improvements.

@@ -8,6 +8,19 @@ Everything you can do with the `panlabel` command line.
 - Version: `panlabel -V`
 - Help: `panlabel --help` and `panlabel <command> --help`
 
+## Machine-readable output
+
+Panlabel now has one cross-command spelling for structured stdout: `--output-format`.
+
+- Read-only commands use `--output-format` and also accept `--output` as a backward-compatible alias:
+  - `validate`
+  - `stats`
+  - `diff`
+  - `list-formats`
+- `convert` and `sample` use `--output-format <text|json>` for report formatting because `-o/--output` is already the filesystem output path.
+- `convert` and `sample` also accept `--report <text|json>` as a backward-compatible alias.
+- In JSON mode, structured payloads go to stdout. Fatal errors still go to stderr.
+
 ## Commands
 
 ### `validate`
@@ -15,10 +28,13 @@ Everything you can do with the `panlabel` command line.
 Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
-- `--format <string>` (default: `ir-json`)
+- `--format <format>` (default: `ir-json`)
   - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
 - `--strict` (treat warnings as errors)
-- `--output <string>` (`text` or `json`, default: `text`)
+- `--output-format <text|json>` (default: `text`)
+- `--output <text|json>` (backward-compatible alias)
+
+Invalid `--format` and output mode values are rejected by clap at parse time.
 
 ---
 
@@ -33,7 +49,8 @@ Convert annotations between formats using IR as the internal hub.
 - `--strict`
 - `--no-validate`
 - `--allow-lossy`
-- `--report <text|json>` (default: `text`)
+- `--output-format <text|json>` (default: `text`)
+- `--report <text|json>` (backward-compatible alias for `--output-format`)
 
 Shared options:
 - `--split <name>` — select a single split for HF or YOLO imports (see below)
@@ -47,7 +64,7 @@ HF-specific options (meaningful only with `--from hf` or `--to hf`):
 - `--config <name>`
 - `--token <token>` (also reads `HF_TOKEN`)
 
-With `--report json`, the conversion report is printed as JSON to stdout.
+With `--output-format json`, the conversion report is printed as JSON to stdout.
 On blocked lossy conversions, stdout still contains the full JSON report
 while the blocking error goes to stderr (exit code 1).
 
@@ -71,7 +88,8 @@ Show rich dataset statistics.
   - malformed JSON surfaces the parse error directly (no silent fallback)
 - `--top <N>` (default: `10`) for label and co-occurrence top lists
 - `--tolerance <PX>` (default: `0.5`) for OOB checks
-- `--output <text|json|html>` (default: `text`)
+- `--output-format <text|json|html>` (default: `text`)
+- `--output <text|json|html>` (backward-compatible alias)
 
 `--output html` returns a self-contained HTML report on stdout.
 
@@ -89,7 +107,8 @@ Usage:
 - `--match-by <id|iou>` (default: `id`)
 - `--iou-threshold <FLOAT>` (default: `0.5`, used by `--match-by iou`; must be in `(0.0, 1.0]`)
 - `--detail` for item-level details
-- `--output <text|json>` (default: `text`)
+- `--output-format <text|json>` (default: `text`)
+- `--output <text|json>` (backward-compatible alias)
 
 Constraints:
 - Each input dataset must have unique `image.file_name` values for reliable diffing.
@@ -114,14 +133,34 @@ Usage:
 - `--categories <comma,separated,list>`
 - `--category-mode <images|annotations>` (default: `images`)
 - `--allow-lossy`
+- `--output-format <text|json>` (default: `text`)
+- `--report <text|json>` (alias for `--output-format`)
 
 Sampling keeps original IDs and keeps all categories in output.
+
+In text mode, sample prints a short summary line followed by the conversion report.
+In JSON mode, sample prints only the conversion report JSON to stdout.
+Blocked lossy sampling mirrors `convert`: stdout gets the full report, stderr gets the concise blocking error.
 
 ---
 
 ### `list-formats`
 
 Show format capabilities and lossiness class.
+
+- `--output-format <text|json>` (default: `text`)
+- `--output <text|json>` (backward-compatible alias)
+
+`list-formats --output-format json` emits a JSON array. Each entry has:
+
+- `name`
+- `aliases`
+- `read`
+- `write`
+- `lossiness` (`lossless`, `conditional`, or `lossy`)
+- `description`
+- `file_based`
+- `directory_based`
 
 ## Auto-detection rules (`convert --from auto`, `diff --format-* auto`, `sample --from auto`, `stats` without `--format`)
 
@@ -148,17 +187,26 @@ Show format capabilities and lossiness class.
 # Validate a YOLO dataset root
 panlabel validate /data/my_yolo --format yolo
 
+# Validate with machine-readable output
+panlabel validate tests/fixtures/sample_valid.ir.json --output-format json
+
 # Auto-detect YOLO from directory, convert to COCO
 panlabel convert --from auto --to coco -i /data/my_yolo -o out.json
 
+# Machine-readable conversion report
+panlabel convert --from auto --to coco -i in.json -o out.coco.json --output-format json
+
 # Dataset stats as JSON
-panlabel stats --output json tests/fixtures/sample_valid.coco.json
+panlabel stats --output-format json tests/fixtures/sample_valid.coco.json
 
 # Dataset diff with details
 panlabel diff --match-by id --detail a.ir.json b.ir.json
 
-# Category-focused sampling
-panlabel sample -i in.coco.json -o out.ir.json --from coco --to ir-json --categories person,car --category-mode images -n 100 --seed 42
+# Category-focused sampling with JSON report output
+panlabel sample -i in.coco.json -o out.ir.json --from coco --to ir-json --categories person,car --category-mode images -n 100 --seed 42 --output-format json
+
+# Machine-readable format discovery
+panlabel list-formats --output-format json
 
 # Convert a local HF ImageFolder directory to COCO
 panlabel convert --from hf --to coco -i ./hf_dataset -o out.coco.json

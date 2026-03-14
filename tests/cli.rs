@@ -197,7 +197,7 @@ fn validate_json_output_format() {
     cmd.args([
         "validate",
         "tests/fixtures/sample_valid.ir.json",
-        "--output",
+        "--output-format",
         "json",
     ]);
     cmd.assert()
@@ -462,8 +462,6 @@ fn validate_tfod_large_dataset_succeeds() {
         .stdout(predicates::str::contains("Validation passed"));
 }
 
-// Unsupported format test (uses a truly unsupported format now)
-
 #[test]
 fn validate_unsupported_format_fails() {
     let mut cmd = cargo_bin_cmd!("panlabel");
@@ -475,7 +473,23 @@ fn validate_unsupported_format_fails() {
     ]);
     cmd.assert()
         .failure()
-        .stderr(predicates::str::contains("Unsupported format"));
+        .stderr(predicates::str::contains("invalid value 'not-a-format'"))
+        .stderr(predicates::str::contains("possible values"));
+}
+
+#[test]
+fn validate_invalid_output_format_fails() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.ir.json",
+        "--output",
+        "yaml",
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid value 'yaml'"))
+        .stderr(predicates::str::contains("possible values"));
 }
 
 // Convert subcommand tests
@@ -628,7 +642,7 @@ fn blocked_convert_json_emits_valid_json_to_stdout() {
         "tests/fixtures/sample_valid.coco.json",
         "-o",
         output_path.to_str().unwrap(),
-        "--report",
+        "--output-format",
         "json",
     ]);
     let output = cmd.output().expect("run command");
@@ -1152,7 +1166,7 @@ fn convert_report_json_output_format() {
         "tests/fixtures/sample_valid.coco.json",
         "-o",
         output_path.to_str().unwrap(),
-        "--report",
+        "--output-format",
         "json",
     ]);
 
@@ -1188,7 +1202,7 @@ fn convert_report_json_includes_lossy_warnings() {
         "-o",
         output_path.to_str().unwrap(),
         "--allow-lossy",
-        "--report",
+        "--output-format",
         "json",
     ]);
 
@@ -1503,7 +1517,7 @@ fn stats_json_output_contains_expected_keys() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
         "stats",
-        "--output",
+        "--output-format",
         "json",
         "tests/fixtures/sample_valid.coco.json",
     ]);
@@ -1651,7 +1665,7 @@ fn diff_json_output_contains_expected_keys() {
         "ir-json",
         "--format-b",
         "ir-json",
-        "--output",
+        "--output-format",
         "json",
     ]);
     cmd.assert()
@@ -1881,6 +1895,111 @@ fn sample_to_tfod_is_blocked_without_allow_lossy() {
         .stdout(predicates::str::contains("Warnings"));
 }
 
+#[test]
+fn sample_json_output_format_emits_report_only() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "ir-json",
+        "-n",
+        "1",
+        "--output-format",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+    assert!(out.is_file());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    assert_eq!(parsed["from"], "coco");
+    assert_eq!(parsed["to"], "ir-json");
+    assert!(parsed.get("input").is_some());
+    assert!(parsed.get("output").is_some());
+    assert!(parsed.get("issues").is_some());
+    assert!(!stdout.contains("Sampled"));
+}
+
+#[test]
+fn sample_blocked_json_emits_valid_json_to_stdout() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.csv");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "tfod",
+        "-n",
+        "1",
+        "--output-format",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(!output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    assert_eq!(parsed["from"], "coco");
+    assert_eq!(parsed["to"], "tfod");
+    assert!(parsed["issues"].is_array());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Lossy conversion"));
+    assert!(stderr.contains("--allow-lossy"));
+}
+
+#[test]
+fn sample_report_alias_json_works() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let out = temp.path().join("out.ir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "sample",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        out.to_str().unwrap(),
+        "--from",
+        "coco",
+        "--to",
+        "ir-json",
+        "-n",
+        "1",
+        "--report",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    assert_eq!(parsed["to"], "ir-json");
+}
+
 // list-formats subcommand tests
 
 #[test]
@@ -1919,6 +2038,74 @@ fn list_formats_shows_read_write_capability() {
         .success()
         .stdout(predicates::str::contains("READ"))
         .stdout(predicates::str::contains("WRITE"));
+}
+
+#[test]
+fn list_formats_json_output_has_expected_schema() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["list-formats", "--output", "json"]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    let formats = parsed.as_array().expect("top-level array");
+    assert_eq!(formats.len(), 8);
+
+    let label_studio = formats
+        .iter()
+        .find(|entry| entry["name"] == "label-studio")
+        .expect("label-studio entry");
+    let label_studio_aliases = label_studio["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(label_studio_aliases.contains(&"label-studio-json"));
+    assert!(label_studio_aliases.contains(&"ls"));
+
+    let yolo = formats
+        .iter()
+        .find(|entry| entry["name"] == "yolo")
+        .expect("yolo entry");
+    assert_eq!(yolo["directory_based"], true);
+    assert_eq!(yolo["file_based"], false);
+
+    let coco = formats
+        .iter()
+        .find(|entry| entry["name"] == "coco")
+        .expect("coco entry");
+    assert_eq!(coco["file_based"], true);
+    assert_eq!(coco["directory_based"], false);
+    assert_eq!(coco["lossiness"], "conditional");
+
+    let ir_json = formats
+        .iter()
+        .find(|entry| entry["name"] == "ir-json")
+        .expect("ir-json entry");
+    assert_eq!(ir_json["lossiness"], "lossless");
+    assert_eq!(ir_json["read"], true);
+    assert_eq!(ir_json["write"], true);
+
+    for name in ["tfod", "yolo", "voc", "hf"] {
+        let entry = formats
+            .iter()
+            .find(|format| format["name"] == name)
+            .unwrap_or_else(|| panic!("missing {name} entry"));
+        assert_eq!(entry["lossiness"], "lossy");
+    }
+}
+
+#[test]
+fn list_formats_output_format_alias_works() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["list-formats", "--output-format", "json"]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("\"name\": \"coco\""));
 }
 
 // Auto-detection tests

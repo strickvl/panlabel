@@ -134,7 +134,7 @@ fn unannotated_images_roundtrip() {
     let lines: Vec<&str> = csv_content.lines().collect();
     assert_eq!(lines.len(), 2);
     assert!(
-        lines.iter().any(|l| *l == "empty.bmp,,,,,"),
+        lines.contains(&"empty.bmp,,,,,"),
         "unannotated image should produce empty row"
     );
 

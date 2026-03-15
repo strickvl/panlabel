@@ -1565,7 +1565,7 @@ mod tests {
         write_yolo_dir(temp.path(), &dataset).expect("write yolo");
         let content =
             fs::read_to_string(temp.path().join("labels/img.txt")).expect("read label file");
-        let tokens: Vec<&str> = content.trim().split_whitespace().collect();
+        let tokens: Vec<&str> = content.split_whitespace().collect();
         assert_eq!(
             tokens.len(),
             6,
@@ -1592,7 +1592,7 @@ mod tests {
         write_yolo_dir(temp.path(), &dataset).expect("write yolo");
         let content =
             fs::read_to_string(temp.path().join("labels/img.txt")).expect("read label file");
-        let tokens: Vec<&str> = content.trim().split_whitespace().collect();
+        let tokens: Vec<&str> = content.split_whitespace().collect();
         assert_eq!(
             tokens.len(),
             5,

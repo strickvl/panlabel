@@ -696,7 +696,7 @@ mod tests {
         assert_eq!(rect_ann.bbox.ymin(), 20.0);
         assert_eq!(rect_ann.bbox.xmax(), 100.0);
         assert_eq!(rect_ann.bbox.ymax(), 80.0);
-        assert!(rect_ann.attributes.get(ATTR_SHAPE_TYPE).is_none());
+        assert!(!rect_ann.attributes.contains_key(ATTR_SHAPE_TYPE));
 
         // Polygon: points [[50,60],[200,150],[120,200]] -> envelope xyxy(50,60,200,200)
         let poly_ann = &dataset.annotations[1];

@@ -98,3 +98,27 @@ name = "retinanet_csv_parse"
 path = "fuzz_targets/retinanet_csv_parse.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "openimages_csv_parse"
+path = "fuzz_targets/openimages_csv_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "kaggle_wheat_csv_parse"
+path = "fuzz_targets/kaggle_wheat_csv_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "automl_vision_csv_parse"
+path = "fuzz_targets/automl_vision_csv_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "udacity_csv_parse"
+path = "fuzz_targets/udacity_csv_parse.rs"
+test = false
+doc = false

@@ -104,6 +104,22 @@ enum ConvertFormat {
     /// keras-retinanet CSV format.
     #[value(name = "retinanet", alias = "retinanet-csv", alias = "keras-retinanet")]
     Retinanet,
+    /// Google OpenImages CSV annotation format.
+    #[value(name = "openimages", alias = "openimages-csv", alias = "open-images")]
+    OpenImages,
+    /// Kaggle Global Wheat Detection CSV format.
+    #[value(name = "kaggle-wheat", alias = "kaggle-wheat-csv")]
+    KaggleWheat,
+    /// Google Cloud AutoML Vision CSV format.
+    #[value(
+        name = "automl-vision",
+        alias = "automl-vision-csv",
+        alias = "google-cloud-automl"
+    )]
+    AutoMlVision,
+    /// Udacity Self-Driving Car Dataset CSV format.
+    #[value(name = "udacity", alias = "udacity-csv", alias = "self-driving-car")]
+    Udacity,
 }
 
 impl ConvertFormat {
@@ -123,6 +139,10 @@ impl ConvertFormat {
             ConvertFormat::Kitti => conversion::Format::Kitti,
             ConvertFormat::Via => conversion::Format::Via,
             ConvertFormat::Retinanet => conversion::Format::Retinanet,
+            ConvertFormat::OpenImages => conversion::Format::OpenImages,
+            ConvertFormat::KaggleWheat => conversion::Format::KaggleWheat,
+            ConvertFormat::AutoMlVision => conversion::Format::AutoMlVision,
+            ConvertFormat::Udacity => conversion::Format::Udacity,
         }
     }
 }
@@ -177,6 +197,22 @@ enum ConvertFromFormat {
     /// keras-retinanet CSV format.
     #[value(name = "retinanet", alias = "retinanet-csv", alias = "keras-retinanet")]
     Retinanet,
+    /// Google OpenImages CSV annotation format.
+    #[value(name = "openimages", alias = "openimages-csv", alias = "open-images")]
+    OpenImages,
+    /// Kaggle Global Wheat Detection CSV format.
+    #[value(name = "kaggle-wheat", alias = "kaggle-wheat-csv")]
+    KaggleWheat,
+    /// Google Cloud AutoML Vision CSV format.
+    #[value(
+        name = "automl-vision",
+        alias = "automl-vision-csv",
+        alias = "google-cloud-automl"
+    )]
+    AutoMlVision,
+    /// Udacity Self-Driving Car Dataset CSV format.
+    #[value(name = "udacity", alias = "udacity-csv", alias = "self-driving-car")]
+    Udacity,
 }
 
 impl ConvertFromFormat {
@@ -197,6 +233,10 @@ impl ConvertFromFormat {
             ConvertFromFormat::Kitti => Some(ConvertFormat::Kitti),
             ConvertFromFormat::Via => Some(ConvertFormat::Via),
             ConvertFromFormat::Retinanet => Some(ConvertFormat::Retinanet),
+            ConvertFromFormat::OpenImages => Some(ConvertFormat::OpenImages),
+            ConvertFromFormat::KaggleWheat => Some(ConvertFormat::KaggleWheat),
+            ConvertFromFormat::AutoMlVision => Some(ConvertFormat::AutoMlVision),
+            ConvertFromFormat::Udacity => Some(ConvertFormat::Udacity),
         }
     }
 }
@@ -674,6 +714,34 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         format: ConvertFormat::Retinanet,
         aliases: &["retinanet-csv", "keras-retinanet"],
         description: "keras-retinanet CSV format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::OpenImages,
+        aliases: &["openimages-csv", "open-images"],
+        description: "Google OpenImages CSV annotation format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::KaggleWheat,
+        aliases: &["kaggle-wheat-csv"],
+        description: "Kaggle Global Wheat Detection CSV format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::AutoMlVision,
+        aliases: &["automl-vision-csv", "google-cloud-automl"],
+        description: "Google Cloud AutoML Vision CSV format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Udacity,
+        aliases: &["udacity-csv", "self-driving-car"],
+        description: "Udacity Self-Driving Car Dataset CSV format",
         file_based: true,
         directory_based: false,
     },
@@ -1370,6 +1438,10 @@ fn read_dataset_with_options(
         ConvertFormat::Kitti => ir::io_kitti::read_kitti_dir(path),
         ConvertFormat::Via => ir::io_via_json::read_via_json(path),
         ConvertFormat::Retinanet => ir::io_retinanet_csv::read_retinanet_csv(path),
+        ConvertFormat::OpenImages => ir::io_openimages_csv::read_openimages_csv(path),
+        ConvertFormat::KaggleWheat => ir::io_kaggle_wheat_csv::read_kaggle_wheat_csv(path),
+        ConvertFormat::AutoMlVision => ir::io_automl_vision_csv::read_automl_vision_csv(path),
+        ConvertFormat::Udacity => ir::io_udacity_csv::read_udacity_csv(path),
     }
 }
 
@@ -1411,6 +1483,14 @@ fn write_dataset_with_options(
         ConvertFormat::Kitti => ir::io_kitti::write_kitti_dir(path, dataset),
         ConvertFormat::Via => ir::io_via_json::write_via_json(path, dataset),
         ConvertFormat::Retinanet => ir::io_retinanet_csv::write_retinanet_csv(path, dataset),
+        ConvertFormat::OpenImages => ir::io_openimages_csv::write_openimages_csv(path, dataset),
+        ConvertFormat::KaggleWheat => {
+            ir::io_kaggle_wheat_csv::write_kaggle_wheat_csv(path, dataset)
+        }
+        ConvertFormat::AutoMlVision => {
+            ir::io_automl_vision_csv::write_automl_vision_csv(path, dataset)
+        }
+        ConvertFormat::Udacity => ir::io_udacity_csv::write_udacity_csv(path, dataset),
     }
 }
 
@@ -1566,6 +1646,10 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Kitti => "kitti",
         ConvertFormat::Via => "via",
         ConvertFormat::Retinanet => "retinanet",
+        ConvertFormat::OpenImages => "openimages",
+        ConvertFormat::KaggleWheat => "kaggle-wheat",
+        ConvertFormat::AutoMlVision => "automl-vision",
+        ConvertFormat::Udacity => "udacity",
     }
 }
 
@@ -2109,32 +2193,146 @@ fn detect_csv_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         .has_headers(false)
         .from_reader(reader);
 
-    if let Some(result) = csv_reader.records().next() {
+    // Read up to 8 records for sniffing
+    let mut records: Vec<csv::StringRecord> = Vec::new();
+    for result in csv_reader.records().take(8) {
         let record = result.map_err(|_| PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "failed to parse first CSV row while detecting format".to_string(),
+            reason: "failed to parse CSV row while detecting format".to_string(),
         })?;
+        records.push(record);
+    }
 
-        match record.len() {
-            8 => return Ok(ConvertFormat::Tfod),
-            6 => return Ok(ConvertFormat::Retinanet),
-            n => {
-                return Err(PanlabelError::FormatDetectionFailed {
-                    path: path.to_path_buf(),
-                    reason: format!(
-                        "CSV has {n} columns; expected 8 (TFOD) or 6 (RetinaNet). Use --from to specify format explicitly."
-                    ),
-                });
+    if records.is_empty() {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason:
+                "CSV file is empty; cannot determine format. Use --from to specify format explicitly."
+                    .to_string(),
+        });
+    }
+
+    let first = &records[0];
+    let ncols = first.len();
+
+    // --- Header-based detection ---
+    let col0 = first.get(0).unwrap_or("");
+    let col1 = first.get(1).unwrap_or("");
+    let col3 = first.get(3).unwrap_or("");
+
+    // Kaggle Wheat: 5 columns, header starting with "image_id"
+    if ncols == 5 && col0.eq_ignore_ascii_case("image_id") && col3.eq_ignore_ascii_case("bbox") {
+        return Ok(ConvertFormat::KaggleWheat);
+    }
+
+    // Kaggle Wheat: 5 columns, headerless — col3 looks like bracketed bbox
+    if ncols == 5 {
+        let looks_like_bbox = col3.trim().starts_with('[') && col3.trim().ends_with(']');
+        let col1_is_int = col1.parse::<u32>().is_ok();
+        if looks_like_bbox && col1_is_int {
+            return Ok(ConvertFormat::KaggleWheat);
+        }
+    }
+
+    // RetinaNet: 6 columns
+    if ncols == 6 {
+        return Ok(ConvertFormat::Retinanet);
+    }
+
+    // OpenImages: 8 or 13 columns with header starting with "ImageID"
+    if (ncols == 8 || ncols == 13) && col0.eq_ignore_ascii_case("ImageID") {
+        return Ok(ConvertFormat::OpenImages);
+    }
+
+    // AutoML Vision: 9 or 11 columns
+    if ncols == 9 || ncols == 11 {
+        // Check for ML_USE-like first column or header alias
+        let c0_lower = col0.to_ascii_lowercase();
+        let is_automl_header = c0_lower == "set" || c0_lower == "ml_use";
+        let is_automl_data = matches!(
+            c0_lower.as_str(),
+            "train" | "validation" | "test" | "unassigned"
+        );
+        if is_automl_header || is_automl_data {
+            return Ok(ConvertFormat::AutoMlVision);
+        }
+        // Check if cols 5/6 (in 11-col form) are empty placeholders
+        if ncols == 11 {
+            let col5 = first.get(5).unwrap_or("_");
+            let col6 = first.get(6).unwrap_or("_");
+            if col5.is_empty() && col6.is_empty() {
+                return Ok(ConvertFormat::AutoMlVision);
             }
         }
     }
 
+    // 8-column formats: TFOD vs Udacity vs headerless OpenImages
+    if ncols == 8 {
+        // Check for OpenImages: column order is ImageID,Source,LabelName,Confidence,XMin,XMax,YMin,YMax
+        // where Source is non-numeric and Confidence is a float
+        let col1_str = first.get(1).unwrap_or("");
+        let col3_str = first.get(3).unwrap_or("");
+        let col1_not_numeric = col1_str.parse::<f64>().is_err();
+        let col3_is_float = col3_str.parse::<f64>().is_ok();
+
+        // Check for TFOD/Udacity header
+        if col0.eq_ignore_ascii_case("filename") {
+            // Has header — sniff data rows to distinguish TFOD vs Udacity
+            return detect_tfod_vs_udacity(&records[1..], path);
+        }
+
+        // Headerless 8-column: OpenImages if col1 is non-numeric and col3 looks like confidence
+        if col1_not_numeric && col3_is_float && !col0.is_empty() {
+            // Further check: are cols 4-7 in [0,1]? OpenImages uses normalized coords
+            let all_normalized = (4..8).all(|i| {
+                first
+                    .get(i)
+                    .and_then(|v| v.parse::<f64>().ok())
+                    .map(|v| (0.0..=1.0).contains(&v))
+                    .unwrap_or(false)
+            });
+            if all_normalized {
+                return Ok(ConvertFormat::OpenImages);
+            }
+        }
+
+        // Headerless 8-column TFOD/Udacity
+        return detect_tfod_vs_udacity(&records, path);
+    }
+
+    // 13-column: likely OpenImages extended
+    if ncols == 13 {
+        return Ok(ConvertFormat::OpenImages);
+    }
+
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason:
-            "CSV file is empty; cannot determine format. Use --from to specify format explicitly."
-                .to_string(),
+        reason: format!(
+            "CSV has {ncols} columns; not recognized as any supported format. Use --from to specify format explicitly."
+        ),
     })
+}
+
+/// Distinguishes TFOD (normalized) from Udacity (absolute pixel) by inspecting coordinate values.
+fn detect_tfod_vs_udacity(
+    data_records: &[csv::StringRecord],
+    _path: &Path,
+) -> Result<ConvertFormat, PanlabelError> {
+    // If any sampled bbox coordinate is outside [0,1], it's Udacity (absolute pixels)
+    for record in data_records {
+        if record.len() < 8 {
+            continue;
+        }
+        for i in 4..8 {
+            if let Some(Ok(v)) = record.get(i).map(|s| s.parse::<f64>()) {
+                if !(0.0..=1.0).contains(&v) {
+                    return Ok(ConvertFormat::Udacity);
+                }
+            }
+        }
+    }
+    // All in [0,1] or no data rows — default to TFOD
+    Ok(ConvertFormat::Tfod)
 }
 
 ///

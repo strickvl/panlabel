@@ -37,6 +37,10 @@ active or legacy use, so that any dataset can be converted to any other format.
 - ✅ LabelMe JSON (per-image JSON with `shapes` array — rectangle + polygon → bbox envelope)
 - ✅ CreateML JSON (Apple's center-based absolute pixel bbox format)
 - ✅ IR JSON (panlabel's lossless intermediate representation)
+- ✅ OpenImages CSV (Google's large-scale detection format with normalized coordinates)
+- ✅ Kaggle Wheat CSV (Kaggle Global Wheat Detection format with bbox string)
+- ✅ Google Cloud AutoML Vision CSV (GCP import/export format with sparse layout)
+- ✅ Udacity Self-Driving Car CSV (absolute pixel coordinate CSV)
 
 #### YOLO variant improvements
 
@@ -54,15 +58,15 @@ format that panlabel already supports. Differences are in directory layout and
 #### Dataset formats
 
 - ✅ KITTI — space-separated `.txt` per image, 15 fields (type, truncated, occluded, alpha, bbox, dimensions, location, rotation_y, score); standard in autonomous driving
-- ⏳ OpenImages CSV — Google's large-scale detection format; CSV with ImageID, Source, LabelName, Confidence, and bbox columns
+- ✅ OpenImages CSV — Google's large-scale detection format; CSV with ImageID, Source, LabelName, Confidence, and bbox columns
 - ⏳ Cityscapes — JSON polygons per image with bounding box extraction; urban scene understanding (bbox subset of the polygon annotations)
-- ⏳ Kaggle Wheat Format — CSV with `image_id, width, height, bbox` columns (`[xmin, ymin, w, h]` as a string); encountered in Kaggle competitions
-- ⏳ Udacity Self-Driving Car Dataset — CSV with frame/xmin/ymin/xmax/ymax/label columns; legacy autonomous driving dataset
+- ✅ Kaggle Wheat Format — CSV with `image_id, width, height, bbox` columns (`[xmin, ymin, w, h]` as a string); encountered in Kaggle competitions
+- ✅ Udacity Self-Driving Car Dataset — CSV with frame/xmin/ymin/xmax/ymax/label columns; legacy autonomous driving dataset
 - ⏳ Marmot XML — XML format for document layout detection (table/figure regions); niche but datasets exist
 
 #### Annotation-tool formats
 
-- ⏳ Google Cloud AutoML Vision CSV — GCP's annotation/import format; CSV rows with `set,path,label,x1,y1,,,x2,y2,,`
+- ✅ Google Cloud AutoML Vision CSV — GCP's annotation/import format; CSV rows with `set,path,label,x1,y1,,,x2,y2,,`
 - ⏳ Sagemaker GroundTruth Manifest — AWS annotation format; JSON Lines with `source-ref` and label job output as nested object per line
 - ⏳ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `instances` array
 - ⏳ Supervisely JSON — annotation platform with nested project structure; per-image JSON in a `ann/` directory with `objects` containing `classTitle` and geometry

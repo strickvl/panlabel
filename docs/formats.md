@@ -26,6 +26,10 @@ Current scope: **object detection** bounding boxes only.
 | `kitti` | directory (`label_2/` + `image_2/`) | yes | yes | lossy |
 | `via` | file (`.json`) | yes | yes | lossy |
 | `retinanet` | file (`.csv`) | yes | yes | lossy |
+| `openimages` | file (`.csv`) | yes | yes | lossy |
+| `kaggle-wheat` | file (`.csv`) | yes | yes | lossy |
+| `automl-vision` | file (`.csv`) | yes | yes | lossy |
+| `udacity` | file (`.csv`) | yes | yes | lossy |
 
 ## IR JSON (`ir-json`)
 
@@ -438,6 +442,122 @@ Limitations:
 - no image-level metadata (dimensions, license, date)
 - no annotation confidence/attributes
 - requires image files on disk for reading (to resolve dimensions)
+
+## OpenImages CSV (`openimages` / `openimages-csv` / `open-images`)
+
+- Path kind: CSV file.
+- Column layout: `ImageID,Source,LabelName,Confidence,XMin,XMax,YMin,YMax` (8 columns) or extended 13-column form with trailing boolean flags.
+- Note: column order is `XMin,XMax,YMin,YMax` (not `XMin,YMin,XMax,YMax`).
+- Coordinates are **normalized** (0–1); reader resolves pixel dimensions from local image files.
+- Confidence is preserved through roundtrip.
+- Reader stores `openimages_source` as an annotation attribute and `openimages_image_id` as an image attribute.
+
+Reader behavior:
+- accepts 8-column or 13-column rows
+- optional header is detected and skipped (case-insensitive)
+- resolves image dimensions from `base_dir/<ImageID>` or `base_dir/images/<ImageID>`, probing common extensions if ImageID has none
+
+Deterministic policy:
+- image IDs: by ImageID (lexicographic)
+- category IDs: by LabelName (lexicographic)
+- annotation IDs: by CSV row order
+
+Writer behavior:
+- emits 8-column CSV with header
+- rows ordered by annotation ID
+- derives ImageID from `openimages_image_id` image attribute or file stem
+- default `Source` is `xclick`; default `Confidence` is `1.0`
+
+Limitations:
+- requires image files on disk for reading
+- no dataset-level metadata/licenses
+- images without annotations are not emitted
+
+## Kaggle Wheat CSV (`kaggle-wheat` / `kaggle-wheat-csv`)
+
+- Path kind: CSV file.
+- Column layout: `image_id,width,height,bbox,source` (5 columns).
+- `bbox` is a bracketed string `[x, y, width, height]` in absolute pixel coordinates.
+- **Single-class format**: no label column; all annotations are implicitly `wheat_head`.
+- Converting a multi-class dataset to this format will collapse all categories.
+
+Reader behavior:
+- parses bbox string with whitespace tolerance
+- validates dimension consistency per image_id
+- stores `source` as `kaggle_wheat_source` image attribute
+
+Deterministic policy:
+- image IDs: by image_id (lexicographic)
+- single category: `wheat_head` (ID 1)
+- annotation IDs: by CSV row order
+
+Writer behavior:
+- emits headered CSV
+- rows ordered by annotation ID
+- bbox canonical form: `[x, y, width, height]` with `, ` separators
+
+Limitations:
+- single-class only
+- no confidence/attributes
+- no dataset-level metadata/licenses
+- images without annotations are not emitted
+
+## Google Cloud AutoML Vision CSV (`automl-vision` / `automl-vision-csv` / `google-cloud-automl`)
+
+- Path kind: CSV file.
+- Sparse row layout: `set,path,label,xmin,ymin,,,xmax,ymax,,` (9 or 11 columns).
+- Coordinates are **normalized** (0–1); reader resolves pixel dimensions from local image files.
+- First column (`set`) indicates ML split: `TRAIN`, `VALIDATION`, `TEST`, or `UNASSIGNED`.
+
+Reader behavior:
+- accepts 9-column or 11-column rows
+- optional header detected and skipped
+- coordinates at fixed positions: xmin=3, ymin=4, xmax=7, ymax=8
+- GCS URIs (`gs://bucket/path`) resolved by path suffix then basename
+- stores `automl_ml_use` and `automl_image_uri` as image attributes
+
+Deterministic policy:
+- image IDs: by URI (lexicographic)
+- category IDs: by label (lexicographic)
+- annotation IDs: by CSV row order
+
+Writer behavior:
+- headerless 11-column sparse rows
+- rows ordered by annotation ID
+- default ML_USE is `UNASSIGNED`
+
+Limitations:
+- requires image files on disk for reading
+- no confidence/attributes
+- no dataset-level metadata/licenses
+- images without annotations are not emitted
+
+## Udacity Self-Driving Car CSV (`udacity` / `udacity-csv` / `self-driving-car`)
+
+- Path kind: CSV file.
+- Column layout: `filename,width,height,class,xmin,ymin,xmax,ymax` (8 columns).
+- Same header as TFOD CSV but coordinates are **absolute pixels** (not normalized).
+- Auto-detection heuristic: if any coordinate exceeds 1.0, detected as Udacity; otherwise TFOD.
+
+Reader behavior:
+- serde-based with header
+- validates dimension consistency per filename
+- absolute pixel coordinates map directly to IR (no normalization)
+
+Deterministic policy:
+- image IDs: by filename (lexicographic)
+- category IDs: by class name (lexicographic)
+- annotation IDs: by CSV row order
+
+Writer behavior:
+- emits headered CSV with absolute pixel coordinates
+- rows ordered by annotation ID
+
+Limitations:
+- no dataset-level metadata/licenses
+- no confidence/attributes
+- images without annotations are not emitted
+- TFOD/Udacity auto-detection uses coordinate range heuristic
 
 ## Future expansion rule
 

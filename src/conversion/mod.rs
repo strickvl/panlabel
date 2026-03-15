@@ -32,6 +32,10 @@ pub enum Format {
     Kitti,
     Via,
     Retinanet,
+    OpenImages,
+    KaggleWheat,
+    AutoMlVision,
+    Udacity,
 }
 
 /// Classification of how lossy a format is relative to the IR.
@@ -62,6 +66,10 @@ impl Format {
             Format::Kitti => "kitti",
             Format::Via => "via",
             Format::Retinanet => "retinanet",
+            Format::OpenImages => "openimages",
+            Format::KaggleWheat => "kaggle-wheat",
+            Format::AutoMlVision => "automl-vision",
+            Format::Udacity => "udacity",
         }
     }
 
@@ -88,6 +96,10 @@ impl Format {
             Format::Kitti => IrLossiness::Lossy,
             Format::Via => IrLossiness::Lossy,
             Format::Retinanet => IrLossiness::Lossy,
+            Format::OpenImages => IrLossiness::Lossy,
+            Format::KaggleWheat => IrLossiness::Lossy,
+            Format::AutoMlVision => IrLossiness::Lossy,
+            Format::Udacity => IrLossiness::Lossy,
         }
     }
 }
@@ -123,6 +135,10 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Kitti => analyze_to_kitti(dataset, &mut report),
         Format::Via => analyze_to_via(dataset, &mut report),
         Format::Retinanet => analyze_to_retinanet(dataset, &mut report),
+        Format::OpenImages => analyze_to_openimages(dataset, &mut report),
+        Format::KaggleWheat => analyze_to_kaggle_wheat(dataset, &mut report),
+        Format::AutoMlVision => analyze_to_automl_vision(dataset, &mut report),
+        Format::Udacity => analyze_to_udacity(dataset, &mut report),
     }
 
     // Add policy notes based on source format
@@ -139,6 +155,10 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Kitti => add_kitti_reader_policy(&mut report),
         Format::Via => add_via_reader_policy(&mut report),
         Format::Retinanet => add_retinanet_reader_policy(&mut report),
+        Format::OpenImages => add_openimages_reader_policy(&mut report),
+        Format::KaggleWheat => add_kaggle_wheat_reader_policy(&mut report),
+        Format::AutoMlVision => add_automl_vision_reader_policy(&mut report),
+        Format::Udacity => add_udacity_reader_policy(&mut report),
         Format::IrJson => {}
     }
 
@@ -156,6 +176,10 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Kitti => add_kitti_writer_policy(&mut report),
         Format::Via => add_via_writer_policy(&mut report),
         Format::Retinanet => add_retinanet_writer_policy(&mut report),
+        Format::OpenImages => add_openimages_writer_policy(&mut report),
+        Format::KaggleWheat => add_kaggle_wheat_writer_policy(&mut report),
+        Format::AutoMlVision => add_automl_vision_writer_policy(&mut report),
+        Format::Udacity => add_udacity_writer_policy(&mut report),
         Format::IrJson => {}
     }
 
@@ -164,115 +188,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
 
 /// Analyze conversion to TFOD format.
 fn analyze_to_tfod(dataset: &Dataset, report: &mut ConversionReport) {
-    // TFOD cannot represent dataset info/metadata
-    if !dataset.info.is_empty() {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropDatasetInfo,
-            "dataset info/metadata will be dropped".to_string(),
-        ));
-    }
-
-    // TFOD cannot represent licenses
-    if !dataset.licenses.is_empty() {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropLicenses,
-            format!("{} license(s) will be dropped", dataset.licenses.len()),
-        ));
-    }
-
-    // TFOD cannot represent image license_id or date_captured
-    let images_with_metadata = dataset
-        .images
-        .iter()
-        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
-        .count();
-    if images_with_metadata > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropImageMetadata,
-            format!(
-                "{} image(s) have license_id/date_captured that will be dropped",
-                images_with_metadata
-            ),
-        ));
-    }
-
-    // TFOD cannot represent category supercategory
-    let cats_with_supercategory = dataset
-        .categories
-        .iter()
-        .filter(|cat| cat.supercategory.is_some())
-        .count();
-    if cats_with_supercategory > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropCategorySupercategory,
-            format!(
-                "{} category(s) have supercategory that will be dropped",
-                cats_with_supercategory
-            ),
-        ));
-    }
-
-    // TFOD cannot represent annotation confidence
-    let anns_with_confidence = dataset
-        .annotations
-        .iter()
-        .filter(|ann| ann.confidence.is_some())
-        .count();
-    if anns_with_confidence > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropAnnotationConfidence,
-            format!(
-                "{} annotation(s) have confidence scores that will be dropped",
-                anns_with_confidence
-            ),
-        ));
-    }
-
-    // TFOD cannot represent annotation attributes
-    let anns_with_attributes = dataset
-        .annotations
-        .iter()
-        .filter(|ann| !ann.attributes.is_empty())
-        .count();
-    if anns_with_attributes > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropAnnotationAttributes,
-            format!(
-                "{} annotation(s) have attributes that will be dropped",
-                anns_with_attributes
-            ),
-        ));
-    }
-
-    // Images without annotations won't appear in TFOD output
-    let image_ids_with_annotations: HashSet<_> =
-        dataset.annotations.iter().map(|a| a.image_id).collect();
-    let images_without_annotations = dataset
-        .images
-        .iter()
-        .filter(|img| !image_ids_with_annotations.contains(&img.id))
-        .count();
-    if images_without_annotations > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropImagesWithoutAnnotations,
-            format!(
-                "{} image(s) have no annotations and will not appear in output",
-                images_without_annotations
-            ),
-        ));
-    }
-
-    // Compute output counts for TFOD
-    // TFOD only outputs images/categories that have annotations
-    let distinct_image_ids: HashSet<_> = dataset.annotations.iter().map(|a| a.image_id).collect();
-    let distinct_category_ids: HashSet<_> =
-        dataset.annotations.iter().map(|a| a.category_id).collect();
-
-    report.output = ConversionCounts {
-        images: distinct_image_ids.len(),
-        categories: distinct_category_ids.len(),
-        annotations: dataset.annotations.len(),
-    };
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings_and_output_counts(dataset, report);
 }
 
 /// Analyze conversion to YOLO format.
@@ -1379,74 +1296,9 @@ fn analyze_to_via(dataset: &Dataset, report: &mut ConversionReport) {
 }
 
 fn analyze_to_retinanet(dataset: &Dataset, report: &mut ConversionReport) {
-    if !dataset.info.is_empty() {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropDatasetInfo,
-            "dataset info/metadata will be dropped".to_string(),
-        ));
-    }
-    if !dataset.licenses.is_empty() {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropLicenses,
-            format!("{} license(s) will be dropped", dataset.licenses.len()),
-        ));
-    }
-    let images_with_metadata = dataset
-        .images
-        .iter()
-        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
-        .count();
-    if images_with_metadata > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropImageMetadata,
-            format!(
-                "{} image(s) have license_id/date_captured that will be dropped",
-                images_with_metadata
-            ),
-        ));
-    }
-    let cats_with_supercategory = dataset
-        .categories
-        .iter()
-        .filter(|cat| cat.supercategory.is_some())
-        .count();
-    if cats_with_supercategory > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropCategorySupercategory,
-            format!(
-                "{} category(s) have supercategory that will be dropped",
-                cats_with_supercategory
-            ),
-        ));
-    }
-    let anns_with_confidence = dataset
-        .annotations
-        .iter()
-        .filter(|ann| ann.confidence.is_some())
-        .count();
-    if anns_with_confidence > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropAnnotationConfidence,
-            format!(
-                "{} annotation(s) have confidence scores that will be dropped",
-                anns_with_confidence
-            ),
-        ));
-    }
-    let anns_with_attributes = dataset
-        .annotations
-        .iter()
-        .filter(|ann| !ann.attributes.is_empty())
-        .count();
-    if anns_with_attributes > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropAnnotationAttributes,
-            format!(
-                "{} annotation(s) have attributes that will be dropped",
-                anns_with_attributes
-            ),
-        ));
-    }
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    // RetinaNet supports unannotated images (empty rows), so output = input
     report.output = report.input.clone();
 }
 
@@ -1545,6 +1397,272 @@ fn add_retinanet_writer_policy(report: &mut ConversionReport) {
         ConversionIssueCode::RetinanetWriterNoImageCopy,
         "RetinaNet writer creates only the CSV file; images are not copied".to_string(),
     ));
+}
+
+// ============================================================================
+// OpenImages CSV
+// ============================================================================
+
+fn analyze_to_openimages(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    // OpenImages preserves confidence, so no DropAnnotationConfidence
+    // But non-openimages_* attributes are dropped
+    let anns_with_non_openimages_attrs = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.attributes.keys().any(|k| !k.starts_with("openimages_")))
+        .count();
+    if anns_with_non_openimages_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have non-OpenImages attributes that will be dropped",
+                anns_with_non_openimages_attrs
+            ),
+        ));
+    }
+    add_images_without_annotations_warning_and_output_counts(dataset, report);
+}
+
+fn add_openimages_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::OpenimagesReaderIdAssignment,
+        "OpenImages reader assigns image IDs by ImageID order, category IDs by LabelName order, annotation IDs by row order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::OpenimagesReaderImageResolution,
+        "OpenImages reader resolves image dimensions from local files (base_dir and base_dir/images with extension probing)".to_string(),
+    ));
+}
+
+fn add_openimages_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::OpenimagesWriterDeterministicOrder,
+        "OpenImages writer orders rows by annotation ID".to_string(),
+    ));
+}
+
+// ============================================================================
+// Kaggle Wheat CSV
+// ============================================================================
+
+fn analyze_to_kaggle_wheat(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    // Single-class collapse warning
+    if dataset.categories.len() > 1 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::CollapseMultipleCategoriesToSingleClass,
+            format!(
+                "{} categories will be collapsed to single class 'wheat_head'",
+                dataset.categories.len()
+            ),
+        ));
+    }
+    let distinct_image_ids = add_images_without_annotations_warning(dataset, report);
+    report.output = ConversionCounts {
+        images: distinct_image_ids.len(),
+        categories: if dataset.annotations.is_empty() { 0 } else { 1 },
+        annotations: dataset.annotations.len(),
+    };
+}
+
+fn add_kaggle_wheat_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::KaggleWheatReaderIdAssignment,
+        "Kaggle Wheat reader assigns image IDs by image_id order, single category 'wheat_head', annotation IDs by row order; source stored as kaggle_wheat_source image attribute".to_string(),
+    ));
+}
+
+fn add_kaggle_wheat_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::KaggleWheatWriterDeterministicOrder,
+        "Kaggle Wheat writer orders rows by annotation ID and emits bbox as [x, y, width, height]"
+            .to_string(),
+    ));
+}
+
+// ============================================================================
+// AutoML Vision CSV
+// ============================================================================
+
+fn analyze_to_automl_vision(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings_and_output_counts(dataset, report);
+}
+
+fn add_automl_vision_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::AutomlVisionReaderIdAssignment,
+        "AutoML Vision reader assigns image IDs by URI order, category IDs by label order, annotation IDs by row order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::AutomlVisionReaderImageResolution,
+        "AutoML Vision reader resolves image dimensions from local files; GCS URIs resolved by path suffix then basename".to_string(),
+    ));
+}
+
+fn add_automl_vision_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::AutomlVisionWriterDeterministicOrder,
+        "AutoML Vision writer emits headerless 11-column sparse rows ordered by annotation ID"
+            .to_string(),
+    ));
+}
+
+// ============================================================================
+// Udacity CSV
+// ============================================================================
+
+fn analyze_to_udacity(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings_and_output_counts(dataset, report);
+}
+
+fn add_udacity_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::UdacityReaderIdAssignment,
+        "Udacity reader assigns image IDs by filename order, category IDs by class name order, annotation IDs by row order".to_string(),
+    ));
+}
+
+fn add_udacity_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::UdacityWriterRowOrder,
+        "Udacity writer orders rows by annotation ID".to_string(),
+    ));
+}
+
+// ============================================================================
+// Common CSV lossiness helpers
+// ============================================================================
+
+/// Adds common lossiness warnings shared by all simple row-based CSV formats:
+/// DropDatasetInfo, DropLicenses, DropImageMetadata, DropCategorySupercategory.
+fn add_common_csv_lossiness_warnings(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have license_id/date_captured that will be dropped",
+                images_with_metadata
+            ),
+        ));
+    }
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+}
+
+/// Adds DropAnnotationConfidence and DropAnnotationAttributes warnings.
+/// Used by formats that lose both confidence and all attributes.
+fn add_annotation_drop_warnings(dataset: &Dataset, report: &mut ConversionReport) {
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+    let anns_with_attributes = dataset
+        .annotations
+        .iter()
+        .filter(|ann| !ann.attributes.is_empty())
+        .count();
+    if anns_with_attributes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes that will be dropped",
+                anns_with_attributes
+            ),
+        ));
+    }
+}
+
+/// Adds DropImagesWithoutAnnotations warning and returns the set of annotated image IDs.
+/// Reuse the returned set for output counts to avoid recomputing it.
+fn add_images_without_annotations_warning(
+    dataset: &Dataset,
+    report: &mut ConversionReport,
+) -> HashSet<crate::ir::ImageId> {
+    let distinct_image_ids: HashSet<_> = dataset.annotations.iter().map(|a| a.image_id).collect();
+    let images_without = dataset
+        .images
+        .iter()
+        .filter(|img| !distinct_image_ids.contains(&img.id))
+        .count();
+    if images_without > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImagesWithoutAnnotations,
+            format!(
+                "{} image(s) have no annotations and will not appear in output",
+                images_without
+            ),
+        ));
+    }
+    distinct_image_ids
+}
+
+/// Adds DropImagesWithoutAnnotations warning and sets output counts
+/// (distinct annotated images/categories). Used by most annotation-only CSV formats.
+fn add_images_without_annotations_warning_and_output_counts(
+    dataset: &Dataset,
+    report: &mut ConversionReport,
+) {
+    let distinct_image_ids = add_images_without_annotations_warning(dataset, report);
+    let distinct_category_ids: HashSet<_> =
+        dataset.annotations.iter().map(|a| a.category_id).collect();
+    report.output = ConversionCounts {
+        images: distinct_image_ids.len(),
+        categories: distinct_category_ids.len(),
+        annotations: dataset.annotations.len(),
+    };
+}
+
+/// Full annotation-drop lossiness: confidence + attributes + images-without-annotations + output counts.
+/// Used by TFOD, Udacity, AutoML Vision, and similar annotation-only CSV formats.
+fn add_annotation_drop_warnings_and_output_counts(
+    dataset: &Dataset,
+    report: &mut ConversionReport,
+) {
+    add_annotation_drop_warnings(dataset, report);
+    add_images_without_annotations_warning_and_output_counts(dataset, report);
 }
 
 #[cfg(test)]

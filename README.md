@@ -179,6 +179,10 @@ panlabel list-formats --output json
 | `kitti` | `label_2/ + image_2/` directory | KITTI object detection labels | Lossy |
 | `via` | `.json` | VGG Image Annotator (VIA) JSON | Lossy |
 | `retinanet` | `.csv` | keras-retinanet CSV format | Lossy |
+| `openimages` | `.csv` | Google OpenImages CSV annotation format | Lossy |
+| `kaggle-wheat` | `.csv` | Kaggle Global Wheat Detection CSV | Lossy |
+| `automl-vision` | `.csv` | Google Cloud AutoML Vision CSV | Lossy |
+| `udacity` | `.csv` | Udacity Self-Driving Car Dataset CSV | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 

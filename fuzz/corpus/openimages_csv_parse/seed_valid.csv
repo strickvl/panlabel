@@ -1,0 +1,2 @@
+ImageID,Source,LabelName,Confidence,XMin,XMax,YMin,YMax
+abc,xclick,Cat,1.0,0.1,0.5,0.2,0.8

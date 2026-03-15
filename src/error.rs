@@ -186,6 +186,94 @@ pub enum PanlabelError {
         source: imagesize::ImageError,
     },
 
+    #[error("Failed to parse OpenImages CSV from {path}: {source}")]
+    OpenImagesCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write OpenImages CSV to {path}: {source}")]
+    OpenImagesCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid OpenImages CSV: {path}: {message}")]
+    OpenImagesCsvInvalid { path: PathBuf, message: String },
+
+    #[error("OpenImages image not found: {image_ref} (searched from {path})")]
+    OpenImagesImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to read OpenImages image dimensions from {path}: {source}")]
+    OpenImagesImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to parse Kaggle Wheat CSV from {path}: {source}")]
+    KaggleWheatCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write Kaggle Wheat CSV to {path}: {source}")]
+    KaggleWheatCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid Kaggle Wheat CSV: {path}: {message}")]
+    KaggleWheatCsvInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse Google Cloud AutoML Vision CSV from {path}: {source}")]
+    AutoMlVisionCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write Google Cloud AutoML Vision CSV to {path}: {source}")]
+    AutoMlVisionCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid Google Cloud AutoML Vision CSV: {path}: {message}")]
+    AutoMlVisionCsvInvalid { path: PathBuf, message: String },
+
+    #[error("AutoML Vision image not found: {image_ref} (searched from {path})")]
+    AutoMlVisionImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to read AutoML Vision image dimensions from {path}: {source}")]
+    AutoMlVisionImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to parse Udacity CSV from {path}: {source}")]
+    UdacityCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write Udacity CSV to {path}: {source}")]
+    UdacityCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid Udacity CSV: {path}: {message}")]
+    UdacityCsvInvalid { path: PathBuf, message: String },
+
     #[error("Invalid CVAT XML layout at {path}: {message}")]
     CvatLayoutInvalid { path: PathBuf, message: String },
 

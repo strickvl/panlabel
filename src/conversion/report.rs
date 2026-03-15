@@ -391,6 +391,38 @@ pub enum ConversionIssueCode {
     RetinanetWriterEmptyRows,
     /// RetinaNet writer does not copy images.
     RetinanetWriterNoImageCopy,
+
+    // OpenImages policy (Info level)
+    /// OpenImages reader deterministic ID assignment policy.
+    OpenimagesReaderIdAssignment,
+    /// OpenImages reader resolves image dimensions from local files.
+    OpenimagesReaderImageResolution,
+    /// OpenImages writer deterministic ordering policy.
+    OpenimagesWriterDeterministicOrder,
+
+    // Kaggle Wheat policy (Info level)
+    /// Kaggle Wheat reader deterministic ID assignment policy.
+    KaggleWheatReaderIdAssignment,
+    /// Kaggle Wheat writer deterministic ordering and bbox formatting.
+    KaggleWheatWriterDeterministicOrder,
+
+    // Kaggle Wheat lossiness
+    /// Multiple categories collapsed to single class for single-class format.
+    CollapseMultipleCategoriesToSingleClass,
+
+    // AutoML Vision policy (Info level)
+    /// AutoML Vision reader deterministic ID assignment policy.
+    AutomlVisionReaderIdAssignment,
+    /// AutoML Vision reader resolves image dimensions from local files.
+    AutomlVisionReaderImageResolution,
+    /// AutoML Vision writer deterministic ordering policy.
+    AutomlVisionWriterDeterministicOrder,
+
+    // Udacity policy (Info level)
+    /// Udacity reader deterministic ID assignment policy.
+    UdacityReaderIdAssignment,
+    /// Udacity writer deterministic row ordering.
+    UdacityWriterRowOrder,
 }
 
 impl ConversionIssueCode {
@@ -477,6 +509,17 @@ impl ConversionIssueCode {
         Self::RetinanetWriterDeterministicOrder,
         Self::RetinanetWriterEmptyRows,
         Self::RetinanetWriterNoImageCopy,
+        Self::OpenimagesReaderIdAssignment,
+        Self::OpenimagesReaderImageResolution,
+        Self::OpenimagesWriterDeterministicOrder,
+        Self::KaggleWheatReaderIdAssignment,
+        Self::KaggleWheatWriterDeterministicOrder,
+        Self::CollapseMultipleCategoriesToSingleClass,
+        Self::AutomlVisionReaderIdAssignment,
+        Self::AutomlVisionReaderImageResolution,
+        Self::AutomlVisionWriterDeterministicOrder,
+        Self::UdacityReaderIdAssignment,
+        Self::UdacityWriterRowOrder,
     ];
 
     /// Canonical stable string form, shared by text and JSON output.
@@ -563,6 +606,21 @@ impl ConversionIssueCode {
             Self::RetinanetWriterDeterministicOrder => "retinanet_writer_deterministic_order",
             Self::RetinanetWriterEmptyRows => "retinanet_writer_empty_rows",
             Self::RetinanetWriterNoImageCopy => "retinanet_writer_no_image_copy",
+            Self::OpenimagesReaderIdAssignment => "openimages_reader_id_assignment",
+            Self::OpenimagesReaderImageResolution => "openimages_reader_image_resolution",
+            Self::OpenimagesWriterDeterministicOrder => "openimages_writer_deterministic_order",
+            Self::KaggleWheatReaderIdAssignment => "kaggle_wheat_reader_id_assignment",
+            Self::KaggleWheatWriterDeterministicOrder => "kaggle_wheat_writer_deterministic_order",
+            Self::CollapseMultipleCategoriesToSingleClass => {
+                "collapse_multiple_categories_to_single_class"
+            }
+            Self::AutomlVisionReaderIdAssignment => "automl_vision_reader_id_assignment",
+            Self::AutomlVisionReaderImageResolution => "automl_vision_reader_image_resolution",
+            Self::AutomlVisionWriterDeterministicOrder => {
+                "automl_vision_writer_deterministic_order"
+            }
+            Self::UdacityReaderIdAssignment => "udacity_reader_id_assignment",
+            Self::UdacityWriterRowOrder => "udacity_writer_row_order",
         }
     }
 }

@@ -28,6 +28,10 @@ Format-level lossiness relative to IR:
 - `kitti`: lossy
 - `via`: lossy
 - `retinanet`: lossy
+- `openimages`: lossy
+- `kaggle-wheat`: lossy
+- `automl-vision`: lossy
+- `udacity`: lossy
 
 The format-level class is a general capability signal. Conversions are actually blocked only when the report contains one or more `warning` issues.
 
@@ -68,7 +72,7 @@ These codes are designed to be stable for programmatic use.
 | `drop_category_supercategory` | Category supercategory is dropped |
 | `drop_annotation_confidence` | Annotation confidence values are dropped |
 | `drop_annotation_attributes` | Annotation attributes are dropped |
-| `drop_images_without_annotations` | Images without annotations will not appear (TFOD behavior) |
+| `drop_images_without_annotations` | Images without annotations will not appear in output |
 | `drop_dataset_info_name` | `info.name` has no COCO equivalent |
 | `coco_attributes_may_not_be_preserved` | Some COCO-tool roundtrips may not preserve nonstandard attributes |
 | `label_studio_rotation_dropped` | Rotated Label Studio boxes are flattened to axis-aligned envelopes; angle is kept as `ls_rotation_deg` attribute |
@@ -76,6 +80,7 @@ These codes are designed to be stable for programmatic use.
 | `hf_attributes_lost` | HF metadata drops image/annotation attributes outside its flat schema |
 | `hf_confidence_lost` | HF metadata does not preserve annotation confidence |
 | `cvat_writer_drop_unused_categories` | CVAT writer drops categories not referenced by any annotation from `<meta><labels>` |
+| `collapse_multiple_categories_to_single_class` | Multiple categories collapsed to single class for single-class format (e.g. Kaggle Wheat) |
 
 ### Info codes
 
@@ -148,6 +153,16 @@ These codes are designed to be stable for programmatic use.
 | `retinanet_writer_deterministic_order` | RetinaNet writer deterministic ordering policy |
 | `retinanet_writer_empty_rows` | RetinaNet writer empty-row convention for unannotated images |
 | `retinanet_writer_no_image_copy` | RetinaNet writer does not copy image files |
+| `openimages_reader_id_assignment` | OpenImages reader deterministic ID assignment policy |
+| `openimages_reader_image_resolution` | OpenImages reader image dimension resolution from disk |
+| `openimages_writer_deterministic_order` | OpenImages writer deterministic ordering policy |
+| `kaggle_wheat_reader_id_assignment` | Kaggle Wheat reader deterministic ID assignment policy |
+| `kaggle_wheat_writer_deterministic_order` | Kaggle Wheat writer deterministic ordering and bbox formatting |
+| `automl_vision_reader_id_assignment` | AutoML Vision reader deterministic ID assignment policy |
+| `automl_vision_reader_image_resolution` | AutoML Vision reader image dimension resolution from disk |
+| `automl_vision_writer_deterministic_order` | AutoML Vision writer deterministic ordering policy |
+| `udacity_reader_id_assignment` | Udacity reader deterministic ID assignment policy |
+| `udacity_writer_row_order` | Udacity writer deterministic row ordering |
 
 ## Blocked conversions
 

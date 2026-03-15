@@ -1,0 +1,4 @@
+filename,width,height,class,xmin,ymin,xmax,ymax
+image001.jpg,640,480,car,100,50,300,200
+image001.jpg,640,480,pedestrian,400,100,500,400
+image002.jpg,800,600,truck,10,20,500,400

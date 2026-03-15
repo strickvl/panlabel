@@ -2430,7 +2430,7 @@ fn list_formats_json_output_has_expected_schema() {
     let (stdout, parsed) = stdout_json(&output);
     assert_compact_json(&stdout);
     let formats = parsed.as_array().expect("top-level array");
-    assert_eq!(formats.len(), 13);
+    assert_eq!(formats.len(), 17);
 
     let label_studio = formats
         .iter()

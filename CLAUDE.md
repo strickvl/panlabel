@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -63,6 +63,10 @@ cargo +nightly fuzz run createml_json_parse      # Fuzz CreateML JSON parser
 cargo +nightly fuzz run kitti_txt_parse          # Fuzz KITTI parser
 cargo +nightly fuzz run via_json_parse           # Fuzz VIA JSON parser
 cargo +nightly fuzz run retinanet_csv_parse      # Fuzz RetinaNet CSV parser
+cargo +nightly fuzz run openimages_csv_parse     # Fuzz OpenImages CSV parser
+cargo +nightly fuzz run kaggle_wheat_csv_parse   # Fuzz Kaggle Wheat CSV parser
+cargo +nightly fuzz run automl_vision_csv_parse  # Fuzz AutoML Vision CSV parser
+cargo +nightly fuzz run udacity_csv_parse        # Fuzz Udacity CSV parser
 ```
 
 `fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the fuzz-only YOLO parser wrapper is available from the fuzz crate.
@@ -118,6 +122,10 @@ src/
 │   ├── io_createml_json.rs    # Apple CreateML JSON reader/writer
 │   ├── io_kitti.rs      # KITTI object detection reader/writer (directory-based)
 │   ├── io_via_json.rs   # VGG Image Annotator (VIA) JSON reader/writer
+│   ├── io_openimages_csv.rs  # OpenImages CSV reader/writer
+│   ├── io_kaggle_wheat_csv.rs # Kaggle Wheat CSV reader/writer
+│   ├── io_automl_vision_csv.rs # Google Cloud AutoML Vision CSV reader/writer
+│   ├── io_udacity_csv.rs     # Udacity Self-Driving Car CSV reader/writer
 │   ├── io_retinanet_csv.rs # RetinaNet Keras CSV reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)

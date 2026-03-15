@@ -21,6 +21,8 @@ Current scope: **object detection** bounding boxes only.
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
 | `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
 | `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
+| `labelme` | file (`.json`) or directory (`annotations/`) | yes | yes | lossy |
+| `create-ml` | file (`.json`) | yes | yes | lossy |
 
 ## IR JSON (`ir-json`)
 
@@ -255,6 +257,78 @@ Writer behavior:
   - otherwise or missing -> `0`
 - defaults missing or empty `source` attribute to `manual`
 - defaults missing or invalid `z_order` to `0`
+
+## LabelMe JSON (`labelme` / `labelme-json`)
+
+- Path kind: JSON file or directory.
+- One JSON file per image containing a `shapes` array with rectangle and polygon annotations.
+- Supported shapes: `rectangle` (2 points: top-left, bottom-right), `polygon` (3+ points: converted to axis-aligned bbox envelope). Other shape types are rejected.
+- Coordinates: absolute pixels.
+- Missing `shape_type` defaults to `rectangle`.
+
+Reader input modes:
+- **Single file**: one `.json` file → one-image dataset
+- **Separate directory**: `annotations/` subdirectory containing `.json` files
+- **Co-located directory**: `.json` files alongside image files (identified by presence of `shapes` key)
+
+Reader behavior:
+- requires `imagePath`, `imageWidth`, and `imageHeight` in each JSON file
+- derives `Image.file_name` from `imagePath` basename (single-file mode) or from the relative JSON path stem + image extension (directory mode)
+- stores original `imagePath` value in `Image.attributes["labelme_image_path"]`
+- polygons are flattened to axis-aligned bounding box envelopes; original shape type stored as `Annotation.attributes["labelme_shape_type"] = "polygon"`
+- requires unique derived image names across all JSON files in directory mode
+
+Deterministic policy:
+- reader image IDs: by derived file_name (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order then shape order
+- writer file order: by image file_name (lexicographic)
+
+Writer behavior:
+- single-image datasets to a `.json` path: writes one LabelMe JSON file
+- multi-image datasets or directory paths: writes canonical `annotations/<stem>.json` + `images/README.txt` layout
+- all annotations are written as `rectangle` shapes with 2 corner points (polygons are not restored)
+- does **not** copy image binaries
+- uses `labelme_image_path` image attribute for `imagePath` if present, otherwise `file_name`
+
+Limitations:
+- only `rectangle` and `polygon` shape types are supported (others are rejected)
+- polygon geometry is flattened to axis-aligned bbox envelope (shape type retained as attribute only)
+- `imageData` (embedded base64 image data) is not preserved
+- LabelMe flags and group_id are not preserved
+
+## CreateML JSON (`create-ml` / `createml` / `create-ml-json`)
+
+- Path kind: JSON file.
+- Apple's annotation format for Core ML training.
+- Flat JSON array where each element represents one image with its annotations.
+- Bbox format: center-based absolute pixel coordinates `{x, y, width, height}` where `(x, y)` is the center of the box.
+- Image dimensions are **not** stored in the JSON — the reader resolves them from local image files relative to the JSON file's parent directory.
+
+Reader behavior:
+- parses top-level JSON array of `{image, annotations}` objects
+- `image` must be a non-empty relative path (absolute paths and `..` traversal are rejected)
+- resolves image dimensions from disk by probing `<base_dir>/<image>` then `<base_dir>/images/<image>`
+- rejects duplicate `image` entries
+- rejects empty annotation labels
+
+Deterministic policy:
+- reader image IDs: by image filename (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order then annotation order
+
+Writer behavior:
+- writes a single JSON array with one object per image
+- uses center-based absolute pixel coordinates: `{x, y, width, height}`
+- deterministic output: image rows sorted by filename, annotations sorted by annotation ID
+- images without annotations are included (empty `annotations` array)
+- does **not** write image dimensions (this is by design — CreateML resolves them at training time)
+
+Limitations:
+- no dataset-level metadata/licenses
+- no image-level metadata (dimensions, license, date)
+- no annotation confidence/attributes
+- requires image files on disk for reading (to resolve dimensions)
 
 ## Future expansion rule
 

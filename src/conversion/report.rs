@@ -321,6 +321,32 @@ pub enum ConversionIssueCode {
     HfReaderCategoryResolution,
     /// HF writer deterministic output ordering policy.
     HfWriterDeterministicOrder,
+
+    // LabelMe policy (Info level)
+    /// LabelMe reader deterministic ID assignment policy.
+    LabelmeReaderIdAssignment,
+    /// LabelMe reader file-name/path derivation policy.
+    LabelmeReaderPathPolicy,
+    /// LabelMe reader polygon envelope behavior.
+    LabelmePolygonEnvelopeApplied,
+    /// LabelMe writer canonical file layout.
+    LabelmeWriterFileLayout,
+    /// LabelMe writer emits all annotations as rectangles.
+    LabelmeWriterRectanglePolicy,
+    /// LabelMe writer does not copy images.
+    LabelmeWriterNoImageCopy,
+
+    // CreateML policy (Info level)
+    /// CreateML reader deterministic ID assignment policy.
+    CreatemlReaderIdAssignment,
+    /// CreateML reader image resolution precedence.
+    CreatemlReaderImageResolution,
+    /// CreateML writer deterministic ordering policy.
+    CreatemlWriterDeterministicOrder,
+    /// CreateML writer center-based coordinate mapping.
+    CreatemlWriterCoordinateMapping,
+    /// CreateML writer does not copy images.
+    CreatemlWriterNoImageCopy,
 }
 
 impl ConversionIssueCode {
@@ -353,6 +379,7 @@ impl ConversionIssueCode {
         Self::TfodWriterRowOrder,
         Self::YoloReaderIdAssignment,
         Self::YoloReaderClassMapSource,
+        Self::YoloReaderSplitHandling,
         Self::YoloWriterClassOrder,
         Self::YoloWriterEmptyLabelFiles,
         Self::YoloWriterFloatPrecision,
@@ -376,6 +403,17 @@ impl ConversionIssueCode {
         Self::CvatWriterDropUnusedCategories,
         Self::HfReaderCategoryResolution,
         Self::HfWriterDeterministicOrder,
+        Self::LabelmeReaderIdAssignment,
+        Self::LabelmeReaderPathPolicy,
+        Self::LabelmePolygonEnvelopeApplied,
+        Self::LabelmeWriterFileLayout,
+        Self::LabelmeWriterRectanglePolicy,
+        Self::LabelmeWriterNoImageCopy,
+        Self::CreatemlReaderIdAssignment,
+        Self::CreatemlReaderImageResolution,
+        Self::CreatemlWriterDeterministicOrder,
+        Self::CreatemlWriterCoordinateMapping,
+        Self::CreatemlWriterNoImageCopy,
     ];
 
     /// Canonical stable string form, shared by text and JSON output.
@@ -432,6 +470,17 @@ impl ConversionIssueCode {
             Self::CvatWriterDropUnusedCategories => "cvat_writer_drop_unused_categories",
             Self::HfReaderCategoryResolution => "hf_reader_category_resolution",
             Self::HfWriterDeterministicOrder => "hf_writer_deterministic_order",
+            Self::LabelmeReaderIdAssignment => "labelme_reader_id_assignment",
+            Self::LabelmeReaderPathPolicy => "labelme_reader_path_policy",
+            Self::LabelmePolygonEnvelopeApplied => "labelme_polygon_envelope_applied",
+            Self::LabelmeWriterFileLayout => "labelme_writer_file_layout",
+            Self::LabelmeWriterRectanglePolicy => "labelme_writer_rectangle_policy",
+            Self::LabelmeWriterNoImageCopy => "labelme_writer_no_image_copy",
+            Self::CreatemlReaderIdAssignment => "createml_reader_id_assignment",
+            Self::CreatemlReaderImageResolution => "createml_reader_image_resolution",
+            Self::CreatemlWriterDeterministicOrder => "createml_writer_deterministic_order",
+            Self::CreatemlWriterCoordinateMapping => "createml_writer_coordinate_mapping",
+            Self::CreatemlWriterNoImageCopy => "createml_writer_no_image_copy",
         }
     }
 }

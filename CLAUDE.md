@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.5.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.5.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -28,6 +28,8 @@ cargo test --test proptest_tfod
 cargo test --test proptest_label_studio
 cargo test --test proptest_voc
 cargo test --test proptest_yolo
+cargo test --test proptest_labelme
+cargo test --test proptest_createml
 cargo test --test proptest_cross_format
 cargo test runs          # Run a single test by name
 
@@ -56,6 +58,8 @@ cargo +nightly fuzz run tfod_csv_parse           # Fuzz TFOD CSV parser
 cargo +nightly fuzz run label_studio_json_parse  # Fuzz Label Studio parser
 cargo +nightly fuzz run ir_json_parse            # Fuzz IR JSON parser
 cargo +nightly fuzz run yolo_label_line_parse    # Fuzz YOLO line parser
+cargo +nightly fuzz run labelme_json_parse       # Fuzz LabelMe JSON parser
+cargo +nightly fuzz run createml_json_parse      # Fuzz CreateML JSON parser
 ```
 
 `fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the fuzz-only YOLO parser wrapper is available from the fuzz crate.
@@ -107,6 +111,8 @@ src/
 │   ├── ids.rs          # Strongly-typed IDs (ImageId, AnnotationId, etc.)
 │   ├── io_coco_json.rs # COCO JSON reader/writer
 │   ├── io_label_studio_json.rs # Label Studio JSON reader/writer
+│   ├── io_labelme_json.rs     # LabelMe JSON reader/writer (file + directory)
+│   ├── io_createml_json.rs    # Apple CreateML JSON reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
 │   ├── io_voc_xml.rs   # Pascal VOC XML reader/writer (directory-based)
@@ -131,6 +137,8 @@ tests/
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
 ├── label_studio_roundtrip.rs # Label Studio format roundtrip tests
+├── labelme_roundtrip.rs   # LabelMe format roundtrip tests
+├── createml_roundtrip.rs  # CreateML format roundtrip tests
 └── fixtures/           # Test fixture files
 
 proptest-regressions/
@@ -165,7 +173,7 @@ docs/
   - CLI and auto-detection: `src/lib.rs`
   - Format adapters: `src/ir/io_*.rs`
   - Lossiness/report codes: `src/conversion/*`
-  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`
+  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`
 
 If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
 
@@ -192,12 +200,14 @@ If command behavior, format semantics, or conversion issue codes change, update 
 The `--from auto` flag detects format from file extension/content for files and layout markers for directories:
 - `.csv` → TFOD
 - `.json`:
-  - empty array-root JSON (`[]`) → Label Studio
-  - non-empty array-root: check only first task for `data.image` string → Label Studio
+  - empty array-root JSON (`[]`) → ambiguous (Label Studio or CreateML); requires explicit `--from`
+  - non-empty array-root: Label Studio task shape (`data.image`) → Label Studio; CreateML shape (`image` + `annotations`) → CreateML
+  - object-root with `shapes` array → LabelMe
   - object-root: requires a non-empty `annotations` array, then peek at `annotations[0].bbox`: array = COCO, object = IR JSON (empty datasets cannot be auto-detected)
 - directory with `labels/` containing `.txt` files AND sibling `images/` → YOLO (labels without images is reported as an incomplete layout)
 - directory with `Annotations/` containing top-level `.xml` files → VOC (`JPEGImages/` is optional, matching the reader)
 - directory with `annotations.xml` at root → CVAT
+- directory with `annotations/` containing LabelMe `.json` files (or co-located `.json` files with `shapes` key) → LabelMe
 - directory with `metadata.jsonl`, `metadata.parquet`, or parquet shard files → HF
 - detection uses evidence-based probing (`FormatProbe` + `probe_dir_formats()`) that reports what was found/missing
 - `stats` falls back to `ir-json` for parseable JSON files but surfaces malformed JSON errors directly

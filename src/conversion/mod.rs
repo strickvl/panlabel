@@ -27,6 +27,8 @@ pub enum Format {
     Yolo,
     Voc,
     HfImagefolder,
+    LabelMe,
+    CreateMl,
 }
 
 /// Classification of how lossy a format is relative to the IR.
@@ -52,6 +54,8 @@ impl Format {
             Format::Yolo => "yolo",
             Format::Voc => "voc",
             Format::HfImagefolder => "hf",
+            Format::LabelMe => "labelme",
+            Format::CreateMl => "create-ml",
         }
     }
 
@@ -73,6 +77,8 @@ impl Format {
             Format::Yolo => IrLossiness::Lossy,
             Format::Voc => IrLossiness::Lossy,
             Format::HfImagefolder => IrLossiness::Lossy,
+            Format::LabelMe => IrLossiness::Lossy,
+            Format::CreateMl => IrLossiness::Lossy,
         }
     }
 }
@@ -103,6 +109,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Cvat => analyze_to_cvat(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
         Format::HfImagefolder => analyze_to_hf(dataset, &mut report),
+        Format::LabelMe => analyze_to_labelme(dataset, &mut report),
+        Format::CreateMl => analyze_to_createml(dataset, &mut report),
     }
 
     // Add policy notes based on source format
@@ -114,6 +122,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
         Format::Coco => add_coco_reader_policy(&mut report),
         Format::HfImagefolder => add_hf_reader_policy(&mut report),
+        Format::LabelMe => add_labelme_reader_policy(dataset, &mut report),
+        Format::CreateMl => add_createml_reader_policy(&mut report),
         Format::IrJson => {}
     }
 
@@ -126,6 +136,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Cvat => add_cvat_writer_policy(&mut report),
         Format::Coco => add_coco_writer_policy(&mut report),
         Format::HfImagefolder => add_hf_writer_policy(&mut report),
+        Format::LabelMe => add_labelme_writer_policy(&mut report),
+        Format::CreateMl => add_createml_writer_policy(&mut report),
         Format::IrJson => {}
     }
 
@@ -973,6 +985,213 @@ fn add_coco_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CocoWriterEmptySegmentation,
         "COCO writer emits an empty segmentation array for detection-only output".to_string(),
+    ));
+}
+
+// ============================================================================
+// LabelMe analysis and policy
+// ============================================================================
+
+fn analyze_to_labelme(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    let has_license_or_date = dataset
+        .images
+        .iter()
+        .any(|img| img.license_id.is_some() || img.date_captured.is_some());
+    if has_license_or_date {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            "image license_id and/or date_captured will be dropped".to_string(),
+        ));
+    }
+
+    let has_supercategory = dataset.categories.iter().any(|c| c.supercategory.is_some());
+    if has_supercategory {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            "category supercategory will be dropped".to_string(),
+        ));
+    }
+
+    let has_confidence = dataset.annotations.iter().any(|a| a.confidence.is_some());
+    if has_confidence {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            "annotation confidence values will be dropped".to_string(),
+        ));
+    }
+
+    let has_non_labelme_attrs = dataset
+        .annotations
+        .iter()
+        .any(|a| a.attributes.keys().any(|k| k != "labelme_shape_type"));
+    if has_non_labelme_attrs {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            "annotation attributes (other than labelme_shape_type) will be dropped".to_string(),
+        ));
+    }
+
+    // Output counts: all images and annotations survive; categories = only referenced ones
+    let referenced_cats: HashSet<_> = dataset.annotations.iter().map(|a| a.category_id).collect();
+    let output_categories = referenced_cats.len();
+
+    report.output = ConversionCounts {
+        images: dataset.images.len(),
+        categories: output_categories,
+        annotations: dataset.annotations.len(),
+    };
+}
+
+fn add_labelme_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::LabelmeReaderIdAssignment,
+        "LabelMe reader assigns image IDs by sorted file_name, category IDs by sorted label, \
+         and annotation IDs sequentially by image then shape order"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::LabelmeReaderPathPolicy,
+        "LabelMe reader derives IR file_name from annotation file path and imagePath extension; \
+         raw imagePath is stored in image attributes as labelme_image_path"
+            .to_string(),
+    ));
+
+    let has_polygons = dataset
+        .annotations
+        .iter()
+        .any(|a| a.attributes.get("labelme_shape_type").map(|v| v.as_str()) == Some("polygon"));
+    if has_polygons {
+        report.add(ConversionIssue::reader_info(
+            ConversionIssueCode::LabelmePolygonEnvelopeApplied,
+            "LabelMe reader converted polygon shapes to axis-aligned bounding box envelopes; \
+             original shape type stored as labelme_shape_type=polygon attribute"
+                .to_string(),
+        ));
+    }
+}
+
+fn add_labelme_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::LabelmeWriterFileLayout,
+        "LabelMe writer emits annotations/<stem>.json files in a canonical directory layout"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::LabelmeWriterRectanglePolicy,
+        "LabelMe writer emits all annotations as rectangle shapes with 2 corner points".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::LabelmeWriterNoImageCopy,
+        "LabelMe writer creates only annotation files; images are not copied".to_string(),
+    ));
+}
+
+// ============================================================================
+// CreateML analysis and policy
+// ============================================================================
+
+fn analyze_to_createml(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    let has_license_or_date = dataset
+        .images
+        .iter()
+        .any(|img| img.license_id.is_some() || img.date_captured.is_some());
+    if has_license_or_date {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            "image license_id and/or date_captured will be dropped".to_string(),
+        ));
+    }
+
+    let has_supercategory = dataset.categories.iter().any(|c| c.supercategory.is_some());
+    if has_supercategory {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            "category supercategory will be dropped".to_string(),
+        ));
+    }
+
+    let has_confidence = dataset.annotations.iter().any(|a| a.confidence.is_some());
+    if has_confidence {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            "annotation confidence values will be dropped".to_string(),
+        ));
+    }
+
+    let has_attributes = dataset.annotations.iter().any(|a| !a.attributes.is_empty());
+    if has_attributes {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            "annotation attributes will be dropped".to_string(),
+        ));
+    }
+
+    let referenced_cats: HashSet<_> = dataset.annotations.iter().map(|a| a.category_id).collect();
+    let output_categories = referenced_cats.len();
+
+    report.output = ConversionCounts {
+        images: dataset.images.len(),
+        categories: output_categories,
+        annotations: dataset.annotations.len(),
+    };
+}
+
+fn add_createml_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::CreatemlReaderIdAssignment,
+        "CreateML reader assigns image IDs by sorted filename, category IDs by sorted label, \
+         and annotation IDs sequentially by image then annotation order"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::CreatemlReaderImageResolution,
+        "CreateML reader resolves image dimensions from local files: \
+         tries <json_dir>/<image>, then <json_dir>/images/<image>"
+            .to_string(),
+    ));
+}
+
+fn add_createml_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CreatemlWriterDeterministicOrder,
+        "CreateML writer orders image rows by filename and annotations by ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CreatemlWriterCoordinateMapping,
+        "CreateML writer converts IR pixel XYXY to center-based absolute coordinates (x, y, width, height)"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CreatemlWriterNoImageCopy,
+        "CreateML writer creates only the JSON file; images are not copied".to_string(),
     ));
 }
 

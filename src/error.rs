@@ -128,6 +128,50 @@ pub enum PanlabelError {
     #[error("Failed to write CVAT XML at {path}: {message}")]
     CvatWriteError { path: PathBuf, message: String },
 
+    #[error("Failed to parse LabelMe JSON from {path}: {source}")]
+    LabelMeJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write LabelMe JSON to {path}: {source}")]
+    LabelMeJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid LabelMe dataset layout at {path}: {message}")]
+    LabelMeLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse CreateML JSON from {path}: {source}")]
+    CreateMlJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write CreateML JSON to {path}: {source}")]
+    CreateMlJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid CreateML JSON at {path}: {message}")]
+    CreateMlJsonInvalid { path: PathBuf, message: String },
+
+    #[error("CreateML image not found: {image_ref} (searched from {path})")]
+    CreateMlImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to read CreateML image dimensions from {path}: {source}")]
+    CreateMlImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
     #[error("Invalid HF ImageFolder layout at {path}: {message}")]
     HfLayoutInvalid { path: PathBuf, message: String },
 

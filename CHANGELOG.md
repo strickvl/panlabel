@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **LabelMe JSON format support (`labelme`)**: per-image JSON annotation format with `shapes` array. Supports `rectangle` (2-point) and `polygon` (3+ point, flattened to axis-aligned bbox envelope) shape types. Reads single files, `annotations/` directory layouts, and co-located JSON+image directories. Writer produces canonical `annotations/` directory layout.
+- **CreateML JSON format support (`create-ml`)**: Apple's annotation format for Core ML training. Flat JSON array with center-based absolute pixel coordinates (`{x, y, width, height}`). Image dimensions resolved from local image files. File-based read/write.
+- **Auto-detection for LabelMe and CreateML**: `.json` files with `shapes` array → LabelMe; array-root JSON with `image`+`annotations` keys → CreateML. Empty JSON arrays are now ambiguous between Label Studio and CreateML (requires explicit `--from`).
+- **Fuzz targets**: `labelme_json_parse` and `createml_json_parse` for parser fuzzing.
+- **Property tests**: `proptest_labelme` and `proptest_createml` for roundtrip/idempotency checks.
 - **YOLO optional confidence token**: YOLO label rows now accept an optional 6th float as a confidence score, mapped to IR `Annotation.confidence`. Rows with 7+ tokens are still rejected as segmentation/pose. The writer emits the 6th token only when confidence is present.
 - **YOLO Darknet flat-directory layout**: flat `images/` + `labels/` layouts without `data.yaml` are now explicitly supported and tested. Class names are read from `classes.txt` when present, or inferred from label files (`class_0`, `class_1`, ...) when absent.
 - `list-formats --output json` machine-readable format discovery, including aliases and file/directory layout hints
@@ -18,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Empty JSON array auto-detection now reports ambiguity between Label Studio and CreateML (previously assumed Label Studio)
 - YOLO conversion reports no longer emit `drop_annotation_confidence` warnings (confidence is now preserved)
 - YOLO `yolo_writer_data_yaml_policy` message now accurately describes the writer output (names mapping only, no split paths or nc)
 - YOLO `yolo_writer_float_precision` message now mentions confidence alongside coordinates

@@ -35,6 +35,8 @@ within those boundaries.
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
 | `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
 | `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
+| `labelme` | yes | yes | per-image JSON; `rectangle` and `polygon` shapes (polygons flattened to bbox envelopes); file or directory based |
+| `create-ml` | yes | yes | Apple CreateML JSON array; center-based absolute pixel coordinates; file based |
 
 For per-format details, see [formats.md](./formats.md).
 
@@ -65,6 +67,8 @@ format accepts and rejects:
 | `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
 | `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
 | `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |
+| `labelme` | `rectangle` shapes (2 points) and `polygon` shapes (3+ points, flattened to bbox envelope) | Other shape types (e.g. `circle`, `line`) are rejected with a clear error |
+| `create-ml` | `coordinates` objects with center-based pixel bboxes (`x`, `y`, `width`, `height`) | Fixed bbox schema; no non-bbox geometry |
 
 ## Adding a new task in the future
 

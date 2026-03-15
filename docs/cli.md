@@ -31,7 +31,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <format>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
+  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`
 - `--strict` (treat warnings as errors)
 - `--output-format <text|json>` (default: `text`)
 - `--output <text|json>` (backward-compatible alias)
@@ -44,8 +44,8 @@ Invalid `--format` and output mode values are rejected by clap at parse time.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`
 - `--input`, `-i`: input path (required for local inputs; optional with `--hf-repo` when `--from hf`)
 - `--output`, `-o`: output path
 - `--strict`
@@ -183,6 +183,7 @@ Show format capabilities and lossiness class.
    - YOLO marker: `labels/` with `.txt` labels AND sibling `images/` directory (or path itself is `labels/` with sibling `images/`). If `labels/` with `.txt` files exist but `images/` is missing, this is reported as an incomplete layout.
    - VOC marker: `Annotations/` with top-level `.xml` files (or path itself is `Annotations/`). `JPEGImages/` is optional, matching the reader's behavior.
    - CVAT marker: `annotations.xml` at directory root
+   - LabelMe marker: `annotations/` with LabelMe `.json` files (containing `shapes` key), or co-located LabelMe `.json` files
    - HF marker: `metadata.jsonl` or `metadata.parquet` at root or in an immediate subdirectory, or parquet shard files (e.g. `data/train-*.parquet`)
    - if multiple markers match, detection fails with an ambiguity error listing the evidence for each format
    - if only partial matches exist (e.g. YOLO labels without images), the error explains what's missing
@@ -191,7 +192,9 @@ Show format capabilities and lossiness class.
    - `.xml`:
      - root `<annotations>` -> `cvat`
    - `.json`:
-     - array-root empty or Label Studio task shape -> `label-studio`
+     - empty array-root: ambiguous between Label Studio and CreateML (requires explicit `--from`)
+     - non-empty array-root: Label Studio task shape (`data.image` string) -> `label-studio`; CreateML shape (`image` string + `annotations` array) -> `create-ml`
+     - object-root with `shapes` array -> `labelme`
      - object-root with `annotations[0].bbox` array -> `coco`
      - object-root with bbox object (`min/max` or `xmin/ymin/xmax/ymax`) -> `ir-json`
 3. `stats` fallback: when detection fails for a `.json` file, stats tries `ir-json` as a fallback — but only if the JSON is parseable. Malformed JSON is reported directly as a parse error.
@@ -243,4 +246,10 @@ panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --allo
 
 # Convert only the train split from a YOLO dataset
 panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --split train --allow-lossy
+
+# Convert a LabelMe directory to COCO JSON
+panlabel convert -f labelme -t coco -i ./labelme_dataset -o coco_output.json
+
+# Convert a CreateML JSON file to COCO JSON
+panlabel convert -f create-ml -t coco -i annotations.json -o coco_output.json
 ```

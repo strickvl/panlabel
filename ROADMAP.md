@@ -10,7 +10,7 @@ For current, implemented behavior, use:
 ## Current baseline
 
 - ✅ Detection task support (axis-aligned bboxes)
-- ✅ Formats: IR JSON, COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory, Hugging Face ImageFolder metadata
+- ✅ Formats: IR JSON, COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory, Hugging Face ImageFolder metadata
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, stats, diff, sample, list-formats
 
@@ -34,6 +34,8 @@ active or legacy use, so that any dataset can be converted to any other format.
 - ✅ Ultralytics YOLO (directory, `images/` + `labels/`)
 - ✅ Hugging Face ImageFolder (`metadata.jsonl` + `metadata.parquet`) — local read/write plus optional Parquet/remote Hub import (`--hf-repo`, feature-gated)
 - ✅ HF zip-style remote split archives (`*.zip`) with payload routing to supported layouts
+- ✅ LabelMe JSON (per-image JSON with `shapes` array — rectangle + polygon → bbox envelope)
+- ✅ CreateML JSON (Apple's center-based absolute pixel bbox format)
 - ✅ IR JSON (panlabel's lossless intermediate representation)
 
 #### YOLO variant improvements
@@ -60,8 +62,6 @@ format that panlabel already supports. Differences are in directory layout and
 
 #### Annotation-tool formats
 
-- ⏳ labelme JSON — per-image JSON with `shapes` array (rectangles + polygons); one of the most widely used OSS annotation tools (~12k GitHub stars)
-- ⏳ CreateML JSON — Apple's annotation format for Core ML training; flat JSON array with `image`/`annotations` containing `label` and `coordinates` (center-based)
 - ⏳ Google Cloud AutoML Vision CSV — GCP's annotation/import format; CSV rows with `set,path,label,x1,y1,,,x2,y2,,`
 - ⏳ Sagemaker GroundTruth Manifest — AWS annotation format; JSON Lines with `source-ref` and label job output as nested object per line
 - ⏳ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `instances` array
@@ -86,8 +86,8 @@ format that panlabel already supports. Differences are in directory layout and
 
 ### Testing & robustness
 
-- ✅ Property-based testing (proptest: IR JSON exact roundtrip, plus semantic roundtrip/idempotency checks for COCO, TFOD, Label Studio, VOC, and YOLO)
-- ✅ Expanded fuzz targets for parser surfaces (COCO JSON, VOC XML, TFOD CSV, Label Studio JSON, IR JSON, YOLO line parser)
+- ✅ Property-based testing (proptest: IR JSON exact roundtrip, plus semantic roundtrip/idempotency checks for COCO, TFOD, Label Studio, VOC, YOLO, LabelMe, and CreateML)
+- ✅ Expanded fuzz targets for parser surfaces (COCO JSON, VOC XML, TFOD CSV, Label Studio JSON, IR JSON, YOLO line parser, LabelMe JSON, CreateML JSON)
 
 ### UX / CLI
 

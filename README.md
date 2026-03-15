@@ -19,7 +19,7 @@ dependencies to manage.
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
 
-> **Note**: Panlabel is in active development (v0.4.x). The CLI and library APIs
+> **Note**: Panlabel is in active development (v0.5.x). The CLI and library APIs
 > may change between versions, so pin to a specific version if you're using it in
 > production.
 
@@ -99,6 +99,12 @@ panlabel convert -f label-studio -t coco -i export.json -o coco_output.json
 # Convert CVAT XML to COCO JSON
 panlabel convert -f cvat -t coco -i annotations.xml -o coco_output.json
 
+# Convert a LabelMe directory to COCO JSON
+panlabel convert -f labelme -t coco -i ./labelme_dataset -o coco_output.json
+
+# Convert Apple CreateML JSON to COCO JSON
+panlabel convert -f create-ml -t coco -i createml_annotations.json -o coco_output.json
+
 # Convert local HF ImageFolder metadata to COCO JSON
 panlabel convert -f hf -t coco -i ./hf_dataset -o coco_output.json
 
@@ -159,6 +165,8 @@ panlabel list-formats --output json
 | `yolo` | `images/ + labels/` directory | YOLO `.txt` labels (flat or split-aware, optional confidence) | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
+| `labelme` | `.json` file or `annotations/` directory | LabelMe per-image JSON annotations | Lossy |
+| `create-ml` | `.json` | Apple CreateML annotation format | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 

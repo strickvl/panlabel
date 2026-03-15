@@ -89,6 +89,12 @@ enum ConvertFormat {
     /// Hugging Face ImageFolder metadata format (directory-based).
     #[value(name = "hf", alias = "hf-imagefolder", alias = "huggingface")]
     HfImagefolder,
+    /// LabelMe annotation format (per-image JSON, directory-based).
+    #[value(name = "labelme", alias = "labelme-json")]
+    LabelMe,
+    /// Apple CreateML annotation format (JSON).
+    #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
+    CreateMl,
 }
 
 impl ConvertFormat {
@@ -103,6 +109,8 @@ impl ConvertFormat {
             ConvertFormat::Yolo => conversion::Format::Yolo,
             ConvertFormat::Voc => conversion::Format::Voc,
             ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
+            ConvertFormat::LabelMe => conversion::Format::LabelMe,
+            ConvertFormat::CreateMl => conversion::Format::CreateMl,
         }
     }
 }
@@ -142,6 +150,12 @@ enum ConvertFromFormat {
     /// Hugging Face ImageFolder metadata format (directory-based).
     #[value(name = "hf", alias = "hf-imagefolder", alias = "huggingface")]
     HfImagefolder,
+    /// LabelMe annotation format (per-image JSON, directory-based).
+    #[value(name = "labelme", alias = "labelme-json")]
+    LabelMe,
+    /// Apple CreateML annotation format (JSON).
+    #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
+    CreateMl,
 }
 
 impl ConvertFromFormat {
@@ -157,6 +171,8 @@ impl ConvertFromFormat {
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
             ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
             ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
+            ConvertFromFormat::LabelMe => Some(ConvertFormat::LabelMe),
+            ConvertFromFormat::CreateMl => Some(ConvertFormat::CreateMl),
         }
     }
 }
@@ -601,6 +617,20 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         description: "Hugging Face ImageFolder metadata (metadata.jsonl/parquet)",
         file_based: false,
         directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::LabelMe,
+        aliases: &["labelme-json"],
+        description: "LabelMe per-image JSON annotation format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::CreateMl,
+        aliases: &["createml", "create-ml-json"],
+        description: "Apple CreateML annotation format (JSON)",
+        file_based: true,
+        directory_based: false,
     },
 ];
 
@@ -1290,6 +1320,8 @@ fn read_dataset_with_options(
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir_with_options(path, yolo_options),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
+        ConvertFormat::LabelMe => ir::io_labelme_json::read_labelme_json(path),
+        ConvertFormat::CreateMl => ir::io_createml_json::read_createml_json(path),
     }
 }
 
@@ -1326,6 +1358,8 @@ fn write_dataset_with_options(
         ConvertFormat::HfImagefolder => {
             ir::io_hf_imagefolder::write_hf_imagefolder_with_options(path, dataset, hf_options)
         }
+        ConvertFormat::LabelMe => ir::io_labelme_json::write_labelme_json(path, dataset),
+        ConvertFormat::CreateMl => ir::io_createml_json::write_createml_json(path, dataset),
     }
 }
 
@@ -1476,6 +1510,8 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Yolo => "yolo",
         ConvertFormat::Voc => "voc",
         ConvertFormat::HfImagefolder => "hf",
+        ConvertFormat::LabelMe => "labelme",
+        ConvertFormat::CreateMl => "create-ml",
     }
 }
 
@@ -1667,7 +1703,8 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
                  - YOLO: labels/ with .txt files and sibling images/\n  \
                  - VOC: Annotations/ with .xml files\n  \
                  - CVAT: annotations.xml at directory root\n  \
-                 - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n\
+                 - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n  \
+                 - LabelMe: annotations/ with LabelMe .json files, or co-located .json files\n\
                  Use --from to specify format explicitly."
             .to_string(),
     })
@@ -1749,6 +1786,18 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
         hf.found.push("parquet shard files".into());
     }
     probes.push(hf);
+
+    // --- LabelMe ---
+    let mut labelme = FormatProbe::new("LabelMe", ConvertFormat::LabelMe);
+    let labelme_ann_dir = path.join("annotations");
+    if labelme_ann_dir.is_dir() && dir_contains_labelme_json(&labelme_ann_dir)? {
+        labelme
+            .found
+            .push("annotations/ with LabelMe .json files".into());
+    } else if dir_contains_labelme_json(path)? {
+        labelme.found.push("co-located LabelMe .json files".into());
+    }
+    probes.push(labelme);
 
     Ok(probes)
 }
@@ -1882,6 +1931,38 @@ fn is_annotations_dir(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Check if a directory contains at least one LabelMe JSON file.
+///
+/// Quick structural check: looks for a .json file with a `shapes` array key.
+fn dir_contains_labelme_json(dir: &Path) -> Result<bool, PanlabelError> {
+    for entry in std::fs::read_dir(dir).map_err(|source| PanlabelError::FormatDetectionFailed {
+        path: dir.to_path_buf(),
+        reason: format!("failed while inspecting directory: {source}"),
+    })? {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: dir.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if entry_path.is_file()
+            && entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("json"))
+                .unwrap_or(false)
+        {
+            if let Ok(contents) = std::fs::read_to_string(&entry_path) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
+                    if is_likely_labelme_file(&value) {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
 /// Check if `data.yaml` exists and contains split keys (train/val/test).
 /// Returns `Some(vec!["train", ...])` if found, `None` otherwise.
 fn data_yaml_has_split_keys(path: &Path) -> Option<Vec<String>> {
@@ -1922,22 +2003,37 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         }
     })?;
 
-    if let Some(tasks) = value.as_array() {
-        if tasks.is_empty() {
+    if let Some(items) = value.as_array() {
+        if items.is_empty() {
+            // Empty array is ambiguous between Label Studio and CreateML
+            return Err(PanlabelError::FormatDetectionFailed {
+                path: path.to_path_buf(),
+                reason: "empty JSON array is ambiguous (could be Label Studio or CreateML). \
+                         Use --from to specify format explicitly."
+                    .to_string(),
+            });
+        }
+
+        if is_likely_label_studio_task(&items[0]) {
             return Ok(ConvertFormat::LabelStudio);
         }
 
-        if is_likely_label_studio_task(&tasks[0]) {
-            return Ok(ConvertFormat::LabelStudio);
+        if is_likely_createml_item(&items[0]) {
+            return Ok(ConvertFormat::CreateMl);
         }
 
         return Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "array-root JSON not recognized (expected Label Studio task export array). Use --from to specify format explicitly.".to_string(),
+            reason: "array-root JSON not recognized (expected Label Studio task array or CreateML image array). Use --from to specify format explicitly.".to_string(),
         });
     }
 
-    // Object-root detection remains the same COCO-vs-IR heuristic.
+    // Object-root: check for LabelMe (has "shapes" key) before COCO/IR heuristic
+    if is_likely_labelme_file(&value) {
+        return Ok(ConvertFormat::LabelMe);
+    }
+
+    // Object-root detection: COCO-vs-IR heuristic.
 
     // Get annotations array
     let annotations = value.get("annotations").and_then(|v| v.as_array());
@@ -2049,4 +2145,33 @@ fn is_likely_label_studio_task(value: &serde_json::Value) -> bool {
         .get("image")
         .map(|value| value.is_string())
         .unwrap_or(false)
+}
+
+/// Detect whether a JSON array element looks like a CreateML image row.
+///
+/// Heuristic: object with `image` (string) and `annotations` (array) keys.
+fn is_likely_createml_item(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    let has_image = obj.get("image").map(|v| v.is_string()).unwrap_or(false);
+
+    let has_annotations = obj
+        .get("annotations")
+        .map(|v| v.is_array())
+        .unwrap_or(false);
+
+    has_image && has_annotations
+}
+
+/// Detect whether a JSON object looks like a LabelMe annotation file.
+///
+/// Heuristic: object with `shapes` (array) key.
+fn is_likely_labelme_file(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    obj.get("shapes").map(|v| v.is_array()).unwrap_or(false)
 }

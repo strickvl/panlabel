@@ -876,9 +876,7 @@ fn parse_label_line(
         .map_err(|_| PanlabelError::YoloLabelParse {
             path: file_path.to_path_buf(),
             line: line_num,
-            message: format!(
-                "invalid class_id '{t0}'; expected non-negative integer",
-            ),
+            message: format!("invalid class_id '{t0}'; expected non-negative integer",),
         })?;
 
     let cx = parse_f64_token(t1.unwrap(), "x_center", file_path, line_num)?;
@@ -1043,8 +1041,7 @@ mod tests {
     #[test]
     fn parse_label_line_rejects_segmentation_rows() {
         // 7 tokens = segmentation/pose, should be rejected
-        let err =
-            parse_label_line("0 0.1 0.2 0.3 0.4 0.5 0.6", Path::new("a.txt"), 4).unwrap_err();
+        let err = parse_label_line("0 0.1 0.2 0.3 0.4 0.5 0.6", Path::new("a.txt"), 4).unwrap_err();
         assert!(matches!(err, PanlabelError::YoloLabelParse { .. }));
     }
 
@@ -1541,11 +1538,8 @@ mod tests {
 
         write_bmp(&temp.path().join("images/img.bmp"), 20, 10);
         fs::write(temp.path().join("data.yaml"), "names:\n  - cat\n").expect("write data yaml");
-        fs::write(
-            temp.path().join("labels/img.txt"),
-            "0 0.5 0.5 0.4 0.4\n",
-        )
-        .expect("write label without confidence");
+        fs::write(temp.path().join("labels/img.txt"), "0 0.5 0.5 0.4 0.4\n")
+            .expect("write label without confidence");
 
         let dataset = read_yolo_dir(temp.path()).expect("read yolo");
         assert_eq!(dataset.annotations.len(), 1);
@@ -1558,15 +1552,13 @@ mod tests {
         let dataset = Dataset {
             images: vec![Image::new(1u64, "img.bmp", 20, 10)],
             categories: vec![Category::new(1u64, "cat")],
-            annotations: vec![
-                Annotation::new(
-                    1u64,
-                    1u64,
-                    1u64,
-                    super::BBoxXYXY::from_xyxy(2.0, 1.0, 18.0, 9.0),
-                )
-                .with_confidence(0.95),
-            ],
+            annotations: vec![Annotation::new(
+                1u64,
+                1u64,
+                1u64,
+                super::BBoxXYXY::from_xyxy(2.0, 1.0, 18.0, 9.0),
+            )
+            .with_confidence(0.95)],
             ..Default::default()
         };
 
@@ -1574,7 +1566,11 @@ mod tests {
         let content =
             fs::read_to_string(temp.path().join("labels/img.txt")).expect("read label file");
         let tokens: Vec<&str> = content.trim().split_whitespace().collect();
-        assert_eq!(tokens.len(), 6, "should have 6 tokens when confidence is present");
+        assert_eq!(
+            tokens.len(),
+            6,
+            "should have 6 tokens when confidence is present"
+        );
         assert_eq!(tokens[5], "0.950000");
     }
 
@@ -1597,7 +1593,11 @@ mod tests {
         let content =
             fs::read_to_string(temp.path().join("labels/img.txt")).expect("read label file");
         let tokens: Vec<&str> = content.trim().split_whitespace().collect();
-        assert_eq!(tokens.len(), 5, "should have 5 tokens when confidence is absent");
+        assert_eq!(
+            tokens.len(),
+            5,
+            "should have 5 tokens when confidence is absent"
+        );
     }
 
     // -------------------------------------------------------------------
@@ -1612,11 +1612,7 @@ mod tests {
 
         write_bmp(&temp.path().join("images/dog.bmp"), 100, 100);
         fs::write(temp.path().join("classes.txt"), "person\ndog\n").expect("write classes.txt");
-        fs::write(
-            temp.path().join("labels/dog.txt"),
-            "1 0.5 0.5 0.3 0.3\n",
-        )
-        .expect("write label");
+        fs::write(temp.path().join("labels/dog.txt"), "1 0.5 0.5 0.3 0.3\n").expect("write label");
 
         let dataset = read_yolo_dir(temp.path()).expect("read flat Darknet layout");
         assert_eq!(dataset.images.len(), 1);

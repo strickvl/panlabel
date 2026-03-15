@@ -153,9 +153,19 @@ fn yolo_confidence_roundtrip() {
         images: vec![Image::new(1u64, "img.bmp", 100, 100)],
         categories: vec![Category::new(1u64, "cat"), Category::new(2u64, "dog")],
         annotations: vec![
-            Annotation::new(1u64, 1u64, 1u64, BBoxXYXY::from_xyxy(10.0, 20.0, 60.0, 70.0))
-                .with_confidence(0.95),
-            Annotation::new(2u64, 1u64, 2u64, BBoxXYXY::from_xyxy(30.0, 40.0, 80.0, 90.0)),
+            Annotation::new(
+                1u64,
+                1u64,
+                1u64,
+                BBoxXYXY::from_xyxy(10.0, 20.0, 60.0, 70.0),
+            )
+            .with_confidence(0.95),
+            Annotation::new(
+                2u64,
+                1u64,
+                2u64,
+                BBoxXYXY::from_xyxy(30.0, 40.0, 80.0, 90.0),
+            ),
         ],
         ..Default::default()
     };
@@ -228,11 +238,7 @@ fn flat_layout_no_data_yaml_with_classes_txt() {
 
     write_bmp(&temp.path().join("images/a.bmp"), 50, 50);
     fs::write(temp.path().join("classes.txt"), "person\ndog\n").expect("write classes.txt");
-    fs::write(
-        temp.path().join("labels/a.txt"),
-        "1 0.5 0.5 0.3 0.3\n",
-    )
-    .expect("write label");
+    fs::write(temp.path().join("labels/a.txt"), "1 0.5 0.5 0.3 0.3\n").expect("write label");
 
     let dataset = read_yolo_dir(temp.path()).expect("read flat layout with classes.txt");
     assert_eq!(dataset.categories.len(), 2);

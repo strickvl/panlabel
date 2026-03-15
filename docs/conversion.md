@@ -23,6 +23,8 @@ Format-level lossiness relative to IR:
 - `yolo`: lossy
 - `voc`: lossy
 - `hf`: lossy
+- `labelme`: lossy
+- `create-ml`: lossy
 
 The format-level class is a general capability signal. Conversions are actually blocked only when the report contains one or more `warning` issues.
 
@@ -113,6 +115,17 @@ These codes are designed to be stable for programmatic use.
 | `hf_reader_object_container_precedence` | HF reader selects object container: --hf-objects-column, then 'objects', then 'faces' |
 | `hf_reader_bbox_format_dependence` | HF reader bbox interpretation depends on --hf-bbox-format flag |
 | `hf_writer_deterministic_order` | HF writer deterministic metadata/annotation ordering policy |
+| `labelme_reader_id_assignment` | LabelMe reader deterministic ID assignment policy |
+| `labelme_reader_path_policy` | LabelMe reader file-name/path derivation policy |
+| `labelme_polygon_envelope_applied` | LabelMe reader converted polygon shapes to axis-aligned bbox envelopes |
+| `labelme_writer_file_layout` | LabelMe writer canonical annotations/ directory layout |
+| `labelme_writer_rectangle_policy` | LabelMe writer emits all annotations as rectangle shapes |
+| `labelme_writer_no_image_copy` | LabelMe writer does not copy image files |
+| `createml_reader_id_assignment` | CreateML reader deterministic ID assignment policy |
+| `createml_reader_image_resolution` | CreateML reader image dimension resolution precedence |
+| `createml_writer_deterministic_order` | CreateML writer deterministic ordering policy |
+| `createml_writer_coordinate_mapping` | CreateML writer center-based coordinate mapping |
+| `createml_writer_no_image_copy` | CreateML writer does not copy image files |
 
 ## Blocked conversions
 

@@ -66,3 +66,17 @@ path = "fuzz_targets/yolo_label_line_parse.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "labelme_json_parse"
+path = "fuzz_targets/labelme_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "createml_json_parse"
+path = "fuzz_targets/createml_json_parse.rs"
+test = false
+doc = false
+bench = false

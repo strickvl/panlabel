@@ -295,21 +295,8 @@ fn analyze_to_yolo(dataset: &Dataset, report: &mut ConversionReport) {
         ));
     }
 
-    // YOLO cannot represent annotation confidence
-    let anns_with_confidence = dataset
-        .annotations
-        .iter()
-        .filter(|ann| ann.confidence.is_some())
-        .count();
-    if anns_with_confidence > 0 {
-        report.add(ConversionIssue::warning(
-            ConversionIssueCode::DropAnnotationConfidence,
-            format!(
-                "{} annotation(s) have confidence scores that will be dropped",
-                anns_with_confidence
-            ),
-        ));
-    }
+    // YOLO now preserves annotation confidence as an optional 6th token.
+    // No DropAnnotationConfidence warning needed.
 
     // YOLO cannot represent annotation attributes
     let anns_with_attributes = dataset
@@ -784,7 +771,7 @@ fn add_yolo_writer_policy(report: &mut ConversionReport) {
     ));
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterFloatPrecision,
-        "YOLO writer outputs normalized coordinates with 6 decimal places".to_string(),
+        "YOLO writer outputs normalized coordinates (and confidence when present) with 6 decimal places".to_string(),
     ));
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterDeterministicOrder,
@@ -796,7 +783,7 @@ fn add_yolo_writer_policy(report: &mut ConversionReport) {
     ));
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterDataYamlPolicy,
-        "YOLO writer emits data.yaml with sorted class names, train/val paths, and nc (number of classes)".to_string(),
+        "YOLO writer emits data.yaml with a names: mapping (sorted by class index); does not emit train/val paths or nc".to_string(),
     ));
 }
 

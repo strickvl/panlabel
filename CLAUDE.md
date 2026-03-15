@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.5.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, YOLO directory format (including split-aware layouts), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.5.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
 
 ## Common Commands
 

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **YOLO optional confidence token**: YOLO label rows now accept an optional 6th float as a confidence score, mapped to IR `Annotation.confidence`. Rows with 7+ tokens are still rejected as segmentation/pose. The writer emits the 6th token only when confidence is present.
+- **YOLO Darknet flat-directory layout**: flat `images/` + `labels/` layouts without `data.yaml` are now explicitly supported and tested. Class names are read from `classes.txt` when present, or inferred from label files (`class_0`, `class_1`, ...) when absent.
 - `list-formats --output json` machine-readable format discovery, including aliases and file/directory layout hints
 - `sample --output-format json` structured conversion/sample reports (with `--report` alias support)
 - `convert --dry-run` to preview conversion/validation/lossiness results without writing output files
@@ -16,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- YOLO conversion reports no longer emit `drop_annotation_confidence` warnings (confidence is now preserved)
+- YOLO `yolo_writer_data_yaml_policy` message now accurately describes the writer output (names mapping only, no split paths or nc)
+- YOLO `yolo_writer_float_precision` message now mentions confidence alongside coordinates
 - `validate` now uses typed enum parsing for `--format` and report output mode values
 - `--output-format` is now the consistent cross-command spelling for structured stdout (`validate`, `stats`, `diff`, and `list-formats` also keep `--output`; `convert` and `sample` keep `--report` as an alias)
 - Contributor guidance (`AGENTS.md`, `CLAUDE.md`) now reflects the current `stats` module and agent-oriented CLI usage guidance

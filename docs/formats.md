@@ -102,16 +102,21 @@ Limitations:
 - Accepted input path:
   - dataset root containing `images/` and `labels/`
   - or `labels/` directory directly (with sibling `../images/`)
+- Supports both flat layouts (Darknet-style, no `data.yaml` required) and split-aware layouts.
 - Label row format (one line per bbox):
-  - `<class_id> <x_center> <y_center> <width> <height>`
+  - `<class_id> <x_center> <y_center> <width> <height> [confidence]`
   - normalized values
+  - 5 tokens: detection bbox (confidence = None)
+  - 6 tokens: detection bbox + confidence score (mapped to IR `Annotation.confidence`)
+  - 7+ tokens: rejected (segmentation/pose not supported)
 
 Reader behavior:
 - class map precedence: `data.yaml` → `classes.txt` → inferred from labels
+- flat layouts work without `data.yaml`: class names come from `classes.txt` (if present) or are inferred as `class_0`, `class_1`, etc.
 - image resolution is read from image headers in `images/`
 - each label file must map to a matching image file (same relative stem) under `images/`
 - expected image extensions (lookup order): `jpg`, `png`, `jpeg`, `bmp`, `webp`
-- lines with more than 5 tokens are rejected (segmentation/pose not supported)
+- lines with 7+ tokens are rejected (segmentation/pose not supported)
 
 ### Split-aware reading
 
@@ -135,10 +140,11 @@ Behavior:
 
 Writer behavior:
 - creates output `images/` and `labels/` directories
-- writes `data.yaml` class map
+- writes `data.yaml` with a `names:` mapping (sorted by class index); does not emit train/val paths or `nc`
 - creates empty `.txt` files for images without annotations
 - does **not** copy image binaries
 - writes normalized floats with 6 decimal places
+- emits an optional 6th confidence token when `Annotation.confidence` is `Some`
 
 ## Pascal VOC XML (`voc` / `pascal-voc` / `voc-xml`)
 

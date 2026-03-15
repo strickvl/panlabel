@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use panlabel::ir::io_yolo::{read_yolo_dir, write_yolo_dir};
+use panlabel::ir::{Annotation, BBoxXYXY, Category, Dataset, Image};
 use panlabel::PanlabelError;
 
 mod common;
@@ -141,4 +142,122 @@ fn yolo_write_then_read_roundtrip_semantic() {
         assert!((left.bbox.xmax() - right.bbox.xmax()).abs() < 1e-3);
         assert!((left.bbox.ymax() - right.bbox.ymax()).abs() < 1e-3);
     }
+}
+
+#[test]
+fn yolo_confidence_roundtrip() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_root = temp.path().join("yolo_conf");
+
+    let dataset = Dataset {
+        images: vec![Image::new(1u64, "img.bmp", 100, 100)],
+        categories: vec![Category::new(1u64, "cat"), Category::new(2u64, "dog")],
+        annotations: vec![
+            Annotation::new(1u64, 1u64, 1u64, BBoxXYXY::from_xyxy(10.0, 20.0, 60.0, 70.0))
+                .with_confidence(0.95),
+            Annotation::new(2u64, 1u64, 2u64, BBoxXYXY::from_xyxy(30.0, 40.0, 80.0, 90.0)),
+        ],
+        ..Default::default()
+    };
+
+    write_yolo_dir(&output_root, &dataset).expect("write yolo");
+
+    // Materialize image for re-read
+    write_bmp(&output_root.join("images/img.bmp"), 100, 100);
+
+    let restored = read_yolo_dir(&output_root).expect("read yolo");
+    assert_eq!(restored.annotations.len(), 2);
+
+    // First annotation had confidence — should survive roundtrip
+    assert!(
+        restored.annotations[0].confidence.is_some(),
+        "confidence should be preserved"
+    );
+    assert!(
+        (restored.annotations[0].confidence.unwrap() - 0.95).abs() < 1e-6,
+        "confidence value should match"
+    );
+
+    // Second annotation had no confidence — should remain None
+    assert_eq!(restored.annotations[1].confidence, None);
+}
+
+#[test]
+fn yolo_6_token_row_accepted_7_rejected() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+    write_bmp(&temp.path().join("images/ok.bmp"), 10, 10);
+    // 6 tokens = valid (bbox + confidence)
+    fs::write(
+        temp.path().join("labels/ok.txt"),
+        "0 0.5 0.5 0.3 0.3 0.99\n",
+    )
+    .expect("write 6-token label");
+
+    let dataset = read_yolo_dir(temp.path()).expect("6-token row should be accepted");
+    assert_eq!(dataset.annotations.len(), 1);
+    assert_eq!(dataset.annotations[0].confidence, Some(0.99));
+
+    // Now try 7 tokens — should fail
+    let temp2 = tempfile::tempdir().expect("create temp dir");
+    fs::create_dir_all(temp2.path().join("images")).expect("create images dir");
+    fs::create_dir_all(temp2.path().join("labels")).expect("create labels dir");
+    write_bmp(&temp2.path().join("images/bad.bmp"), 10, 10);
+    fs::write(
+        temp2.path().join("labels/bad.txt"),
+        "0 0.1 0.2 0.3 0.4 0.5 0.6\n",
+    )
+    .expect("write 7-token label");
+
+    let err = read_yolo_dir(temp2.path()).unwrap_err();
+    match err {
+        PanlabelError::YoloLabelParse { message, .. } => {
+            assert!(message.contains("segmentation/pose"));
+        }
+        other => panic!("expected YoloLabelParse, got {other:?}"),
+    }
+}
+
+#[test]
+fn flat_layout_no_data_yaml_with_classes_txt() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+    write_bmp(&temp.path().join("images/a.bmp"), 50, 50);
+    fs::write(temp.path().join("classes.txt"), "person\ndog\n").expect("write classes.txt");
+    fs::write(
+        temp.path().join("labels/a.txt"),
+        "1 0.5 0.5 0.3 0.3\n",
+    )
+    .expect("write label");
+
+    let dataset = read_yolo_dir(temp.path()).expect("read flat layout with classes.txt");
+    assert_eq!(dataset.categories.len(), 2);
+    assert_eq!(dataset.categories[0].name, "person");
+    assert_eq!(dataset.categories[1].name, "dog");
+    assert_eq!(dataset.annotations.len(), 1);
+}
+
+#[test]
+fn flat_layout_no_data_yaml_no_classes_txt() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+    fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+    write_bmp(&temp.path().join("images/a.bmp"), 50, 50);
+    // No data.yaml, no classes.txt
+    fs::write(
+        temp.path().join("labels/a.txt"),
+        "2 0.5 0.5 0.3 0.3\n0 0.2 0.2 0.1 0.1\n",
+    )
+    .expect("write label");
+
+    let dataset = read_yolo_dir(temp.path()).expect("read flat layout inferred names");
+    assert_eq!(dataset.categories.len(), 3);
+    assert_eq!(dataset.categories[0].name, "class_0");
+    assert_eq!(dataset.categories[1].name, "class_1");
+    assert_eq!(dataset.categories[2].name, "class_2");
 }

@@ -38,9 +38,9 @@ active or legacy use, so that any dataset can be converted to any other format.
 
 #### YOLO variant improvements
 
-- ⏳ YOLO split-aware reading — `data.yaml` with `train:`/`val:`/`test:` path keys (Roboflow, Ultralytics Hub exports)
-- ⏳ YOLO optional confidence token — parse optional 6th float as IR `confidence`
-- ⏳ YOLO Darknet flat-directory layout — single `images/` + `labels/` directory without `data.yaml`, `classes.txt` for class names
+- ✅ YOLO split-aware reading — `data.yaml` with `train:`/`val:`/`test:` path keys (Roboflow, Ultralytics Hub exports)
+- ✅ YOLO optional confidence token — parse optional 6th float as IR `confidence`
+- ✅ YOLO Darknet flat-directory layout — single `images/` + `labels/` directory without `data.yaml`, `classes.txt` for class names
 - ⏳ Scaled-YOLOv4 TXT — same token format as Ultralytics but different directory conventions
 - ⏳ YOLOv4 PyTorch TXT — single annotations file listing `image_path x1,y1,x2,y2,class_id` per line (absolute pixel coords, not normalized)
 - ⏳ YOLO Keras TXT — similar per-line format with absolute pixel coordinates

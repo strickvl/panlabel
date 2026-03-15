@@ -1,7 +1,14 @@
-//! Ultralytics-style YOLO reader and writer.
+//! YOLO TXT directory reader and writer.
 //!
 //! This module handles directory-based YOLO datasets with `images/` and `labels/`
-//! trees, including split-aware layouts (train/val/test) specified in `data.yaml`.
+//! trees. Supports both flat layouts (Darknet-style, with optional `classes.txt`)
+//! and split-aware layouts (train/val/test) specified in `data.yaml`.
+//!
+//! Label row format: `<class_id> <cx> <cy> <w> <h> [confidence]`
+//! - 5 tokens: detection bbox (confidence = None)
+//! - 6 tokens: detection bbox + confidence score
+//! - 7+ tokens: rejected (segmentation/pose not supported)
+//!
 //! The canonical IR representation remains pixel-space XYXY boxes.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -211,12 +218,16 @@ pub fn read_yolo_dir_with_options(
                 BBoxXYXY::<Normalized>::from_cxcywh(parsed.cx, parsed.cy, parsed.w, parsed.h);
             let bbox_px = bbox_norm.to_pixel(image_meta.width as f64, image_meta.height as f64);
 
-            annotations.push(Annotation::new(
+            let mut ann = Annotation::new(
                 AnnotationId::new(next_annotation_id),
                 image_meta.id,
                 CategoryId::new(parsed.class_id as u64 + 1),
                 bbox_px,
-            ));
+            );
+            if let Some(conf) = parsed.confidence {
+                ann = ann.with_confidence(conf);
+            }
+            annotations.push(ann);
             next_annotation_id += 1;
         }
     }
@@ -330,12 +341,21 @@ pub fn write_yolo_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelErro
                 .to_normalized(image.width as f64, image.height as f64);
             let (cx, cy, w, h) = bbox_norm.to_cxcywh();
 
-            writeln!(
-                label_file,
-                "{} {:.6} {:.6} {:.6} {:.6}",
-                class_id, cx, cy, w, h
-            )
-            .map_err(PanlabelError::Io)?;
+            if let Some(conf) = ann.confidence {
+                writeln!(
+                    label_file,
+                    "{} {:.6} {:.6} {:.6} {:.6} {:.6}",
+                    class_id, cx, cy, w, h, conf
+                )
+                .map_err(PanlabelError::Io)?;
+            } else {
+                writeln!(
+                    label_file,
+                    "{} {:.6} {:.6} {:.6} {:.6}",
+                    class_id, cx, cy, w, h
+                )
+                .map_err(PanlabelError::Io)?;
+            }
         }
     }
 
@@ -392,6 +412,7 @@ struct YoloLabelRow {
     cy: f64,
     w: f64,
     h: f64,
+    confidence: Option<f64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -811,18 +832,37 @@ fn parse_label_line(
         return Ok(None);
     }
 
-    // Take at most 6 tokens so pathological inputs do not allocate unbounded memory.
-    let tokens: Vec<&str> = trimmed.split_whitespace().take(6).collect();
+    // Walk tokens one at a time to distinguish 5, 6, and 7+ without unbounded
+    // allocation.  5 tokens = detection bbox, 6 = detection + confidence,
+    // 7+ = segmentation/pose/other unsupported row type.
+    let mut it = trimmed.split_whitespace();
 
-    if tokens.len() < 5 {
+    // Read 5 required tokens.
+    let t0 = it.next().ok_or_else(|| PanlabelError::YoloLabelParse {
+        path: file_path.to_path_buf(),
+        line: line_num,
+        message: "expected 5 or 6 tokens, found 0".to_string(),
+    })?;
+    let t1 = it.next();
+    let t2 = it.next();
+    let t3 = it.next();
+    let t4 = it.next();
+
+    if t4.is_none() {
+        // Count how many we actually got (t0 always present).
+        let count = 1 + t1.is_some() as usize + t2.is_some() as usize + t3.is_some() as usize;
         return Err(PanlabelError::YoloLabelParse {
             path: file_path.to_path_buf(),
             line: line_num,
-            message: format!("expected 5 tokens, found {}", tokens.len()),
+            message: format!("expected 5 or 6 tokens, found {count}"),
         });
     }
 
-    if tokens.len() > 5 {
+    // Optional 6th token (confidence).
+    let t5 = it.next();
+
+    // 7+ tokens means segmentation/pose — reject.
+    if it.next().is_some() {
         return Err(PanlabelError::YoloLabelParse {
             path: file_path.to_path_buf(),
             line: line_num,
@@ -831,21 +871,25 @@ fn parse_label_line(
         });
     }
 
-    let class_id = tokens[0]
+    let class_id = t0
         .parse::<usize>()
         .map_err(|_| PanlabelError::YoloLabelParse {
             path: file_path.to_path_buf(),
             line: line_num,
             message: format!(
-                "invalid class_id '{}'; expected non-negative integer",
-                tokens[0]
+                "invalid class_id '{t0}'; expected non-negative integer",
             ),
         })?;
 
-    let cx = parse_f64_token(tokens[1], "x_center", file_path, line_num)?;
-    let cy = parse_f64_token(tokens[2], "y_center", file_path, line_num)?;
-    let w = parse_f64_token(tokens[3], "width", file_path, line_num)?;
-    let h = parse_f64_token(tokens[4], "height", file_path, line_num)?;
+    let cx = parse_f64_token(t1.unwrap(), "x_center", file_path, line_num)?;
+    let cy = parse_f64_token(t2.unwrap(), "y_center", file_path, line_num)?;
+    let w = parse_f64_token(t3.unwrap(), "width", file_path, line_num)?;
+    let h = parse_f64_token(t4.unwrap(), "height", file_path, line_num)?;
+
+    let confidence = match t5 {
+        Some(raw) => Some(parse_f64_token(raw, "confidence", file_path, line_num)?),
+        None => None,
+    };
 
     Ok(Some(YoloLabelRow {
         class_id,
@@ -853,6 +897,7 @@ fn parse_label_line(
         cy,
         w,
         h,
+        confidence,
     }))
 }
 
@@ -946,7 +991,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_label_line_accepts_valid_rows() {
+    fn parse_label_line_accepts_valid_5_token_rows() {
         let parsed = parse_label_line("2 0.5 0.25 0.3 0.1", Path::new("a.txt"), 1)
             .expect("parse should succeed")
             .expect("line should produce a row");
@@ -959,6 +1004,26 @@ mod tests {
                 cy: 0.25,
                 w: 0.3,
                 h: 0.1,
+                confidence: None,
+            }
+        );
+    }
+
+    #[test]
+    fn parse_label_line_accepts_6_token_rows_with_confidence() {
+        let parsed = parse_label_line("1 0.5 0.5 0.3 0.4 0.876543", Path::new("a.txt"), 1)
+            .expect("parse should succeed")
+            .expect("line should produce a row");
+
+        assert_eq!(
+            parsed,
+            YoloLabelRow {
+                class_id: 1,
+                cx: 0.5,
+                cy: 0.5,
+                w: 0.3,
+                h: 0.4,
+                confidence: Some(0.876543),
             }
         );
     }
@@ -977,7 +1042,9 @@ mod tests {
 
     #[test]
     fn parse_label_line_rejects_segmentation_rows() {
-        let err = parse_label_line("0 0.1 0.2 0.3 0.4 0.5", Path::new("a.txt"), 4).unwrap_err();
+        // 7 tokens = segmentation/pose, should be rejected
+        let err =
+            parse_label_line("0 0.1 0.2 0.3 0.4 0.5 0.6", Path::new("a.txt"), 4).unwrap_err();
         assert!(matches!(err, PanlabelError::YoloLabelParse { .. }));
     }
 
@@ -1441,5 +1508,143 @@ mod tests {
         let dataset = read_yolo_dir(temp.path()).expect("read flat");
         assert!(!dataset.info.attributes.contains_key("yolo_layout_mode"));
         assert!(!dataset.info.attributes.contains_key("yolo_splits_found"));
+    }
+
+    // -------------------------------------------------------------------
+    // Confidence read/write tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn read_yolo_maps_6th_token_to_confidence() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+        fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+        write_bmp(&temp.path().join("images/img.bmp"), 20, 10);
+        fs::write(temp.path().join("data.yaml"), "names:\n  - cat\n").expect("write data yaml");
+        fs::write(
+            temp.path().join("labels/img.txt"),
+            "0 0.5 0.5 0.4 0.4 0.876543\n",
+        )
+        .expect("write label with confidence");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read yolo");
+        assert_eq!(dataset.annotations.len(), 1);
+        assert_eq!(dataset.annotations[0].confidence, Some(0.876543));
+    }
+
+    #[test]
+    fn read_yolo_no_confidence_stays_none() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+        fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+        write_bmp(&temp.path().join("images/img.bmp"), 20, 10);
+        fs::write(temp.path().join("data.yaml"), "names:\n  - cat\n").expect("write data yaml");
+        fs::write(
+            temp.path().join("labels/img.txt"),
+            "0 0.5 0.5 0.4 0.4\n",
+        )
+        .expect("write label without confidence");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read yolo");
+        assert_eq!(dataset.annotations.len(), 1);
+        assert_eq!(dataset.annotations[0].confidence, None);
+    }
+
+    #[test]
+    fn write_yolo_emits_confidence_as_6th_token() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        let dataset = Dataset {
+            images: vec![Image::new(1u64, "img.bmp", 20, 10)],
+            categories: vec![Category::new(1u64, "cat")],
+            annotations: vec![
+                Annotation::new(
+                    1u64,
+                    1u64,
+                    1u64,
+                    super::BBoxXYXY::from_xyxy(2.0, 1.0, 18.0, 9.0),
+                )
+                .with_confidence(0.95),
+            ],
+            ..Default::default()
+        };
+
+        write_yolo_dir(temp.path(), &dataset).expect("write yolo");
+        let content =
+            fs::read_to_string(temp.path().join("labels/img.txt")).expect("read label file");
+        let tokens: Vec<&str> = content.trim().split_whitespace().collect();
+        assert_eq!(tokens.len(), 6, "should have 6 tokens when confidence is present");
+        assert_eq!(tokens[5], "0.950000");
+    }
+
+    #[test]
+    fn write_yolo_omits_confidence_when_none() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        let dataset = Dataset {
+            images: vec![Image::new(1u64, "img.bmp", 20, 10)],
+            categories: vec![Category::new(1u64, "cat")],
+            annotations: vec![Annotation::new(
+                1u64,
+                1u64,
+                1u64,
+                super::BBoxXYXY::from_xyxy(2.0, 1.0, 18.0, 9.0),
+            )],
+            ..Default::default()
+        };
+
+        write_yolo_dir(temp.path(), &dataset).expect("write yolo");
+        let content =
+            fs::read_to_string(temp.path().join("labels/img.txt")).expect("read label file");
+        let tokens: Vec<&str> = content.trim().split_whitespace().collect();
+        assert_eq!(tokens.len(), 5, "should have 5 tokens when confidence is absent");
+    }
+
+    // -------------------------------------------------------------------
+    // Darknet flat layout (no data.yaml) tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn flat_layout_no_data_yaml_with_classes_txt() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+        fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+        write_bmp(&temp.path().join("images/dog.bmp"), 100, 100);
+        fs::write(temp.path().join("classes.txt"), "person\ndog\n").expect("write classes.txt");
+        fs::write(
+            temp.path().join("labels/dog.txt"),
+            "1 0.5 0.5 0.3 0.3\n",
+        )
+        .expect("write label");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read flat Darknet layout");
+        assert_eq!(dataset.images.len(), 1);
+        assert_eq!(dataset.categories.len(), 2);
+        assert_eq!(dataset.categories[0].name, "person");
+        assert_eq!(dataset.categories[1].name, "dog");
+        assert_eq!(dataset.annotations.len(), 1);
+        assert_eq!(dataset.annotations[0].category_id.as_u64(), 2); // "dog" = index 1 => CategoryId 2
+    }
+
+    #[test]
+    fn flat_layout_no_data_yaml_inferred_names() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        fs::create_dir_all(temp.path().join("images")).expect("create images dir");
+        fs::create_dir_all(temp.path().join("labels")).expect("create labels dir");
+
+        write_bmp(&temp.path().join("images/a.bmp"), 100, 100);
+        // No data.yaml, no classes.txt
+        fs::write(
+            temp.path().join("labels/a.txt"),
+            "2 0.5 0.5 0.3 0.3\n0 0.2 0.2 0.1 0.1\n",
+        )
+        .expect("write label");
+
+        let dataset = read_yolo_dir(temp.path()).expect("read flat layout with inferred names");
+        assert_eq!(dataset.categories.len(), 3);
+        assert_eq!(dataset.categories[0].name, "class_0");
+        assert_eq!(dataset.categories[1].name, "class_1");
+        assert_eq!(dataset.categories[2].name, "class_2");
     }
 }

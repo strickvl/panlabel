@@ -156,7 +156,7 @@ panlabel list-formats --output json
 | `cvat` | `.xml` / `annotations.xml` export | CVAT for images XML annotation export | Lossy |
 | `label-studio` | `.json` | Label Studio task export JSON (`rectanglelabels`) | Lossy |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
-| `yolo` | `images/ + labels/` directory | Ultralytics YOLO `.txt` labels | Lossy |
+| `yolo` | `images/ + labels/` directory | YOLO `.txt` labels (flat or split-aware, optional confidence) | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
 

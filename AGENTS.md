@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `src/lib.rs` is the library entry point with CLI command dispatch.
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
-- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for Ultralytics-style YOLO, `src/ir/io_voc_xml.rs` for Pascal VOC XML, and `src/ir/io_label_studio_json.rs` for Label Studio JSON.
+- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for YOLO TXT directory format (flat Darknet-style and split-aware layouts, with optional confidence token), `src/ir/io_voc_xml.rs` for Pascal VOC XML, and `src/ir/io_label_studio_json.rs` for Label Studio JSON.
 - `src/conversion/` contains conversion lossiness analysis and stable report issue codes.
 - `src/stats/` contains dataset statistics logic and HTML/text/JSON reporting.
 - `src/validation/` contains dataset validation logic.

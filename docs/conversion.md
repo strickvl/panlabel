@@ -87,11 +87,11 @@ These codes are designed to be stable for programmatic use.
 | `yolo_reader_class_map_source` | YOLO class map precedence/source note |
 | `yolo_writer_class_order` | YOLO writer class index assignment policy |
 | `yolo_writer_empty_label_files` | YOLO writer creates empty label files for unannotated images |
-| `yolo_writer_float_precision` | YOLO normalized float precision policy |
+| `yolo_writer_float_precision` | YOLO normalized float and confidence precision policy (6 decimal places) |
 | `yolo_writer_deterministic_order` | YOLO writer orders images and labels by file_name |
 | `yolo_writer_no_image_copy` | YOLO writer creates only label files; images are not copied |
 | `yolo_reader_split_handling` | YOLO reader split-aware layout: notes which splits were found and which were read |
-| `yolo_writer_data_yaml_policy` | YOLO writer emits data.yaml with class names and paths |
+| `yolo_writer_data_yaml_policy` | YOLO writer emits data.yaml with a names: mapping only (no split paths or nc) |
 | `voc_reader_id_assignment` | VOC reader deterministic ID assignment policy |
 | `voc_reader_attribute_mapping` | VOC reader mapping of pose/truncated/difficult/occluded attributes |
 | `voc_reader_coordinate_policy` | VOC reader coordinate policy (no 0/1-based adjustment) |

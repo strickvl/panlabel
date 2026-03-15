@@ -40,13 +40,13 @@ For per-format details, see [formats.md](./formats.md).
 
 ## Why panlabel rejects unsupported data instead of silently dropping it
 
-You might wonder why panlabel errors out on YOLO rows with 6+ tokens or ignores
+You might wonder why panlabel errors out on YOLO rows with 7+ tokens or ignores
 COCO segmentation payloads. The principle is simple: **no silent surprises**.
 If panlabel can't faithfully represent something, it tells you rather than
 quietly producing incomplete output.
 
 Examples:
-- YOLO rows with more than 5 tokens (often segmentation or pose data) are rejected with a clear error.
+- YOLO rows with 7+ tokens (segmentation, pose, or OBB data) are rejected with a clear error. 6-token rows are accepted as detection + confidence.
 - COCO segmentation payloads are accepted during read but not converted into IR (bbox-only).
 - Label Studio result types other than `rectanglelabels` are rejected in the current detection-only adapter.
 - Label Studio `rotation` does not add OBB support: geometry is flattened to axis-aligned envelopes (angle retained as metadata).
@@ -61,7 +61,7 @@ format accepts and rejects:
 | `coco` | bbox annotations (`annotations[].bbox`) | `segmentation` is accepted on read but ignored (not converted to IR); on write, emitted as `[]` |
 | `cvat` | `<box>` annotation elements only | `<polygon>`, `<points>`, `<polyline>`, and other annotation elements are hard parse errors |
 | `label-studio` | `rectanglelabels` results only | Other result types are rejected; `rotation` is flattened to an axis-aligned envelope (angle kept as `ls_rotation_deg` attribute) |
-| `yolo` | 5-token bbox rows (`class x_center y_center w h`) | Rows with 6+ tokens (segmentation, pose, OBB) are rejected with a clear error |
+| `yolo` | 5-token bbox rows (`class cx cy w h`) and 6-token rows (`class cx cy w h confidence`) | Rows with 7+ tokens (segmentation, pose, OBB) are rejected with a clear error |
 | `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
 | `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
 | `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |

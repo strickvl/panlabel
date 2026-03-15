@@ -1,0 +1,52 @@
+{
+  "img001.jpg12345": {
+    "filename": "img001.jpg",
+    "size": 12345,
+    "regions": [
+      {
+        "shape_attributes": {
+          "name": "rect",
+          "x": 10,
+          "y": 20,
+          "width": 100,
+          "height": 50
+        },
+        "region_attributes": {
+          "label": "cat"
+        }
+      },
+      {
+        "shape_attributes": {
+          "name": "rect",
+          "x": 200,
+          "y": 150,
+          "width": 80,
+          "height": 60
+        },
+        "region_attributes": {
+          "label": "dog"
+        }
+      }
+    ],
+    "file_attributes": {}
+  },
+  "img002.jpg67890": {
+    "filename": "img002.jpg",
+    "size": 67890,
+    "regions": [
+      {
+        "shape_attributes": {
+          "name": "rect",
+          "x": 50,
+          "y": 30,
+          "width": 120,
+          "height": 90
+        },
+        "region_attributes": {
+          "label": "cat"
+        }
+      }
+    ],
+    "file_attributes": {}
+  }
+}

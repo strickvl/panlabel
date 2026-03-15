@@ -23,6 +23,9 @@ Current scope: **object detection** bounding boxes only.
 | `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
 | `labelme` | file (`.json`) or directory (`annotations/`) | yes | yes | lossy |
 | `create-ml` | file (`.json`) | yes | yes | lossy |
+| `kitti` | directory (`label_2/` + `image_2/`) | yes | yes | lossy |
+| `via` | file (`.json`) | yes | yes | lossy |
+| `retinanet` | file (`.csv`) | yes | yes | lossy |
 
 ## IR JSON (`ir-json`)
 
@@ -323,6 +326,112 @@ Writer behavior:
 - deterministic output: image rows sorted by filename, annotations sorted by annotation ID
 - images without annotations are included (empty `annotations` array)
 - does **not** write image dimensions (this is by design — CreateML resolves them at training time)
+
+Limitations:
+- no dataset-level metadata/licenses
+- no image-level metadata (dimensions, license, date)
+- no annotation confidence/attributes
+- requires image files on disk for reading (to resolve dimensions)
+
+## KITTI (`kitti` / `kitti-txt`)
+
+- Path kind: directory.
+- Accepted input path:
+  - dataset root containing `label_2/` and `image_2/`
+  - or `label_2/` directory directly (with sibling `../image_2/`)
+- Standard format in autonomous driving research.
+- Per-image `.txt` files with 15 space-separated fields per line (optional 16th field: score).
+- Fields: `type truncated occluded alpha xmin ymin xmax ymax dim_height dim_width dim_length loc_x loc_y loc_z rotation_y [score]`
+- Bbox: fields 4–7 (`xmin ymin xmax ymax`) are absolute pixel coordinates.
+
+Reader behavior:
+- scans `label_2/` flat (non-recursive, top-level `.txt` files only)
+- resolves images from `image_2/` with extension precedence: `.png`, `.jpg`, `.jpeg`, `.bmp`, `.webp`
+- maps `type` → category name, fields 4–7 → `BBoxXYXY<Pixel>`, optional field 15 → `Annotation.confidence`
+- stores remaining numeric fields as annotation attributes with `kitti_*` prefix: `kitti_truncated`, `kitti_occluded`, `kitti_alpha`, `kitti_dim_height`, `kitti_dim_width`, `kitti_dim_length`, `kitti_loc_x`, `kitti_loc_y`, `kitti_loc_z`, `kitti_rotation_y`
+
+Deterministic policy:
+- reader image IDs: by resolved image filename (lexicographic)
+- reader category IDs: by class/type name (lexicographic)
+- reader annotation IDs: by label file order then line number
+
+Writer behavior:
+- creates `label_2/` + `image_2/README.txt`
+- one `.txt` per image, empty files for unannotated images
+- sorts images by `file_name`, annotations within each image by ID
+- sources KITTI-specific fields from `kitti_*` annotation attributes; uses defaults for missing values: truncated=0, occluded=0, alpha=−10, dims=−1, loc=−1000, rotation_y=−10
+- rejects `Image.file_name` with path separators (KITTI layout is flat)
+- does **not** copy image binaries
+
+Limitations:
+- no dataset-level metadata/licenses
+- no image-level metadata (license, date)
+- no annotation attributes outside the `kitti_*` set
+- confidence is preserved via the optional `score` field
+
+## VGG Image Annotator JSON (`via` / `via-json` / `vgg-via`)
+
+- Path kind: JSON file.
+- Popular academic annotation tool.
+- Single JSON file with object-root keyed by arbitrary strings (typically `filename+size`).
+- Each entry: `{ filename, size, regions, file_attributes }`.
+- Supported region type: `rect` only (`shape_attributes.name == "rect"` with `x`, `y`, `width`, `height`).
+- Image dimensions are **not** stored in the JSON — resolved from local image files.
+
+Reader behavior:
+- supports `regions` as either an array or an object map (both forms exist in real VIA exports)
+- label resolution precedence from `region_attributes`: `label`, then `class`, then sole scalar attribute
+- non-rect shapes are skipped with a warning
+- image dimension resolution: `<json_dir>/<filename>` then `<json_dir>/images/<filename>`
+- rejects duplicate filenames across entries
+- stores `via_size_bytes` as image attribute; scalar `file_attributes` as `via_file_attr_<key>` image attributes
+- stores scalar `region_attributes` (excluding the label key) as `via_region_attr_<key>` annotation attributes
+
+Deterministic policy:
+- reader image IDs: by filename (lexicographic)
+- reader category IDs: by resolved label (lexicographic)
+- reader annotation IDs: by image order then region order (for object-form regions, keys sorted lexicographically)
+
+Writer behavior:
+- writes JSON object keyed by `<filename><size>`
+- `regions` always emitted as array, sorted by annotation ID
+- uses canonical `label` key in `region_attributes` for category name
+- reconstructs `file_attributes` from `via_file_attr_*` image attributes
+- unannotated images preserved with `regions: []`
+- does **not** copy image binaries
+
+Limitations:
+- only rectangle regions are supported
+- no dataset-level metadata/licenses
+- no annotation confidence
+- requires image files on disk for reading (to resolve dimensions)
+
+## RetinaNet Keras CSV (`retinanet` / `retinanet-csv` / `keras-retinanet`)
+
+- Path kind: CSV file.
+- Simple format used with keras-retinanet: `path,x1,y1,x2,y2,class_name`.
+- Coordinates are absolute pixels (unlike TFOD which uses normalized coordinates).
+- No header required (optional header row is tolerated).
+- Unannotated images: `path,,,,,` (all-empty row).
+- Image dimensions are **not** in the CSV — resolved from local image files.
+
+Reader behavior:
+- tolerates optional header row exactly matching `path,x1,y1,x2,y2,class_name`
+- supports empty rows (`path,,,,,`) for unannotated images
+- rejects partial rows (some bbox fields present, others empty)
+- resolves image paths relative to CSV parent directory; absolute paths used as-is
+- caches dimension lookups per image path
+
+Deterministic policy:
+- reader image IDs: by path (lexicographic)
+- reader category IDs: by class name (lexicographic)
+- reader annotation IDs: by CSV row order
+
+Writer behavior:
+- headerless CSV (matches keras-retinanet conventions)
+- rows grouped by image, images sorted by `file_name`, annotations by ID
+- unannotated images emit exactly one `path,,,,,` row
+- does **not** copy image binaries
 
 Limitations:
 - no dataset-level metadata/licenses

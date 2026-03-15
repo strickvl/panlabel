@@ -95,6 +95,15 @@ enum ConvertFormat {
     /// Apple CreateML annotation format (JSON).
     #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
     CreateMl,
+    /// KITTI object detection label files (directory-based).
+    #[value(name = "kitti", alias = "kitti-txt")]
+    Kitti,
+    /// VGG Image Annotator JSON format.
+    #[value(name = "via", alias = "via-json", alias = "vgg-via")]
+    Via,
+    /// keras-retinanet CSV format.
+    #[value(name = "retinanet", alias = "retinanet-csv", alias = "keras-retinanet")]
+    Retinanet,
 }
 
 impl ConvertFormat {
@@ -111,6 +120,9 @@ impl ConvertFormat {
             ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
             ConvertFormat::LabelMe => conversion::Format::LabelMe,
             ConvertFormat::CreateMl => conversion::Format::CreateMl,
+            ConvertFormat::Kitti => conversion::Format::Kitti,
+            ConvertFormat::Via => conversion::Format::Via,
+            ConvertFormat::Retinanet => conversion::Format::Retinanet,
         }
     }
 }
@@ -156,6 +168,15 @@ enum ConvertFromFormat {
     /// Apple CreateML annotation format (JSON).
     #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
     CreateMl,
+    /// KITTI object detection label files (directory-based).
+    #[value(name = "kitti", alias = "kitti-txt")]
+    Kitti,
+    /// VGG Image Annotator JSON format.
+    #[value(name = "via", alias = "via-json", alias = "vgg-via")]
+    Via,
+    /// keras-retinanet CSV format.
+    #[value(name = "retinanet", alias = "retinanet-csv", alias = "keras-retinanet")]
+    Retinanet,
 }
 
 impl ConvertFromFormat {
@@ -173,6 +194,9 @@ impl ConvertFromFormat {
             ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
             ConvertFromFormat::LabelMe => Some(ConvertFormat::LabelMe),
             ConvertFromFormat::CreateMl => Some(ConvertFormat::CreateMl),
+            ConvertFromFormat::Kitti => Some(ConvertFormat::Kitti),
+            ConvertFromFormat::Via => Some(ConvertFormat::Via),
+            ConvertFromFormat::Retinanet => Some(ConvertFormat::Retinanet),
         }
     }
 }
@@ -629,6 +653,27 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         format: ConvertFormat::CreateMl,
         aliases: &["createml", "create-ml-json"],
         description: "Apple CreateML annotation format (JSON)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Kitti,
+        aliases: &["kitti-txt"],
+        description: "KITTI object detection label files (directory-based)",
+        file_based: false,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Via,
+        aliases: &["via-json", "vgg-via"],
+        description: "VGG Image Annotator (VIA) JSON format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Retinanet,
+        aliases: &["retinanet-csv", "keras-retinanet"],
+        description: "keras-retinanet CSV format",
         file_based: true,
         directory_based: false,
     },
@@ -1322,6 +1367,9 @@ fn read_dataset_with_options(
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
         ConvertFormat::LabelMe => ir::io_labelme_json::read_labelme_json(path),
         ConvertFormat::CreateMl => ir::io_createml_json::read_createml_json(path),
+        ConvertFormat::Kitti => ir::io_kitti::read_kitti_dir(path),
+        ConvertFormat::Via => ir::io_via_json::read_via_json(path),
+        ConvertFormat::Retinanet => ir::io_retinanet_csv::read_retinanet_csv(path),
     }
 }
 
@@ -1360,6 +1408,9 @@ fn write_dataset_with_options(
         }
         ConvertFormat::LabelMe => ir::io_labelme_json::write_labelme_json(path, dataset),
         ConvertFormat::CreateMl => ir::io_createml_json::write_createml_json(path, dataset),
+        ConvertFormat::Kitti => ir::io_kitti::write_kitti_dir(path, dataset),
+        ConvertFormat::Via => ir::io_via_json::write_via_json(path, dataset),
+        ConvertFormat::Retinanet => ir::io_retinanet_csv::write_retinanet_csv(path, dataset),
     }
 }
 
@@ -1512,6 +1563,9 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::HfImagefolder => "hf",
         ConvertFormat::LabelMe => "labelme",
         ConvertFormat::CreateMl => "create-ml",
+        ConvertFormat::Kitti => "kitti",
+        ConvertFormat::Via => "via",
+        ConvertFormat::Retinanet => "retinanet",
     }
 }
 
@@ -1604,7 +1658,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // First try extension-based detection
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext.to_lowercase().as_str() {
-            "csv" => return Ok(ConvertFormat::Tfod),
+            "csv" => return detect_csv_format(path),
             "json" => return detect_json_format(path),
             "xml" => return detect_xml_format(path),
             _ => {}
@@ -1704,7 +1758,8 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
                  - VOC: Annotations/ with .xml files\n  \
                  - CVAT: annotations.xml at directory root\n  \
                  - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n  \
-                 - LabelMe: annotations/ with LabelMe .json files, or co-located .json files\n\
+                 - LabelMe: annotations/ with LabelMe .json files, or co-located .json files\n  \
+                 - KITTI: label_2/ with .txt files and sibling image_2/\n\
                  Use --from to specify format explicitly."
             .to_string(),
     })
@@ -1786,6 +1841,34 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
         hf.found.push("parquet shard files".into());
     }
     probes.push(hf);
+
+    // --- KITTI ---
+    let mut kitti = FormatProbe::new("KITTI", ConvertFormat::Kitti);
+    let kitti_labels_dir = if path.join("label_2").is_dir() {
+        Some(path.join("label_2"))
+    } else if is_dir_named_ci(path, "label_2") {
+        Some(path.to_path_buf())
+    } else {
+        None
+    };
+    if let Some(ref labels_dir) = kitti_labels_dir {
+        if dir_contains_top_level_txt_files(labels_dir)? {
+            kitti.found.push("label_2/ with .txt files".into());
+            let images_exists = if is_dir_named_ci(path, "label_2") {
+                path.parent()
+                    .map(|p| p.join("image_2").is_dir())
+                    .unwrap_or(false)
+            } else {
+                path.join("image_2").is_dir()
+            };
+            if images_exists {
+                kitti.found.push("image_2/ directory".into());
+            } else {
+                kitti.missing.push("image_2/ directory".into());
+            }
+        }
+    }
+    probes.push(kitti);
 
     // --- LabelMe ---
     let mut labelme = FormatProbe::new("LabelMe", ConvertFormat::LabelMe);
@@ -1931,6 +2014,36 @@ fn is_annotations_dir(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn is_dir_named_ci(path: &Path, dir_name: &str) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case(dir_name))
+        .unwrap_or(false)
+}
+
+fn dir_contains_top_level_txt_files(path: &Path) -> Result<bool, PanlabelError> {
+    for entry in std::fs::read_dir(path).map_err(|source| PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: format!("failed while inspecting directory: {source}"),
+    })? {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if entry_path.is_file()
+            && entry_path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("txt"))
+                .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// Check if a directory contains at least one LabelMe JSON file.
 ///
 /// Quick structural check: looks for a .json file with a `shapes` array key.
@@ -1984,6 +2097,46 @@ fn data_yaml_has_split_keys(path: &Path) -> Option<Vec<String>> {
 }
 
 /// Detect whether a JSON file is Label Studio, COCO, or IR JSON format.
+/// Detect CSV sub-format by sniffing column count and header.
+///
+/// Heuristics:
+/// - 8 columns (filename,width,height,class,xmin,ymin,xmax,ymax) -> TFOD
+/// - 6 columns (path,x1,y1,x2,y2,class_name or headerless data) -> RetinaNet
+fn detect_csv_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    let file = std::fs::File::open(path).map_err(PanlabelError::Io)?;
+    let reader = std::io::BufReader::new(file);
+    let mut csv_reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(reader);
+
+    if let Some(result) = csv_reader.records().next() {
+        let record = result.map_err(|_| PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "failed to parse first CSV row while detecting format".to_string(),
+        })?;
+
+        match record.len() {
+            8 => return Ok(ConvertFormat::Tfod),
+            6 => return Ok(ConvertFormat::Retinanet),
+            n => {
+                return Err(PanlabelError::FormatDetectionFailed {
+                    path: path.to_path_buf(),
+                    reason: format!(
+                        "CSV has {n} columns; expected 8 (TFOD) or 6 (RetinaNet). Use --from to specify format explicitly."
+                    ),
+                });
+            }
+        }
+    }
+
+    Err(PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason:
+            "CSV file is empty; cannot determine format. Use --from to specify format explicitly."
+                .to_string(),
+    })
+}
+
 ///
 /// Heuristics:
 /// - Array-root JSON: Label Studio task export
@@ -2031,6 +2184,11 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // Object-root: check for LabelMe (has "shapes" key) before COCO/IR heuristic
     if is_likely_labelme_file(&value) {
         return Ok(ConvertFormat::LabelMe);
+    }
+
+    // Object-root: check for VIA project (entries with filename + regions)
+    if is_likely_via_project(&value) {
+        return Ok(ConvertFormat::Via);
     }
 
     // Object-root detection: COCO-vs-IR heuristic.
@@ -2174,4 +2332,14 @@ fn is_likely_labelme_file(value: &serde_json::Value) -> bool {
     };
 
     obj.get("shapes").map(|v| v.is_array()).unwrap_or(false)
+}
+
+fn is_likely_via_project(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+    // VIA project JSON: top-level keys are image identifiers whose values are
+    // objects containing "filename" and "regions" keys.
+    obj.values()
+        .any(|v| v.is_object() && v.get("filename").is_some() && v.get("regions").is_some())
 }

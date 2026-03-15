@@ -80,3 +80,21 @@ path = "fuzz_targets/createml_json_parse.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "kitti_txt_parse"
+path = "fuzz_targets/kitti_txt_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "via_json_parse"
+path = "fuzz_targets/via_json_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "retinanet_csv_parse"
+path = "fuzz_targets/retinanet_csv_parse.rs"
+test = false
+doc = false

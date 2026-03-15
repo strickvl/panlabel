@@ -53,7 +53,7 @@ format that panlabel already supports. Differences are in directory layout and
 
 #### Dataset formats
 
-- ⏳ KITTI — space-separated `.txt` per image, 15 fields (type, truncated, occluded, alpha, bbox, dimensions, location, rotation_y, score); standard in autonomous driving
+- ✅ KITTI — space-separated `.txt` per image, 15 fields (type, truncated, occluded, alpha, bbox, dimensions, location, rotation_y, score); standard in autonomous driving
 - ⏳ OpenImages CSV — Google's large-scale detection format; CSV with ImageID, Source, LabelName, Confidence, and bbox columns
 - ⏳ Cityscapes — JSON polygons per image with bounding box extraction; urban scene understanding (bbox subset of the polygon annotations)
 - ⏳ Kaggle Wheat Format — CSV with `image_id, width, height, bbox` columns (`[xmin, ymin, w, h]` as a string); encountered in Kaggle competitions
@@ -68,7 +68,7 @@ format that panlabel already supports. Differences are in directory layout and
 - ⏳ Supervisely JSON — annotation platform with nested project structure; per-image JSON in a `ann/` directory with `objects` containing `classTitle` and geometry
 - ⏳ Scale AI JSON — commercial data labeling export; JSON with `annotations` array, bbox as `{left, top, width, height}`
 - ⏳ LabelBox JSON — Labelbox platform export (NDJSON); nested structure with `objects` containing `bbox` and `schemaId`
-- ⏳ VGG Image Annotator (VIA) JSON — popular academic tool; single JSON file keyed by `filename+size` with `regions` containing `shape_attributes`
+- ✅ VGG Image Annotator (VIA) JSON — popular academic tool; single JSON file keyed by `filename+size` with `regions` containing `shape_attributes`
 - ⏳ VoTT JSON/CSV — Microsoft Video Object Tagging Tool (discontinued, but legacy datasets exist); per-asset JSON with `regions` array, or CSV export
 - ⏳ IBM Cloud Annotations JSON — IBM Watson Visual Recognition export; JSON with `annotations` per image
 - ⏳ Unity Perception JSON — Unity engine synthetic data output; per-frame JSON with `captures` containing 2D bbox annotations
@@ -76,7 +76,7 @@ format that panlabel already supports. Differences are in directory layout and
 #### Model-specific formats
 
 - ⏳ TFRecords — TensorFlow binary protobuf format; harder to support (requires protobuf parsing), but widely used for TF training pipelines
-- ⏳ RetinaNet Keras CSV — simple `path,x1,y1,x2,y2,class_name` CSV (one row per annotation); used with keras-retinanet
+- ✅ RetinaNet Keras CSV — simple `path,x1,y1,x2,y2,class_name` CSV (one row per annotation); used with keras-retinanet
 
 ### CLI commands
 

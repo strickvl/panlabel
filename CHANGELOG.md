@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **KITTI format support (`kitti`)**: standard autonomous driving annotation format. Per-image `.txt` files with 15 space-separated fields (type, truncated, occluded, alpha, bbox, 3D dims, location, rotation, optional score). Directory-based with `label_2/` + `image_2/`. Non-bbox KITTI fields preserved as `kitti_*` annotation attributes. Optional score field maps to IR confidence.
+- **VGG Image Annotator JSON support (`via`)**: popular academic annotation tool format. Single JSON file keyed by `filename+size` with rectangle regions. Label resolution from `region_attributes` with `label`/`class`/sole-attribute precedence. VIA metadata preserved as `via_*` attributes.
+- **RetinaNet Keras CSV support (`retinanet`)**: simple `path,x1,y1,x2,y2,class_name` CSV format used with keras-retinanet. Absolute pixel coordinates. Supports empty rows (`path,,,,,`) for unannotated images. Optional header row tolerated.
+- **CSV auto-detection**: `.csv` files are now detected by content (8 columns → TFOD, 6 columns → RetinaNet) rather than always assuming TFOD.
+- **VIA JSON auto-detection**: object-root JSON with entries containing `filename` + `regions` keys → VIA.
+- **KITTI directory auto-detection**: directories with `label_2/` + `image_2/` → KITTI.
+- **Fuzz targets**: `kitti_txt_parse`, `via_json_parse`, `retinanet_csv_parse` for parser fuzzing.
 - **LabelMe JSON format support (`labelme`)**: per-image JSON annotation format with `shapes` array. Supports `rectangle` (2-point) and `polygon` (3+ point, flattened to axis-aligned bbox envelope) shape types. Reads single files, `annotations/` directory layouts, and co-located JSON+image directories. Writer produces canonical `annotations/` directory layout.
 - **CreateML JSON format support (`create-ml`)**: Apple's annotation format for Core ML training. Flat JSON array with center-based absolute pixel coordinates (`{x, y, width, height}`). Image dimensions resolved from local image files. File-based read/write.
 - **Auto-detection for LabelMe and CreateML**: `.json` files with `shapes` array → LabelMe; array-root JSON with `image`+`annotations` keys → CreateML. Empty JSON arrays are now ambiguous between Label Studio and CreateML (requires explicit `--from`).

@@ -119,6 +119,73 @@ pub enum PanlabelError {
     #[error("Failed to write VOC dataset at {path}: {message}")]
     VocWriteError { path: PathBuf, message: String },
 
+    #[error("Invalid KITTI dataset layout at {path}: {message}")]
+    KittiLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse KITTI label in {path}:{line}: {message}")]
+    KittiLabelParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error("Failed to read KITTI image dimensions from {path}: {source}")]
+    KittiImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to write KITTI dataset at {path}: {message}")]
+    KittiWriteError { path: PathBuf, message: String },
+
+    #[error("Failed to parse VIA JSON from {path}: {source}")]
+    ViaJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write VIA JSON to {path}: {source}")]
+    ViaJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid VIA JSON at {path}: {message}")]
+    ViaJsonInvalid { path: PathBuf, message: String },
+
+    #[error("VIA image not found: {image_ref} (searched from {path})")]
+    ViaImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to parse RetinaNet CSV from {path}: {source}")]
+    RetinanetCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write RetinaNet CSV to {path}: {source}")]
+    RetinanetCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid RetinaNet CSV: {path}: {message}")]
+    RetinanetCsvInvalid { path: PathBuf, message: String },
+
+    #[error("RetinaNet image not found: {image_ref} (searched from {path})")]
+    RetinanetImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to read RetinaNet image dimensions from {path}: {source}")]
+    RetinanetImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
     #[error("Invalid CVAT XML layout at {path}: {message}")]
     CvatLayoutInvalid { path: PathBuf, message: String },
 

@@ -45,9 +45,12 @@ pub mod io_hf_imagefolder;
 #[cfg(feature = "hf-parquet")]
 pub mod io_hf_parquet;
 pub mod io_json;
+pub mod io_kitti;
 pub mod io_label_studio_json;
 pub mod io_labelme_json;
+pub mod io_retinanet_csv;
 pub mod io_tfod_csv;
+pub mod io_via_json;
 pub mod io_voc_xml;
 pub mod io_yolo;
 mod model;

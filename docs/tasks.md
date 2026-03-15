@@ -37,6 +37,9 @@ within those boundaries.
 | `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
 | `labelme` | yes | yes | per-image JSON; `rectangle` and `polygon` shapes (polygons flattened to bbox envelopes); file or directory based |
 | `create-ml` | yes | yes | Apple CreateML JSON array; center-based absolute pixel coordinates; file based |
+| `kitti` | yes | yes | directory-based; per-image `.txt` files with 15-field KITTI rows; absolute pixel coordinates |
+| `via` | yes | yes | VGG Image Annotator single-file JSON; rectangle regions; absolute pixel coordinates |
+| `retinanet` | yes | yes | keras-retinanet CSV; absolute pixel XYXY coordinates; file based |
 
 For per-format details, see [formats.md](./formats.md).
 
@@ -69,6 +72,9 @@ format accepts and rejects:
 | `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |
 | `labelme` | `rectangle` shapes (2 points) and `polygon` shapes (3+ points, flattened to bbox envelope) | Other shape types (e.g. `circle`, `line`) are rejected with a clear error |
 | `create-ml` | `coordinates` objects with center-based pixel bboxes (`x`, `y`, `width`, `height`) | Fixed bbox schema; no non-bbox geometry |
+| `kitti` | 15/16-field space-separated rows (type + bbox + 3D fields + optional score) | Fixed 15/16-field schema; no non-bbox geometry |
+| `via` | `rect` regions with `shape_attributes` (`x`, `y`, `width`, `height`) | Non-rect shape types (circle, polygon, etc.) are skipped with a warning |
+| `retinanet` | 6-column CSV rows (`path,x1,y1,x2,y2,class_name`) plus empty rows for unannotated images | Fixed 6-column schema; no non-bbox geometry |
 
 ## Adding a new task in the future
 

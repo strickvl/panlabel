@@ -105,6 +105,15 @@ panlabel convert -f labelme -t coco -i ./labelme_dataset -o coco_output.json
 # Convert Apple CreateML JSON to COCO JSON
 panlabel convert -f create-ml -t coco -i createml_annotations.json -o coco_output.json
 
+# Convert a KITTI dataset to COCO JSON
+panlabel convert -f kitti -t coco -i ./kitti_dataset -o coco_output.json
+
+# Convert VIA JSON to COCO JSON
+panlabel convert -f via -t coco -i via_annotations.json -o coco_output.json
+
+# Convert RetinaNet CSV to COCO JSON
+panlabel convert -f retinanet -t coco -i annotations.csv -o coco_output.json
+
 # Convert local HF ImageFolder metadata to COCO JSON
 panlabel convert -f hf -t coco -i ./hf_dataset -o coco_output.json
 
@@ -167,6 +176,9 @@ panlabel list-formats --output json
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
 | `labelme` | `.json` file or `annotations/` directory | LabelMe per-image JSON annotations | Lossy |
 | `create-ml` | `.json` | Apple CreateML annotation format | Lossy |
+| `kitti` | `label_2/ + image_2/` directory | KITTI object detection labels | Lossy |
+| `via` | `.json` | VGG Image Annotator (VIA) JSON | Lossy |
+| `retinanet` | `.csv` | keras-retinanet CSV format | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 

@@ -29,6 +29,9 @@ pub enum Format {
     HfImagefolder,
     LabelMe,
     CreateMl,
+    Kitti,
+    Via,
+    Retinanet,
 }
 
 /// Classification of how lossy a format is relative to the IR.
@@ -56,6 +59,9 @@ impl Format {
             Format::HfImagefolder => "hf",
             Format::LabelMe => "labelme",
             Format::CreateMl => "create-ml",
+            Format::Kitti => "kitti",
+            Format::Via => "via",
+            Format::Retinanet => "retinanet",
         }
     }
 
@@ -79,6 +85,9 @@ impl Format {
             Format::HfImagefolder => IrLossiness::Lossy,
             Format::LabelMe => IrLossiness::Lossy,
             Format::CreateMl => IrLossiness::Lossy,
+            Format::Kitti => IrLossiness::Lossy,
+            Format::Via => IrLossiness::Lossy,
+            Format::Retinanet => IrLossiness::Lossy,
         }
     }
 }
@@ -111,6 +120,9 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::HfImagefolder => analyze_to_hf(dataset, &mut report),
         Format::LabelMe => analyze_to_labelme(dataset, &mut report),
         Format::CreateMl => analyze_to_createml(dataset, &mut report),
+        Format::Kitti => analyze_to_kitti(dataset, &mut report),
+        Format::Via => analyze_to_via(dataset, &mut report),
+        Format::Retinanet => analyze_to_retinanet(dataset, &mut report),
     }
 
     // Add policy notes based on source format
@@ -124,6 +136,9 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::HfImagefolder => add_hf_reader_policy(&mut report),
         Format::LabelMe => add_labelme_reader_policy(dataset, &mut report),
         Format::CreateMl => add_createml_reader_policy(&mut report),
+        Format::Kitti => add_kitti_reader_policy(&mut report),
+        Format::Via => add_via_reader_policy(&mut report),
+        Format::Retinanet => add_retinanet_reader_policy(&mut report),
         Format::IrJson => {}
     }
 
@@ -138,6 +153,9 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::HfImagefolder => add_hf_writer_policy(&mut report),
         Format::LabelMe => add_labelme_writer_policy(&mut report),
         Format::CreateMl => add_createml_writer_policy(&mut report),
+        Format::Kitti => add_kitti_writer_policy(&mut report),
+        Format::Via => add_via_writer_policy(&mut report),
+        Format::Retinanet => add_retinanet_writer_policy(&mut report),
         Format::IrJson => {}
     }
 
@@ -1197,6 +1215,335 @@ fn add_createml_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::CreatemlWriterNoImageCopy,
         "CreateML writer creates only the JSON file; images are not copied".to_string(),
+    ));
+}
+
+/// KITTI attribute keys preserved by the writer.
+const KITTI_PRESERVED_ATTRS: &[&str] = &[
+    "kitti_truncated",
+    "kitti_occluded",
+    "kitti_alpha",
+    "kitti_dim_height",
+    "kitti_dim_width",
+    "kitti_dim_length",
+    "kitti_loc_x",
+    "kitti_loc_y",
+    "kitti_loc_z",
+    "kitti_rotation_y",
+];
+
+fn analyze_to_kitti(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have license_id/date_captured that will be dropped",
+                images_with_metadata
+            ),
+        ));
+    }
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+    // KITTI preserves confidence as optional score field — no warning needed.
+    let anns_with_unrepresentable_attrs = dataset
+        .annotations
+        .iter()
+        .filter(|ann| {
+            ann.attributes
+                .keys()
+                .any(|key| !KITTI_PRESERVED_ATTRS.contains(&key.as_str()))
+        })
+        .count();
+    if anns_with_unrepresentable_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes outside KITTI's preserved set (kitti_*)",
+                anns_with_unrepresentable_attrs
+            ),
+        ));
+    }
+    report.output = report.input.clone();
+}
+
+fn analyze_to_via(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| {
+            img.license_id.is_some()
+                || img.date_captured.is_some()
+                || img
+                    .attributes
+                    .keys()
+                    .any(|key| key != "via_size_bytes" && !key.starts_with("via_file_attr_"))
+        })
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata that VIA cannot represent",
+                images_with_metadata
+            ),
+        ));
+    }
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+    let anns_with_unrepresentable_attrs = dataset
+        .annotations
+        .iter()
+        .filter(|ann| {
+            ann.attributes
+                .keys()
+                .any(|key| !key.starts_with("via_region_attr_"))
+        })
+        .count();
+    if anns_with_unrepresentable_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes outside VIA's preserved set (via_region_attr_*)",
+                anns_with_unrepresentable_attrs
+            ),
+        ));
+    }
+    report.output = report.input.clone();
+}
+
+fn analyze_to_retinanet(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+    let images_with_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| img.license_id.is_some() || img.date_captured.is_some())
+        .count();
+    if images_with_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have license_id/date_captured that will be dropped",
+                images_with_metadata
+            ),
+        ));
+    }
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+    let anns_with_attributes = dataset
+        .annotations
+        .iter()
+        .filter(|ann| !ann.attributes.is_empty())
+        .count();
+    if anns_with_attributes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes that will be dropped",
+                anns_with_attributes
+            ),
+        ));
+    }
+    report.output = report.input.clone();
+}
+
+fn add_kitti_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::KittiReaderIdAssignment,
+        "KITTI reader assigns image IDs by filename order, category IDs by class name order, annotation IDs by file/line order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::KittiReaderFieldMapping,
+        "KITTI non-bbox fields (truncated, occluded, alpha, dimensions, location, rotation) are stored as kitti_* annotation attributes".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::KittiReaderImageResolution,
+        "KITTI reader resolves image dimensions from image_2/ with extension precedence: .png, .jpg, .jpeg, .bmp, .webp".to_string(),
+    ));
+}
+
+fn add_kitti_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::KittiWriterFileLayout,
+        "KITTI writer creates label_2/ with one .txt per image and image_2/README.txt".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::KittiWriterDefaultFieldValues,
+        "KITTI writer uses default values for missing kitti_* attributes (truncated=0, occluded=0, alpha=-10, dims=-1, loc=-1000, rotation=-10)".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::KittiWriterDeterministicOrder,
+        "KITTI writer sorts images by filename and annotations within each image by ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::KittiWriterNoImageCopy,
+        "KITTI writer creates only label files; images are not copied".to_string(),
+    ));
+}
+
+fn add_via_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::ViaReaderIdAssignment,
+        "VIA reader assigns image IDs by filename order, category IDs by label order, annotation IDs by image/region order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::ViaReaderLabelResolution,
+        "VIA reader resolves category labels from region_attributes with precedence: 'label', 'class', then sole scalar attribute".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::ViaReaderImageResolution,
+        "VIA reader resolves image dimensions from disk: <json_dir>/<filename> then <json_dir>/images/<filename>".to_string(),
+    ));
+}
+
+fn add_via_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::ViaWriterDeterministicOrder,
+        "VIA writer orders entries by filename and regions by annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::ViaWriterLabelAttributeKey,
+        "VIA writer uses canonical 'label' key in region_attributes for category names".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::ViaWriterNoImageCopy,
+        "VIA writer creates only the JSON file; images are not copied".to_string(),
+    ));
+}
+
+fn add_retinanet_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::RetinanetReaderIdAssignment,
+        "RetinaNet reader assigns image IDs by path order, category IDs by class name order, annotation IDs by row order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::RetinanetReaderImageResolution,
+        "RetinaNet reader resolves image dimensions from disk relative to CSV parent directory"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::RetinanetReaderEmptyRowHandling,
+        "RetinaNet reader treats rows with empty bbox/class fields as unannotated image entries"
+            .to_string(),
+    ));
+}
+
+fn add_retinanet_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::RetinanetWriterDeterministicOrder,
+        "RetinaNet writer groups rows by image (sorted by filename) with annotations sorted by ID"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::RetinanetWriterEmptyRows,
+        "RetinaNet writer emits path,,,,, rows for images without annotations".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::RetinanetWriterNoImageCopy,
+        "RetinaNet writer creates only the CSV file; images are not copied".to_string(),
     ));
 }
 

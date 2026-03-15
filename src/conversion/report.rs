@@ -347,6 +347,50 @@ pub enum ConversionIssueCode {
     CreatemlWriterCoordinateMapping,
     /// CreateML writer does not copy images.
     CreatemlWriterNoImageCopy,
+
+    // KITTI policy (Info level)
+    /// KITTI reader deterministic ID assignment policy.
+    KittiReaderIdAssignment,
+    /// KITTI reader maps non-bbox fields to IR attributes.
+    KittiReaderFieldMapping,
+    /// KITTI reader image resolution precedence.
+    KittiReaderImageResolution,
+    /// KITTI writer canonical file layout.
+    KittiWriterFileLayout,
+    /// KITTI writer uses default values for missing KITTI-specific attributes.
+    KittiWriterDefaultFieldValues,
+    /// KITTI writer deterministic ordering policy.
+    KittiWriterDeterministicOrder,
+    /// KITTI writer does not copy images.
+    KittiWriterNoImageCopy,
+
+    // VIA policy (Info level)
+    /// VIA reader deterministic ID assignment policy.
+    ViaReaderIdAssignment,
+    /// VIA reader label resolution precedence.
+    ViaReaderLabelResolution,
+    /// VIA reader image resolution precedence.
+    ViaReaderImageResolution,
+    /// VIA writer deterministic ordering policy.
+    ViaWriterDeterministicOrder,
+    /// VIA writer canonical label attribute key.
+    ViaWriterLabelAttributeKey,
+    /// VIA writer does not copy images.
+    ViaWriterNoImageCopy,
+
+    // RetinaNet policy (Info level)
+    /// RetinaNet reader deterministic ID assignment policy.
+    RetinanetReaderIdAssignment,
+    /// RetinaNet reader image resolution precedence.
+    RetinanetReaderImageResolution,
+    /// RetinaNet reader empty-row handling.
+    RetinanetReaderEmptyRowHandling,
+    /// RetinaNet writer deterministic ordering policy.
+    RetinanetWriterDeterministicOrder,
+    /// RetinaNet writer empty-row convention for unannotated images.
+    RetinanetWriterEmptyRows,
+    /// RetinaNet writer does not copy images.
+    RetinanetWriterNoImageCopy,
 }
 
 impl ConversionIssueCode {
@@ -414,6 +458,25 @@ impl ConversionIssueCode {
         Self::CreatemlWriterDeterministicOrder,
         Self::CreatemlWriterCoordinateMapping,
         Self::CreatemlWriterNoImageCopy,
+        Self::KittiReaderIdAssignment,
+        Self::KittiReaderFieldMapping,
+        Self::KittiReaderImageResolution,
+        Self::KittiWriterFileLayout,
+        Self::KittiWriterDefaultFieldValues,
+        Self::KittiWriterDeterministicOrder,
+        Self::KittiWriterNoImageCopy,
+        Self::ViaReaderIdAssignment,
+        Self::ViaReaderLabelResolution,
+        Self::ViaReaderImageResolution,
+        Self::ViaWriterDeterministicOrder,
+        Self::ViaWriterLabelAttributeKey,
+        Self::ViaWriterNoImageCopy,
+        Self::RetinanetReaderIdAssignment,
+        Self::RetinanetReaderImageResolution,
+        Self::RetinanetReaderEmptyRowHandling,
+        Self::RetinanetWriterDeterministicOrder,
+        Self::RetinanetWriterEmptyRows,
+        Self::RetinanetWriterNoImageCopy,
     ];
 
     /// Canonical stable string form, shared by text and JSON output.
@@ -481,6 +544,25 @@ impl ConversionIssueCode {
             Self::CreatemlWriterDeterministicOrder => "createml_writer_deterministic_order",
             Self::CreatemlWriterCoordinateMapping => "createml_writer_coordinate_mapping",
             Self::CreatemlWriterNoImageCopy => "createml_writer_no_image_copy",
+            Self::KittiReaderIdAssignment => "kitti_reader_id_assignment",
+            Self::KittiReaderFieldMapping => "kitti_reader_field_mapping",
+            Self::KittiReaderImageResolution => "kitti_reader_image_resolution",
+            Self::KittiWriterFileLayout => "kitti_writer_file_layout",
+            Self::KittiWriterDefaultFieldValues => "kitti_writer_default_field_values",
+            Self::KittiWriterDeterministicOrder => "kitti_writer_deterministic_order",
+            Self::KittiWriterNoImageCopy => "kitti_writer_no_image_copy",
+            Self::ViaReaderIdAssignment => "via_reader_id_assignment",
+            Self::ViaReaderLabelResolution => "via_reader_label_resolution",
+            Self::ViaReaderImageResolution => "via_reader_image_resolution",
+            Self::ViaWriterDeterministicOrder => "via_writer_deterministic_order",
+            Self::ViaWriterLabelAttributeKey => "via_writer_label_attribute_key",
+            Self::ViaWriterNoImageCopy => "via_writer_no_image_copy",
+            Self::RetinanetReaderIdAssignment => "retinanet_reader_id_assignment",
+            Self::RetinanetReaderImageResolution => "retinanet_reader_image_resolution",
+            Self::RetinanetReaderEmptyRowHandling => "retinanet_reader_empty_row_handling",
+            Self::RetinanetWriterDeterministicOrder => "retinanet_writer_deterministic_order",
+            Self::RetinanetWriterEmptyRows => "retinanet_writer_empty_rows",
+            Self::RetinanetWriterNoImageCopy => "retinanet_writer_no_image_copy",
         }
     }
 }

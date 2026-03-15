@@ -25,6 +25,9 @@ Format-level lossiness relative to IR:
 - `hf`: lossy
 - `labelme`: lossy
 - `create-ml`: lossy
+- `kitti`: lossy
+- `via`: lossy
+- `retinanet`: lossy
 
 The format-level class is a general capability signal. Conversions are actually blocked only when the report contains one or more `warning` issues.
 
@@ -126,6 +129,25 @@ These codes are designed to be stable for programmatic use.
 | `createml_writer_deterministic_order` | CreateML writer deterministic ordering policy |
 | `createml_writer_coordinate_mapping` | CreateML writer center-based coordinate mapping |
 | `createml_writer_no_image_copy` | CreateML writer does not copy image files |
+| `kitti_reader_id_assignment` | KITTI reader deterministic ID assignment policy |
+| `kitti_reader_field_mapping` | KITTI reader maps non-bbox fields to kitti_* annotation attributes |
+| `kitti_reader_image_resolution` | KITTI reader image dimension resolution from image_2/ |
+| `kitti_writer_file_layout` | KITTI writer creates label_2/ with one .txt per image |
+| `kitti_writer_default_field_values` | KITTI writer uses defaults for missing kitti_* attributes |
+| `kitti_writer_deterministic_order` | KITTI writer deterministic ordering policy |
+| `kitti_writer_no_image_copy` | KITTI writer does not copy image files |
+| `via_reader_id_assignment` | VIA reader deterministic ID assignment policy |
+| `via_reader_label_resolution` | VIA reader label resolution from region_attributes |
+| `via_reader_image_resolution` | VIA reader image dimension resolution from disk |
+| `via_writer_deterministic_order` | VIA writer deterministic ordering policy |
+| `via_writer_label_attribute_key` | VIA writer canonical 'label' key in region_attributes |
+| `via_writer_no_image_copy` | VIA writer does not copy image files |
+| `retinanet_reader_id_assignment` | RetinaNet reader deterministic ID assignment policy |
+| `retinanet_reader_image_resolution` | RetinaNet reader image dimension resolution from disk |
+| `retinanet_reader_empty_row_handling` | RetinaNet reader empty-row handling for unannotated images |
+| `retinanet_writer_deterministic_order` | RetinaNet writer deterministic ordering policy |
+| `retinanet_writer_empty_rows` | RetinaNet writer empty-row convention for unannotated images |
+| `retinanet_writer_no_image_copy` | RetinaNet writer does not copy image files |
 
 ## Blocked conversions
 

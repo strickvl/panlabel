@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.5.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -90,7 +90,7 @@ git push && git push --tags
 Release infrastructure:
 - **cargo-dist** (`dist-workspace.toml`) manages cross-platform binary builds and GitHub Releases
 - **Homebrew tap**: `strickvl/homebrew-tap` — auto-updated by release CI (requires `HOMEBREW_TAP_TOKEN` secret)
-- **Tag convention**: `vX.Y.Z` (e.g., `v0.5.0`) — annotated tags trigger the release workflow
+- **Tag convention**: `vX.Y.Z` (e.g., `v0.6.0`) — annotated tags trigger the release workflow
 
 ### Generate Test Data
 ```bash

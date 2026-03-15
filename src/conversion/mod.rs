@@ -992,6 +992,9 @@ fn add_coco_writer_policy(report: &mut ConversionReport) {
 // LabelMe analysis and policy
 // ============================================================================
 
+/// LabelMe-specific attribute key for shape type provenance.
+const LABELME_ATTR_SHAPE_TYPE: &str = "labelme_shape_type";
+
 fn analyze_to_labelme(dataset: &Dataset, report: &mut ConversionReport) {
     if !dataset.info.is_empty() {
         report.add(ConversionIssue::warning(
@@ -1037,7 +1040,7 @@ fn analyze_to_labelme(dataset: &Dataset, report: &mut ConversionReport) {
     let has_non_labelme_attrs = dataset
         .annotations
         .iter()
-        .any(|a| a.attributes.keys().any(|k| k != "labelme_shape_type"));
+        .any(|a| a.attributes.keys().any(|k| k != LABELME_ATTR_SHAPE_TYPE));
     if has_non_labelme_attrs {
         report.add(ConversionIssue::warning(
             ConversionIssueCode::DropAnnotationAttributes,
@@ -1070,10 +1073,12 @@ fn add_labelme_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
             .to_string(),
     ));
 
-    let has_polygons = dataset
-        .annotations
-        .iter()
-        .any(|a| a.attributes.get("labelme_shape_type").map(|v| v.as_str()) == Some("polygon"));
+    let has_polygons = dataset.annotations.iter().any(|a| {
+        a.attributes
+            .get(LABELME_ATTR_SHAPE_TYPE)
+            .map(|v| v.as_str())
+            == Some("polygon")
+    });
     if has_polygons {
         report.add(ConversionIssue::reader_info(
             ConversionIssueCode::LabelmePolygonEnvelopeApplied,

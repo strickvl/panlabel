@@ -46,26 +46,26 @@ use crate::error::PanlabelError;
 
 /// One image row in a CreateML JSON array.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateMlImageRow {
-    pub image: String,
+pub(crate) struct CreateMlImageRow {
+    pub(crate) image: String,
     #[serde(default)]
-    pub annotations: Vec<CreateMlAnnotation>,
+    pub(crate) annotations: Vec<CreateMlAnnotation>,
 }
 
 /// One annotation within a CreateML image row.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateMlAnnotation {
-    pub label: String,
-    pub coordinates: CreateMlCoordinates,
+pub(crate) struct CreateMlAnnotation {
+    pub(crate) label: String,
+    pub(crate) coordinates: CreateMlCoordinates,
 }
 
 /// Center-based absolute pixel coordinates.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateMlCoordinates {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
+pub(crate) struct CreateMlCoordinates {
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
 }
 
 // ============================================================================
@@ -104,19 +104,14 @@ pub fn write_createml_json(path: &Path, dataset: &Dataset) -> Result<(), Panlabe
     })
 }
 
-/// Parses CreateML JSON from a string (schema-only, no image resolution).
-///
-/// Useful for fuzzing — exercises JSON/schema parsing without requiring
-/// image files on disk.
-pub fn parse_createml_str(json: &str) -> Result<Vec<CreateMlImageRow>, serde_json::Error> {
-    serde_json::from_str(json)
-}
-
 /// Parses CreateML JSON from a byte slice (schema-only, no image resolution).
 ///
-/// Useful for fuzzing.
-pub fn parse_createml_slice(bytes: &[u8]) -> Result<Vec<CreateMlImageRow>, serde_json::Error> {
-    serde_json::from_slice(bytes)
+/// Fuzz-only entrypoint: exercises JSON/schema parsing without requiring
+/// image files on disk.
+#[cfg(feature = "fuzzing")]
+pub fn parse_createml_slice(bytes: &[u8]) -> Result<(), serde_json::Error> {
+    let _rows: Vec<CreateMlImageRow> = serde_json::from_slice(bytes)?;
+    Ok(())
 }
 
 /// Reads a dataset from a CreateML JSON string, resolving images from `base_dir`.
@@ -259,24 +254,18 @@ fn resolve_image_dimensions(
     let candidate1 = base_dir.join(image_ref);
     let candidate2 = base_dir.join("images").join(image_ref);
 
-    let resolved = if candidate1.is_file() {
-        candidate1
-    } else if candidate2.is_file() {
-        candidate2
-    } else {
-        return Err(PanlabelError::CreateMlImageNotFound {
-            path: source_path.to_path_buf(),
-            image_ref: image_ref.to_string(),
-        });
-    };
+    // Try candidates directly (no TOCTOU existence check)
+    if let Ok(size) = imagesize::size(&candidate1) {
+        return Ok((size.width as u32, size.height as u32));
+    }
+    if let Ok(size) = imagesize::size(&candidate2) {
+        return Ok((size.width as u32, size.height as u32));
+    }
 
-    let size =
-        imagesize::size(&resolved).map_err(|source| PanlabelError::CreateMlImageDimensionRead {
-            path: resolved.clone(),
-            source,
-        })?;
-
-    Ok((size.width as u32, size.height as u32))
+    Err(PanlabelError::CreateMlImageNotFound {
+        path: source_path.to_path_buf(),
+        image_ref: image_ref.to_string(),
+    })
 }
 
 // ============================================================================
@@ -369,7 +358,8 @@ mod tests {
 
     #[test]
     fn parse_createml_schema_valid() {
-        let rows = parse_createml_str(sample_createml_json()).expect("parse failed");
+        let rows: Vec<CreateMlImageRow> =
+            serde_json::from_str(sample_createml_json()).expect("parse failed");
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].image, "img001.jpg");
         assert_eq!(rows[0].annotations.len(), 2);
@@ -381,7 +371,7 @@ mod tests {
 
     #[test]
     fn parse_createml_empty_array() {
-        let rows = parse_createml_str("[]").expect("parse failed");
+        let rows: Vec<CreateMlImageRow> = serde_json::from_str("[]").expect("parse failed");
         assert!(rows.is_empty());
     }
 

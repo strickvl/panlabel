@@ -54,6 +54,9 @@ use super::{AnnotationId, BBoxXYXY, CategoryId, ImageId, Pixel};
 use crate::error::PanlabelError;
 
 const IMAGES_README: &str = "This directory is a placeholder. Panlabel does not copy image files during conversion.\nPlace your original images here to complete the LabelMe dataset layout.\n";
+const ATTR_IMAGE_PATH: &str = "labelme_image_path";
+const ATTR_SHAPE_TYPE: &str = "labelme_shape_type";
+const LABELME_VERSION: &str = "5.0.1";
 
 // ============================================================================
 // LabelMe Schema Types (internal to this module)
@@ -74,7 +77,7 @@ struct LabelMeFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     image_path: Option<String>,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_deserializing)]
     image_data: Option<serde_json::Value>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -242,7 +245,7 @@ fn single_file_to_ir(lm: LabelMeFile, source_path: &Path) -> Result<Dataset, Pan
     let mut image = Image::new(ImageId::new(1), &file_name, width, height);
     image
         .attributes
-        .insert("labelme_image_path".to_string(), image_path.to_string());
+        .insert(ATTR_IMAGE_PATH.to_string(), image_path.to_string());
 
     // Collect unique labels for categories
     let mut label_set: BTreeSet<String> = BTreeSet::new();
@@ -282,7 +285,7 @@ fn single_file_to_ir(lm: LabelMeFile, source_path: &Path) -> Result<Dataset, Pan
 
         if is_polygon {
             ann.attributes
-                .insert("labelme_shape_type".to_string(), "polygon".to_string());
+                .insert(ATTR_SHAPE_TYPE.to_string(), "polygon".to_string());
         }
 
         annotations.push(ann);
@@ -303,40 +306,28 @@ fn single_file_to_ir(lm: LabelMeFile, source_path: &Path) -> Result<Dataset, Pan
 fn read_directory(path: &Path) -> Result<Dataset, PanlabelError> {
     // Detect layout: separate (annotations/ subdir) or co-located
     let annotations_dir = path.join("annotations");
-    let json_files = if annotations_dir.is_dir() {
-        collect_json_files(&annotations_dir)?
+    let (base_dir, collected) = if annotations_dir.is_dir() {
+        (
+            annotations_dir.as_path(),
+            collect_and_parse_json_files(&annotations_dir)?,
+        )
     } else {
-        // Co-located: JSON files directly in directory tree
-        collect_json_files(path)?
+        (path, collect_and_parse_json_files(path)?)
     };
 
-    if json_files.is_empty() {
+    if collected.is_empty() {
         return Err(PanlabelError::LabelMeLayoutInvalid {
             path: path.to_path_buf(),
             message: "no LabelMe JSON files found in directory".to_string(),
         });
     }
 
-    let base_dir = if annotations_dir.is_dir() {
-        &annotations_dir
-    } else {
-        path
-    };
-
-    // Parse all files
+    // Derive file_names and build parsed_files
     let mut parsed_files: Vec<(PathBuf, String, LabelMeFile)> = Vec::new();
-    for json_path in &json_files {
-        let contents = fs::read_to_string(json_path).map_err(PanlabelError::Io)?;
-        let lm: LabelMeFile =
-            serde_json::from_str(&contents).map_err(|source| PanlabelError::LabelMeJsonParse {
-                path: json_path.clone(),
-                source,
-            })?;
-
-        // Derive file_name from relative path + imagePath extension
+    for (json_path, lm) in collected {
         let rel = json_path
             .strip_prefix(base_dir)
-            .unwrap_or(json_path)
+            .unwrap_or(&json_path)
             .with_extension("");
         let image_path = lm.image_path.as_deref().unwrap_or("");
         let ext = Path::new(image_path)
@@ -345,7 +336,7 @@ fn read_directory(path: &Path) -> Result<Dataset, PanlabelError> {
             .unwrap_or("jpg");
         let derived_name = format!("{}.{}", rel.to_string_lossy().replace('\\', "/"), ext);
 
-        parsed_files.push((json_path.clone(), derived_name, lm));
+        parsed_files.push((json_path, derived_name, lm));
     }
 
     // Sort by derived file_name for deterministic IDs
@@ -412,7 +403,7 @@ fn read_directory(path: &Path) -> Result<Dataset, PanlabelError> {
         if let Some(image_path) = &lm.image_path {
             image
                 .attributes
-                .insert("labelme_image_path".to_string(), image_path.clone());
+                .insert(ATTR_IMAGE_PATH.to_string(), image_path.clone());
         }
 
         images.push(image);
@@ -426,7 +417,7 @@ fn read_directory(path: &Path) -> Result<Dataset, PanlabelError> {
 
             if is_polygon {
                 ann.attributes
-                    .insert("labelme_shape_type".to_string(), "polygon".to_string());
+                    .insert(ATTR_SHAPE_TYPE.to_string(), "polygon".to_string());
             }
 
             annotations.push(ann);
@@ -442,7 +433,12 @@ fn read_directory(path: &Path) -> Result<Dataset, PanlabelError> {
     })
 }
 
-fn collect_json_files(dir: &Path) -> Result<Vec<PathBuf>, PanlabelError> {
+/// Collect and parse LabelMe JSON files in a single pass.
+///
+/// Walks the directory tree, attempts to parse each `.json` file as a
+/// `LabelMeFile`, and returns only successfully parsed files. Non-LabelMe
+/// JSON files are silently skipped.
+fn collect_and_parse_json_files(dir: &Path) -> Result<Vec<(PathBuf, LabelMeFile)>, PanlabelError> {
     let mut files = Vec::new();
     for entry in walkdir::WalkDir::new(dir).follow_links(true) {
         let entry = entry.map_err(|source| PanlabelError::LabelMeLayoutInvalid {
@@ -457,17 +453,15 @@ fn collect_json_files(dir: &Path) -> Result<Vec<PathBuf>, PanlabelError> {
                 .map(|e| e.eq_ignore_ascii_case("json"))
                 .unwrap_or(false)
         {
-            // Quick validation: must be a LabelMe file (has "shapes" key)
             if let Ok(contents) = fs::read_to_string(path) {
-                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
-                    if value.is_object() && value.get("shapes").is_some() {
-                        files.push(path.to_path_buf());
-                    }
+                if let Ok(lm) = serde_json::from_str::<LabelMeFile>(&contents) {
+                    // Verify it's a real LabelMe file (must have shapes field parsed)
+                    files.push((path.to_path_buf(), lm));
                 }
             }
         }
     }
-    files.sort();
+    files.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(files)
 }
 
@@ -591,13 +585,13 @@ fn ir_to_single_labelme_file(dataset: &Dataset, image: &Image) -> LabelMeFile {
     // Use stored labelme_image_path if available, otherwise file_name
     let image_path = image
         .attributes
-        .get("labelme_image_path")
+        .get(ATTR_IMAGE_PATH)
         .filter(|s| !s.is_empty())
         .cloned()
         .unwrap_or_else(|| image.file_name.clone());
 
     LabelMeFile {
-        version: Some("5.0.1".to_string()),
+        version: Some(LABELME_VERSION.to_string()),
         flags: serde_json::Value::Object(Default::default()),
         shapes,
         image_path: Some(image_path),
@@ -633,53 +627,9 @@ fn write_directory(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError> 
             fs::create_dir_all(parent).map_err(PanlabelError::Io)?;
         }
 
-        let image_path = format!("../images/{}", image.file_name);
-        let lm_file = {
-            let cat_map: BTreeMap<CategoryId, &str> = dataset
-                .categories
-                .iter()
-                .map(|c| (c.id, c.name.as_str()))
-                .collect();
-
-            let mut anns: Vec<&Annotation> = dataset
-                .annotations
-                .iter()
-                .filter(|a| a.image_id == image.id)
-                .collect();
-            anns.sort_by_key(|a| a.id);
-
-            let shapes = anns
-                .into_iter()
-                .map(|ann| {
-                    let label = cat_map
-                        .get(&ann.category_id)
-                        .unwrap_or(&"unknown")
-                        .to_string();
-
-                    LabelMeShape {
-                        label,
-                        points: vec![
-                            [ann.bbox.xmin(), ann.bbox.ymin()],
-                            [ann.bbox.xmax(), ann.bbox.ymax()],
-                        ],
-                        shape_type: Some("rectangle".to_string()),
-                        flags: serde_json::Value::Object(Default::default()),
-                        group_id: None,
-                        description: None,
-                    }
-                })
-                .collect();
-
-            LabelMeFile {
-                version: Some("5.0.1".to_string()),
-                flags: serde_json::Value::Object(Default::default()),
-                shapes,
-                image_path: Some(image_path),
-                image_data: None,
-                image_height: Some(image.height),
-                image_width: Some(image.width),
-            }
-        };
+        // Reuse the single-file builder, then override imagePath for directory layout
+        let mut lm_file = ir_to_single_labelme_file(dataset, image);
+        lm_file.image_path = Some(format!("../images/{}", image.file_name));
 
         let file = fs::File::create(&json_path).map_err(PanlabelError::Io)?;
         let writer = BufWriter::new(file);
@@ -746,7 +696,7 @@ mod tests {
         assert_eq!(rect_ann.bbox.ymin(), 20.0);
         assert_eq!(rect_ann.bbox.xmax(), 100.0);
         assert_eq!(rect_ann.bbox.ymax(), 80.0);
-        assert!(rect_ann.attributes.get("labelme_shape_type").is_none());
+        assert!(rect_ann.attributes.get(ATTR_SHAPE_TYPE).is_none());
 
         // Polygon: points [[50,60],[200,150],[120,200]] -> envelope xyxy(50,60,200,200)
         let poly_ann = &dataset.annotations[1];
@@ -755,7 +705,7 @@ mod tests {
         assert_eq!(poly_ann.bbox.xmax(), 200.0);
         assert_eq!(poly_ann.bbox.ymax(), 200.0);
         assert_eq!(
-            poly_ann.attributes.get("labelme_shape_type"),
+            poly_ann.attributes.get(ATTR_SHAPE_TYPE),
             Some(&"polygon".to_string())
         );
     }

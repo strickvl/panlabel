@@ -52,7 +52,7 @@ assert_cmd = "2.1"
 predicates = "3.1"
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1.5"
-tempfile = "3.13"
+tempfile = "3.27"
 
 [[bench]]
 name = "microbenches"

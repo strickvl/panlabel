@@ -30,7 +30,7 @@ hf-remote = ["dep:hf-hub", "dep:ureq", "dep:url", "dep:zip"]
 hf = ["hf-parquet", "hf-remote"]
 
 [dependencies]
-clap = { version = "4.5.20", features = ["cargo", "derive", "env"] }
+clap = { version = "4.5.60", features = ["cargo", "derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0"

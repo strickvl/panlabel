@@ -24,3 +24,7 @@ updates:
       include: scope
     labels:
       - "dependencies"
+    groups:
+      all-cargo-deps:
+        patterns:
+          - "*"

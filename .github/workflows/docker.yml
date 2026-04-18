@@ -22,7 +22,7 @@ jobs:
     name: Build & push Docker image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # QEMU lets buildx cross-compile for arm64 on an amd64 runner
       - name: Set up QEMU

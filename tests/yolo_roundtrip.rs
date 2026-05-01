@@ -81,6 +81,123 @@ fn read_yolo_from_labels_dir_succeeds() {
 }
 
 #[test]
+fn read_yolo_split_from_image_list_file_succeeds() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("images/train/nested")).expect("create image dirs");
+    fs::create_dir_all(root.join("labels/train/nested")).expect("create label dirs");
+    fs::create_dir_all(root.join("splits")).expect("create splits dir");
+
+    write_bmp(&root.join("images/train/img_b.bmp"), 12, 8);
+    write_bmp(&root.join("images/train/nested/img_a.bmp"), 20, 10);
+    write_bmp(&root.join("images/train/no_label.bmp"), 6, 6);
+
+    fs::write(
+        root.join("splits/train.txt"),
+        "../images/train/img_b.bmp\n../images/train/nested/img_a.bmp\n../images/train/no_label.bmp\n",
+    )
+    .expect("write image list");
+    fs::write(
+        root.join("data.yaml"),
+        "names:\n  - person\n  - bicycle\ntrain: splits/train.txt\n",
+    )
+    .expect("write data yaml");
+
+    fs::write(
+        root.join("labels/train/nested/img_a.txt"),
+        "0 0.5 0.5 0.4 0.4\n1 0.2 0.3 0.1 0.2\n",
+    )
+    .expect("write nested label");
+    fs::write(root.join("labels/train/img_b.txt"), "1 0.5 0.5 0.5 0.5\n").expect("write label");
+
+    let dataset = read_yolo_dir(root).expect("read YOLO image-list split");
+
+    assert_eq!(dataset.images.len(), 3);
+    assert_eq!(dataset.annotations.len(), 3);
+    assert_eq!(dataset.images[0].file_name, "train/img_b.bmp");
+    assert_eq!(dataset.images[1].file_name, "train/nested/img_a.bmp");
+    assert_eq!(dataset.images[2].file_name, "train/no_label.bmp");
+    assert_eq!(
+        dataset.info.attributes.get("yolo_splits_read"),
+        Some(&"train".to_string())
+    );
+
+    let nested_ann = dataset
+        .annotations
+        .iter()
+        .find(|ann| ann.image_id == dataset.images[1].id)
+        .expect("nested image should have annotation");
+    assert!((nested_ann.bbox.xmin() - 6.0).abs() < 1e-6);
+    assert!((nested_ann.bbox.ymin() - 3.0).abs() < 1e-6);
+    assert!((nested_ann.bbox.xmax() - 14.0).abs() < 1e-6);
+    assert!((nested_ann.bbox.ymax() - 7.0).abs() < 1e-6);
+}
+
+#[test]
+fn read_yolo_image_list_uses_same_directory_label_fallback() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("images/train")).expect("create image dir");
+    write_bmp(&root.join("images/train/img.bmp"), 20, 10);
+
+    fs::write(root.join("train.txt"), "images/train/img.bmp\n").expect("write image list");
+    fs::write(
+        root.join("data.yaml"),
+        "names:\n  - person\ntrain: train.txt\n",
+    )
+    .expect("write data yaml");
+
+    // No labels/train/img.txt exists. The image-list reader should fall back
+    // to a label file next to the image.
+    fs::write(root.join("images/train/img.txt"), "0 0.5 0.5 0.4 0.4\n")
+        .expect("write same-directory label");
+
+    let dataset = read_yolo_dir(root).expect("read YOLO image-list split");
+
+    assert_eq!(dataset.images.len(), 1);
+    assert_eq!(dataset.annotations.len(), 1);
+    assert_eq!(dataset.images[0].file_name, "train/img.bmp");
+
+    let bbox = &dataset.annotations[0].bbox;
+    assert!((bbox.xmin() - 6.0).abs() < 1e-6);
+    assert!((bbox.ymin() - 3.0).abs() < 1e-6);
+    assert!((bbox.xmax() - 14.0).abs() < 1e-6);
+    assert!((bbox.ymax() - 7.0).abs() < 1e-6);
+}
+
+#[test]
+fn read_yolo_image_list_reports_logical_name_collisions() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("a")).expect("create a dir");
+    fs::create_dir_all(root.join("b")).expect("create b dir");
+    write_bmp(&root.join("a/img.bmp"), 10, 10);
+    write_bmp(&root.join("b/img.bmp"), 10, 10);
+
+    let first = root.join("a/img.bmp");
+    let second = root.join("b/img.bmp");
+    fs::write(
+        root.join("train.txt"),
+        format!("{}\n{}\n", first.display(), second.display()),
+    )
+    .expect("write absolute image list");
+    fs::write(
+        root.join("data.yaml"),
+        "names:\n  - person\ntrain: train.txt\n",
+    )
+    .expect("write data yaml");
+
+    let err = read_yolo_dir(root).unwrap_err();
+    assert!(
+        err.to_string().contains("duplicate logical image name"),
+        "error should explain the deterministic-name collision: {err}"
+    );
+}
+
+#[test]
 fn read_yolo_rejects_segmentation_rows() {
     let temp = tempfile::tempdir().expect("create temp dir");
     fs::create_dir_all(temp.path().join("images")).expect("create images dir");

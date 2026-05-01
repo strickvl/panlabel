@@ -27,12 +27,16 @@ Format-level lossiness relative to IR:
 - `vott-csv`: lossy
 - `vott-json`: lossy
 - `yolo`: lossy
+- `yolo-keras`: lossy
+- `yolov4-pytorch`: lossy
 - `voc`: lossy
 - `hf`: lossy
 - `sagemaker`: lossy
 - `labelme`: lossy
 - `superannotate`: lossy
 - `supervisely`: lossy
+- `cityscapes`: lossy
+- `marmot`: lossy
 - `create-ml`: lossy
 - `kitti`: lossy
 - `via`: lossy
@@ -129,6 +133,13 @@ These codes are designed to be stable for programmatic use.
 | `yolo_writer_no_image_copy` | YOLO writer creates only label files; images are not copied |
 | `yolo_reader_split_handling` | YOLO reader split-aware layout: notes which splits were found and which were read |
 | `yolo_writer_data_yaml_policy` | YOLO writer emits data.yaml with a names: mapping only (no split paths or nc) |
+| `yolo_keras_txt_reader_id_assignment` | YOLO Keras-style TXT reader deterministic ID policy |
+| `yolo_keras_txt_reader_class_map_source` | YOLO Keras-style TXT class-file precedence and fallback policy |
+| `yolo_keras_txt_reader_image_resolution` | YOLO Keras-style TXT image dimension probing policy |
+| `yolo_keras_txt_writer_class_order` | YOLO Keras-style TXT writer class ID assignment policy |
+| `yolo_keras_txt_writer_deterministic_order` | YOLO Keras-style TXT writer deterministic row/box ordering policy |
+| `yolo_keras_txt_writer_empty_rows` | YOLO Keras-style TXT writer emits image-only rows for unannotated images |
+| `yolo_keras_txt_writer_no_image_copy` | YOLO Keras-style TXT writer does not copy image files |
 | `voc_reader_id_assignment` | VOC reader deterministic ID assignment policy |
 | `voc_reader_attribute_mapping` | VOC reader mapping of pose/truncated/difficult/occluded attributes |
 | `voc_reader_coordinate_policy` | VOC reader coordinate policy (no 0/1-based adjustment) |
@@ -188,6 +199,17 @@ These codes are designed to be stable for programmatic use.
 | `supervisely_writer_project_layout` | Supervisely writer canonical project layout with meta.json and dataset/ann/ |
 | `supervisely_writer_rectangle_policy` | Supervisely writer emits all annotations as rectangle objects |
 | `supervisely_writer_no_image_copy` | Supervisely writer does not copy image files |
+| `cityscapes_reader_id_assignment` | Cityscapes reader deterministic ID assignment policy |
+| `cityscapes_polygon_envelope_applied` | Cityscapes reader converted polygons to axis-aligned bbox envelopes |
+| `cityscapes_skipped_labels` | Cityscapes reader skips deleted objects plus ignored/stuff labels |
+| `cityscapes_writer_gt_fine_layout` | Cityscapes writer canonical `gtFine/<split>/<city>/` layout |
+| `cityscapes_writer_rectangle_polygon_policy` | Cityscapes writer emits bbox rectangles as four-point polygons |
+| `cityscapes_writer_no_image_copy` | Cityscapes writer does not copy image files |
+| `marmot_reader_id_assignment` | Marmot reader deterministic ID assignment policy |
+| `marmot_reader_hex_coordinate_transform` | Marmot reader decodes CropBox/BBox hex doubles, scales through CropBox, and flips Y into pixel-space XYXY |
+| `marmot_reader_companion_image_required` | Marmot reader requires same-stem companion images for dimensions |
+| `marmot_writer_minimal_xml` | Marmot writer emits deterministic minimal Page/Composites/Composite XML |
+| `marmot_writer_no_image_copy` | Marmot writer does not copy image files |
 | `createml_reader_id_assignment` | CreateML reader deterministic ID assignment policy |
 | `createml_reader_image_resolution` | CreateML reader image dimension resolution precedence |
 | `createml_writer_deterministic_order` | CreateML writer deterministic ordering policy |

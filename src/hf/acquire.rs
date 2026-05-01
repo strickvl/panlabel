@@ -669,7 +669,7 @@ fn extract_zip_archive(
                 ),
             });
         }
-        let Some(enclosed_name) = entry.enclosed_name().map(Path::to_path_buf) else {
+        let Some(enclosed_name) = entry.enclosed_name().map(|path| path.to_path_buf()) else {
             return Err(PanlabelError::HfZipLayoutInvalid {
                 repo_id: repo_ref.repo_id.clone(),
                 message: format!(

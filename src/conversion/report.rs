@@ -281,6 +281,20 @@ pub enum ConversionIssueCode {
     YoloWriterEmptyLabelFiles,
     /// YOLO writer outputs normalized floats at 6 decimal places.
     YoloWriterFloatPrecision,
+    /// YOLO Keras-style TXT reader deterministic ID assignment policy.
+    YoloKerasTxtReaderIdAssignment,
+    /// YOLO Keras-style TXT reader class-map source policy.
+    YoloKerasTxtReaderClassMapSource,
+    /// YOLO Keras-style TXT reader image resolution policy.
+    YoloKerasTxtReaderImageResolution,
+    /// YOLO Keras-style TXT writer class ID assignment policy.
+    YoloKerasTxtWriterClassOrder,
+    /// YOLO Keras-style TXT writer deterministic ordering policy.
+    YoloKerasTxtWriterDeterministicOrder,
+    /// YOLO Keras-style TXT writer empty row policy.
+    YoloKerasTxtWriterEmptyRows,
+    /// YOLO Keras-style TXT writer does not copy images.
+    YoloKerasTxtWriterNoImageCopy,
     /// VOC reader assigns IDs by deterministic ordering.
     VocReaderIdAssignment,
     /// VOC reader maps pose/truncated/difficult/occluded to IR attributes.
@@ -420,6 +434,32 @@ pub enum ConversionIssueCode {
     SuperviselyWriterRectanglePolicy,
     /// Supervisely writer does not copy images.
     SuperviselyWriterNoImageCopy,
+
+    // Cityscapes policy (Info level)
+    /// Cityscapes reader deterministic ID assignment policy.
+    CityscapesReaderIdAssignment,
+    /// Cityscapes reader polygon envelope behavior.
+    CityscapesPolygonEnvelopeApplied,
+    /// Cityscapes reader skipped deleted/ignored/stuff labels.
+    CityscapesSkippedLabels,
+    /// Cityscapes writer canonical gtFine layout.
+    CityscapesWriterGtFineLayout,
+    /// Cityscapes writer emits bbox rectangles as four-point polygons.
+    CityscapesWriterRectanglePolygonPolicy,
+    /// Cityscapes writer does not copy images.
+    CityscapesWriterNoImageCopy,
+
+    // Marmot policy (Info level)
+    /// Marmot reader deterministic ID assignment policy.
+    MarmotReaderIdAssignment,
+    /// Marmot reader hex-double coordinate transform policy.
+    MarmotReaderHexCoordinateTransform,
+    /// Marmot reader requires companion images for pixel dimensions.
+    MarmotReaderCompanionImageRequired,
+    /// Marmot writer emits deterministic minimal XML.
+    MarmotWriterMinimalXml,
+    /// Marmot writer does not copy images.
+    MarmotWriterNoImageCopy,
 
     // CreateML policy (Info level)
     /// CreateML reader deterministic ID assignment policy.
@@ -578,6 +618,13 @@ impl ConversionIssueCode {
         Self::YoloWriterClassOrder,
         Self::YoloWriterEmptyLabelFiles,
         Self::YoloWriterFloatPrecision,
+        Self::YoloKerasTxtReaderIdAssignment,
+        Self::YoloKerasTxtReaderClassMapSource,
+        Self::YoloKerasTxtReaderImageResolution,
+        Self::YoloKerasTxtWriterClassOrder,
+        Self::YoloKerasTxtWriterDeterministicOrder,
+        Self::YoloKerasTxtWriterEmptyRows,
+        Self::YoloKerasTxtWriterNoImageCopy,
         Self::VocReaderIdAssignment,
         Self::VocReaderAttributeMapping,
         Self::VocReaderCoordinatePolicy,
@@ -640,6 +687,17 @@ impl ConversionIssueCode {
         Self::SuperviselyWriterProjectLayout,
         Self::SuperviselyWriterRectanglePolicy,
         Self::SuperviselyWriterNoImageCopy,
+        Self::CityscapesReaderIdAssignment,
+        Self::CityscapesPolygonEnvelopeApplied,
+        Self::CityscapesSkippedLabels,
+        Self::CityscapesWriterGtFineLayout,
+        Self::CityscapesWriterRectanglePolygonPolicy,
+        Self::CityscapesWriterNoImageCopy,
+        Self::MarmotReaderIdAssignment,
+        Self::MarmotReaderHexCoordinateTransform,
+        Self::MarmotReaderCompanionImageRequired,
+        Self::MarmotWriterMinimalXml,
+        Self::MarmotWriterNoImageCopy,
         Self::CreatemlReaderIdAssignment,
         Self::CreatemlReaderImageResolution,
         Self::CreatemlWriterDeterministicOrder,
@@ -725,6 +783,15 @@ impl ConversionIssueCode {
             Self::YoloWriterClassOrder => "yolo_writer_class_order",
             Self::YoloWriterEmptyLabelFiles => "yolo_writer_empty_label_files",
             Self::YoloWriterFloatPrecision => "yolo_writer_float_precision",
+            Self::YoloKerasTxtReaderIdAssignment => "yolo_keras_txt_reader_id_assignment",
+            Self::YoloKerasTxtReaderClassMapSource => "yolo_keras_txt_reader_class_map_source",
+            Self::YoloKerasTxtReaderImageResolution => "yolo_keras_txt_reader_image_resolution",
+            Self::YoloKerasTxtWriterClassOrder => "yolo_keras_txt_writer_class_order",
+            Self::YoloKerasTxtWriterDeterministicOrder => {
+                "yolo_keras_txt_writer_deterministic_order"
+            }
+            Self::YoloKerasTxtWriterEmptyRows => "yolo_keras_txt_writer_empty_rows",
+            Self::YoloKerasTxtWriterNoImageCopy => "yolo_keras_txt_writer_no_image_copy",
             Self::VocReaderIdAssignment => "voc_reader_id_assignment",
             Self::VocReaderAttributeMapping => "voc_reader_attribute_mapping",
             Self::VocReaderCoordinatePolicy => "voc_reader_coordinate_policy",
@@ -795,6 +862,19 @@ impl ConversionIssueCode {
             Self::SuperviselyWriterProjectLayout => "supervisely_writer_project_layout",
             Self::SuperviselyWriterRectanglePolicy => "supervisely_writer_rectangle_policy",
             Self::SuperviselyWriterNoImageCopy => "supervisely_writer_no_image_copy",
+            Self::CityscapesReaderIdAssignment => "cityscapes_reader_id_assignment",
+            Self::CityscapesPolygonEnvelopeApplied => "cityscapes_polygon_envelope_applied",
+            Self::CityscapesSkippedLabels => "cityscapes_skipped_labels",
+            Self::CityscapesWriterGtFineLayout => "cityscapes_writer_gt_fine_layout",
+            Self::CityscapesWriterRectanglePolygonPolicy => {
+                "cityscapes_writer_rectangle_polygon_policy"
+            }
+            Self::CityscapesWriterNoImageCopy => "cityscapes_writer_no_image_copy",
+            Self::MarmotReaderIdAssignment => "marmot_reader_id_assignment",
+            Self::MarmotReaderHexCoordinateTransform => "marmot_reader_hex_coordinate_transform",
+            Self::MarmotReaderCompanionImageRequired => "marmot_reader_companion_image_required",
+            Self::MarmotWriterMinimalXml => "marmot_writer_minimal_xml",
+            Self::MarmotWriterNoImageCopy => "marmot_writer_no_image_copy",
             Self::CreatemlReaderIdAssignment => "createml_reader_id_assignment",
             Self::CreatemlReaderImageResolution => "createml_reader_image_resolution",
             Self::CreatemlWriterDeterministicOrder => "createml_writer_deterministic_order",

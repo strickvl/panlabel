@@ -115,6 +115,41 @@ fn create_sample_cvat_export(root: &Path) {
     fs::write(root.join("annotations.xml"), xml).expect("write cvat annotations.xml");
 }
 
+fn marmot_hex(value: f64) -> String {
+    value
+        .to_be_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>()
+}
+
+fn marmot_rect(x_left: f64, y_top: f64, x_right: f64, y_bottom: f64) -> String {
+    [x_left, y_top, x_right, y_bottom]
+        .into_iter()
+        .map(marmot_hex)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn create_sample_marmot_dataset(root: &Path) {
+    fs::create_dir_all(root).expect("create marmot root");
+    write_bmp(&root.join("page1.bmp"), 200, 100);
+    let xml = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<Page CropBox="{}" PageNum="1">
+  <Contents>
+    <Composites Label="TableBody">
+      <Composite BBox="{}" LID="1" Label="TableBody" />
+    </Composites>
+  </Contents>
+</Page>
+"#,
+        marmot_rect(0.0, 100.0, 200.0, 0.0),
+        marmot_rect(20.0, 80.0, 120.0, 30.0),
+    );
+    fs::write(root.join("page1.xml"), xml).expect("write marmot xml");
+}
+
 fn create_sample_cloud_annotations_dataset(root: &Path) {
     fs::create_dir_all(root).expect("create cloud annotations root");
     write_bmp(&root.join("img1.bmp"), 100, 80);
@@ -463,6 +498,23 @@ fn validate_yolo_alias_works() {
 }
 
 #[test]
+fn validate_scaled_yolov4_alias_works() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_yolo_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        temp.path().to_str().unwrap(),
+        "--format",
+        "scaled-yolov4",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
 fn validate_voc_dataset_succeeds() {
     let temp = tempfile::tempdir().expect("create temp dir");
     create_sample_voc_dataset(temp.path());
@@ -541,6 +593,37 @@ fn validate_supervisely_alias_works() {
         "tests/fixtures/sample_valid.supervisely.json",
         "--format",
         "supervisely-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_cityscapes_alias_works() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.cityscapes.json",
+        "--format",
+        "cityscapes-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_marmot_alias_works() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    create_sample_marmot_dataset(temp.path());
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        temp.path().to_str().unwrap(),
+        "--format",
+        "marmot-xml",
     ]);
     cmd.assert()
         .success()
@@ -1242,6 +1325,31 @@ fn convert_from_yolo_alias_works() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_from_scaled_yolov4_txt_alias_works() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let yolo_dir = temp.path().join("sample_yolo");
+    create_sample_yolo_dataset(&yolo_dir);
+    let output_path = temp.path().join("scaled_alias_out.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "scaled-yolov4-txt",
+        "-t",
+        "coco",
+        "-i",
+        yolo_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"))
+        .stdout(predicates::str::contains("(yolo)"));
 }
 
 #[test]
@@ -2685,6 +2793,8 @@ fn list_formats_shows_all_formats() {
         .stdout(predicates::str::contains("sagemaker"))
         .stdout(predicates::str::contains("superannotate"))
         .stdout(predicates::str::contains("supervisely"))
+        .stdout(predicates::str::contains("cityscapes"))
+        .stdout(predicates::str::contains("marmot"))
         .stdout(predicates::str::contains("Supported formats"));
 }
 
@@ -2720,7 +2830,7 @@ fn list_formats_json_output_has_expected_schema() {
     let (stdout, parsed) = stdout_json(&output);
     assert_compact_json(&stdout);
     let formats = parsed.as_array().expect("top-level array");
-    assert_eq!(formats.len(), 26);
+    assert_eq!(formats.len(), 30);
 
     let label_studio = formats
         .iter()
@@ -2788,8 +2898,46 @@ fn list_formats_json_output_has_expected_schema() {
         .iter()
         .find(|entry| entry["name"] == "yolo")
         .expect("yolo entry");
+    let yolo_aliases = yolo["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(yolo_aliases.contains(&"scaled-yolov4"));
+    assert!(yolo_aliases.contains(&"scaled-yolov4-txt"));
     assert_eq!(yolo["directory_based"], true);
     assert_eq!(yolo["file_based"], false);
+
+    let yolo_keras = formats
+        .iter()
+        .find(|entry| entry["name"] == "yolo-keras")
+        .expect("yolo-keras entry");
+    let yolo_keras_aliases = yolo_keras["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(yolo_keras_aliases.contains(&"yolo-keras-txt"));
+    assert_eq!(yolo_keras["directory_based"], true);
+    assert_eq!(yolo_keras["file_based"], true);
+    assert_eq!(yolo_keras["lossiness"], "lossy");
+
+    let yolov4_pytorch = formats
+        .iter()
+        .find(|entry| entry["name"] == "yolov4-pytorch")
+        .expect("yolov4-pytorch entry");
+    let yolov4_pytorch_aliases = yolov4_pytorch["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(yolov4_pytorch_aliases.contains(&"yolov4-pytorch-txt"));
+    assert_eq!(yolov4_pytorch["directory_based"], true);
+    assert_eq!(yolov4_pytorch["file_based"], true);
+    assert_eq!(yolov4_pytorch["lossiness"], "lossy");
 
     let sagemaker = formats
         .iter()
@@ -2839,6 +2987,36 @@ fn list_formats_json_output_has_expected_schema() {
     assert_eq!(supervisely["directory_based"], true);
     assert_eq!(supervisely["lossiness"], "lossy");
 
+    let cityscapes = formats
+        .iter()
+        .find(|entry| entry["name"] == "cityscapes")
+        .expect("cityscapes entry");
+    let cityscapes_aliases = cityscapes["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(cityscapes_aliases.contains(&"cityscapes-json"));
+    assert_eq!(cityscapes["file_based"], true);
+    assert_eq!(cityscapes["directory_based"], true);
+    assert_eq!(cityscapes["lossiness"], "lossy");
+
+    let marmot = formats
+        .iter()
+        .find(|entry| entry["name"] == "marmot")
+        .expect("marmot entry");
+    let marmot_aliases = marmot["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(marmot_aliases.contains(&"marmot-xml"));
+    assert_eq!(marmot["file_based"], true);
+    assert_eq!(marmot["directory_based"], true);
+    assert_eq!(marmot["lossiness"], "lossy");
+
     let coco = formats
         .iter()
         .find(|entry| entry["name"] == "coco")
@@ -2864,11 +3042,15 @@ fn list_formats_json_output_has_expected_schema() {
         "scale-ai",
         "unity-perception",
         "yolo",
+        "yolo-keras",
+        "yolov4-pytorch",
         "voc",
         "hf",
         "sagemaker",
         "superannotate",
         "supervisely",
+        "cityscapes",
+        "marmot",
     ] {
         let entry = formats
             .iter()
@@ -3157,6 +3339,74 @@ fn convert_auto_detects_supervisely_json_format() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(supervisely)"));
+}
+
+#[test]
+fn convert_auto_detects_cityscapes_json_format() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("auto_detect_cityscapes.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.cityscapes.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(cityscapes)"));
+}
+
+#[test]
+fn convert_auto_detects_marmot_xml_file() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_marmot_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_marmot.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().join("page1.xml").to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(marmot)"));
+}
+
+#[test]
+fn convert_auto_detects_marmot_xml_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_marmot_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_marmot_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(marmot)"));
 }
 
 #[test]
@@ -3450,6 +3700,118 @@ fn convert_auto_detects_yolo_directory() {
 }
 
 #[test]
+fn convert_auto_detects_yolo_with_unrelated_cityscapes_like_json_as_yolo() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let yolo_dir = temp.path().join("sample_yolo");
+    create_sample_yolo_dataset(&yolo_dir);
+    fs::write(
+        yolo_dir.join("notes.json"),
+        r#"{"imgWidth": 10, "imgHeight": 10, "objects": []}"#,
+    )
+    .expect("write unrelated json");
+    let output_path = temp.path().join("auto_detect_yolo_with_notes.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "coco",
+        "-i",
+        yolo_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(yolo)"));
+}
+
+#[test]
+fn convert_auto_detects_yolo_keras_named_txt_file() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let txt_path = temp.path().join("yolo_keras.txt");
+    fs::write(&txt_path, "img.bmp 1,2,10,20,0\n").expect("write annotations");
+    fs::write(temp.path().join("classes.txt"), "object\n").expect("write classes");
+    write_bmp(&temp.path().join("img.bmp"), 30, 30);
+    let output_path = temp.path().join("auto_detect_yolo_keras.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        txt_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(yolo-keras)"));
+}
+
+#[test]
+fn convert_auto_detect_errors_on_generic_train_txt_ambiguity() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let txt_path = temp.path().join("train.txt");
+    fs::write(&txt_path, "img.bmp 1,2,10,20,0\n").expect("write annotations");
+    write_bmp(&temp.path().join("img.bmp"), 30, 30);
+    let output_path = temp.path().join("ambiguous_train.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        txt_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert().failure().stderr(predicates::str::contains(
+        "matches both yolo-keras and yolov4-pytorch",
+    ));
+}
+
+#[test]
+fn convert_to_yolov4_pytorch_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("yolov4_pytorch_out");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "yolov4-pytorch",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--output-format",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+    let (_stdout, parsed) = stdout_json(&output);
+    assert!(parsed["issues"].as_array().unwrap().iter().any(|issue| {
+        issue["code"] == "yolo_keras_txt_writer_class_order"
+            || issue["code"] == "yolo_keras_txt_writer_deterministic_order"
+    }));
+    assert!(output_path.join("yolov4_pytorch.txt").is_file());
+    assert!(output_path.join("classes.txt").is_file());
+}
+
+#[test]
 fn convert_auto_detects_yolo_labels_directory() {
     let temp = tempfile::tempdir().expect("create temp dir");
     let yolo_dir = temp.path().join("sample_yolo");
@@ -3665,6 +4027,71 @@ fn convert_auto_detects_supervisely_project_directory() {
 }
 
 #[test]
+fn convert_auto_detects_cityscapes_dataset_root() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let ann_dir = temp.path().join("gtFine/train/aachen");
+    fs::create_dir_all(&ann_dir).expect("create cityscapes ann dir");
+    fs::copy(
+        "tests/fixtures/sample_valid.cityscapes.json",
+        ann_dir.join("aachen_000001_000019_gtFine_polygons.json"),
+    )
+    .expect("copy fixture");
+    let output_path = temp.path().join("auto_detect_cityscapes_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(cityscapes)"));
+}
+
+#[test]
+fn convert_auto_detects_yolo_split_with_train_txt_image_list_as_yolo() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    fs::create_dir_all(temp.path().join("images/train")).expect("create images");
+    fs::create_dir_all(temp.path().join("labels/train")).expect("create labels");
+    write_bmp(&temp.path().join("images/train/img.bmp"), 20, 10);
+    fs::write(
+        temp.path().join("labels/train/img.txt"),
+        "0 0.5 0.5 0.5 0.5\n",
+    )
+    .expect("write labels");
+    fs::write(temp.path().join("train.txt"), "images/train/img.bmp\n").expect("write image list");
+    fs::write(
+        temp.path().join("data.yaml"),
+        "names:\n  - person\ntrain: train.txt\n",
+    )
+    .expect("write data yaml");
+    let output_path = temp.path().join("auto_detect_yolo_split.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(yolo)"));
+}
+
+#[test]
 fn convert_auto_detect_errors_on_hf_yolo_ambiguity() {
     let temp = tempfile::tempdir().expect("create temp dir");
     create_sample_hf_dataset(temp.path(), false);
@@ -3746,6 +4173,31 @@ fn convert_auto_detect_partial_yolo_gives_helpful_error() {
         .failure()
         .stderr(predicates::str::contains("YOLO"))
         .stderr(predicates::str::contains("images/ directory"));
+}
+
+#[test]
+fn convert_auto_detect_partial_marmot_gives_helpful_error() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_marmot_dataset(temp.path());
+    fs::remove_file(temp.path().join("page1.bmp")).expect("remove companion image");
+
+    let output_path = temp.path().join("partial_marmot.json");
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("Marmot"))
+        .stderr(predicates::str::contains("same-stem companion image"));
 }
 
 #[test]

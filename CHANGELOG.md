@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.7.0
+
+Twenty-five new format adapters covering the major cloud annotation platforms, autonomous-driving and aerial datasets, document layout, synthetic data, and the long tail of academic/community formats. Panlabel now reads and writes 40+ object detection annotation formats.
+
+### Added
+
+#### Cloud annotation platforms
+
+- **Labelbox JSON/NDJSON support (`labelbox`)**: Labelbox current export rows (`data_row` / `projects.*.labels` shape) for both single-JSON and newline-delimited exports. Reads bbox annotations from labels, preserves metadata as `labelbox_*` attributes.
+- **Scale AI JSON support (`scale-ai`)**: Scale AI image annotation task and response JSON, single file or `annotations/` directory layout. Bbox annotations from task responses with attribute and metadata preservation.
+- **SuperAnnotate JSON support (`superannotate`)**: SuperAnnotate JSON export, single file or `annotations/` directory. Bbox instances with class/attribute mapping.
+- **Supervisely JSON support (`supervisely`)**: Supervisely JSON project / dataset format with `ann/` + `meta.json` project layout. Reads class metadata from `meta.json`, bbox figures from per-image annotations.
+- **AWS SageMaker Ground Truth manifest support (`sagemaker`)**: object-detection job manifest (`.manifest` / `.jsonl`) with per-row image refs and bbox annotations. Reads SageMaker labeling job output directly.
+- **IBM Cloud Annotations JSON support (`ibm-cloud-annotations`)**: IBM Cloud Annotations localization JSON (`_annotations.json` file or directory) with absolute pixel bboxes.
+- **Google Cloud AutoML Vision CSV support (`automl-vision`)**: AutoML Vision sparse 9/11-column layout, GCS URI image refs, ML split (`TRAIN`/`VALIDATION`/`TEST`) preserved as attributes.
+- **V7 Darwin JSON support (`v7-darwin`)**: V7 Darwin JSON bbox subset with annotation attribute mapping.
+- **Edge Impulse labels support (`edge-impulse`)**: Edge Impulse `bounding_boxes.labels` file or containing directory. Reads bounding-box labels from Edge Impulse studio exports.
+
+#### Autonomous driving and aerial
+
+- **TFRecord support (`tfrecord`)**: TensorFlow Object Detection API-style `tf.train.Example` records (single-file, uncompressed, bbox-only in v1). Reads/writes the standard TFOD `image/encoded` + `image/object/bbox/{xmin,ymin,xmax,ymax}` + `image/object/class/{label,text}` schema. Auto-detected via TFRecord framing + first-record probe.
+- **Cityscapes JSON support (`cityscapes`)**: Cityscapes polygon JSON, single file or `gtFine/<split>/<city>/*_gtFine_polygons.json` dataset root. Polygons are flattened to axis-aligned bbox envelopes (lossy).
+- **BDD100K / Scalabel JSON support (`bdd100k`)**: BDD100K detection subset with bbox annotations and per-frame attribute preservation.
+- **Udacity Self-Driving Car CSV support (`udacity`)**: Udacity dataset CSV with absolute pixel coordinates (same column shape as TFOD but without normalization). Auto-detected by coordinate range/header inspection.
+- **OpenImages CSV support (`openimages`)**: Google OpenImages CSV with normalized coordinates, 8/13-column variants, confidence preservation, and image-dimension resolution from disk.
+- **VoTT CSV support (`vott-csv`)**: Microsoft VoTT CSV export (`image,xmin,ymin,xmax,ymax,label`).
+- **VoTT JSON support (`vott-json`)**: Microsoft VoTT JSON export, single-file `assets`-keyed JSON or `vott-json-export/` directory with per-asset JSON files.
+
+#### Document layout, synthetic, and benchmark datasets
+
+- **Marmot XML support (`marmot`)**: Marmot document-layout XML composites (`<Page CropBox="...">`) with hex-encoded coordinate doubles converted to pixel bboxes. Same-stem companion image resolution.
+- **Unity Perception JSON support (`unity-perception`)**: Unity Perception / SOLO synthetic-data bbox JSON, single file or SOLO-like directory.
+- **Datumaro JSON support (`datumaro`)**: Datumaro JSON annotation format used by OpenVINO Training Extensions and CVAT exports.
+- **WIDER Face TXT support (`wider-face`)**: WIDER Face aggregate TXT format (single `face` class in panlabel's bbox-only scope).
+- **OIDv4 Toolkit TXT support (`oidv4`)**: OIDv4 Toolkit TXT labels under `Label/` directories. Directory probe specifically uses `Label/` to disambiguate from YOLO `labels/`.
+- **Kaggle Wheat CSV support (`kaggle-wheat`)**: Kaggle Global Wheat Detection single-class CSV with bracketed `[x,y,w,h]` bbox strings and source attribute mapping.
+
+#### Standards and academic formats
+
+- **ASAM OpenLABEL JSON support (`openlabel`)**: ASAM OpenLABEL JSON static-image 2D bbox subset (the ISO-standard ADAS labeling schema).
+- **VIA CSV support (`via-csv`)**: VGG Image Annotator CSV export (separate format from VIA JSON).
+- **YOLO Keras TXT support (`yolo-keras`)** and **YOLOv4 PyTorch TXT support (`yolov4-pytorch`)**: absolute-coordinate space-separated TXT files (`image_path xmin,ymin,xmax,ymax,class_id ...`). File-based or directory-based with named annotation files (`yolo_keras.txt`, `yolov4_pytorch.txt`, `train_annotation.txt`).
+
+#### Auto-detection
+
+- `.tfrecord` files: TFRecord framing + first-record probe for TFOD-style payloads.
+- `.csv` content-based detection: 8 columns disambiguate TFOD vs Udacity by coordinate range/header; OpenImages, AutoML Vision, Kaggle Wheat, VoTT CSV detected by header signatures.
+- `.xml` root-element disambiguation: `<annotations>` → CVAT, `<Page CropBox="...">` → Marmot.
+- `.jsonl` / `.ndjson` / `.manifest`: Labelbox export-row shape is checked before SageMaker manifest rows.
+- `.json`: object-root and array-root JSON now disambiguate Labelbox, Scale AI, Unity Perception, SuperAnnotate, Supervisely, Cityscapes, VoTT JSON, IBM Cloud Annotations, BDD100K, V7 Darwin, OpenLABEL, and Datumaro by schema markers.
+- Directory layouts: Cityscapes (`gtFine/<split>/<city>/*_gtFine_polygons.json` or `gtFine/` root), Marmot (XML files with same-stem companion images), YOLO Keras / YOLOv4 PyTorch (matching named TXT files), Scale AI (`annotations/`), Unity Perception (SOLO-like), VoTT JSON (`vott-json-export/`), SuperAnnotate, Supervisely, Edge Impulse (containing directory), OIDv4 (`Label/` directory).
+
+#### Tests and tooling
+
+- New roundtrip tests for every adapter listed above (`tests/*_roundtrip.rs`).
+- Property tests added/expanded for new adapters where appropriate.
+- Shared internal helpers: `io_adapter_common.rs`, `io_bbox_adapters_common.rs`, `io_super_json_common.rs` extract common reader/writer machinery to keep adapters consistent.
+
+### Changed
+
+- `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md`, and `docs/README.md` updated to cover all new adapters and detection rules.
+- Conversion analyzers refactored to share lossiness-warning helpers (`add_common_csv_lossiness_warnings`, `add_annotation_drop_warnings`, etc.); TFOD and RetinaNet analyzers retroactively use the shared helpers, eliminating ~200 lines of duplicated code.
+- TFRecord adapter exposes the `prost`-generated `Kind` oneof; an `enum_variant_names` clippy allow is applied at the type level.
+
+### Dependencies
+
+- Dependabot grouping reorganized into minor-patch and major groups for less PR noise.
+- Cargo dependency batch updates (multiple groups) and GitHub Actions bumps:
+  - `actions/checkout` 4 → 6
+  - `astral-sh/setup-uv` 5 → 7
+  - `docker/setup-buildx-action` 3 → 4
+  - `docker/login-action` 3 → 4
+  - `docker/setup-qemu-action` 3 → 4
+  - `docker/build-push-action` 6 → 7
+
 ## v0.6.0
 
 Five new format adapters, YOLO improvements, and CLI UX enhancements.

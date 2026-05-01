@@ -434,6 +434,34 @@ fn validate_label_studio_alias_works() {
 }
 
 #[test]
+fn validate_superannotate_alias_works() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.superannotate.json",
+        "--format",
+        "superannotate-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
+fn validate_supervisely_alias_works() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "validate",
+        "tests/fixtures/sample_valid.supervisely.json",
+        "--format",
+        "supervisely-json",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Validation passed"));
+}
+
+#[test]
 fn validate_cvat_dataset_succeeds() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
@@ -1331,6 +1359,50 @@ fn convert_sagemaker_format_aliases_work() {
         .stdout(predicates::str::contains("Converted"));
 
     let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_superannotate_format_aliases_work() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("superannotate_alias.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "sa",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.superannotate.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+}
+
+#[test]
+fn convert_supervisely_format_aliases_work() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("supervisely_alias.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "sly",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.supervisely.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
 }
 
 #[test]
@@ -2519,6 +2591,8 @@ fn list_formats_shows_all_formats() {
         .stdout(predicates::str::contains("voc"))
         .stdout(predicates::str::contains("hf"))
         .stdout(predicates::str::contains("sagemaker"))
+        .stdout(predicates::str::contains("superannotate"))
+        .stdout(predicates::str::contains("supervisely"))
         .stdout(predicates::str::contains("Supported formats"));
 }
 
@@ -2554,7 +2628,7 @@ fn list_formats_json_output_has_expected_schema() {
     let (stdout, parsed) = stdout_json(&output);
     assert_compact_json(&stdout);
     let formats = parsed.as_array().expect("top-level array");
-    assert_eq!(formats.len(), 18);
+    assert_eq!(formats.len(), 20);
 
     let label_studio = formats
         .iter()
@@ -2592,6 +2666,38 @@ fn list_formats_json_output_has_expected_schema() {
     assert_eq!(sagemaker["directory_based"], false);
     assert_eq!(sagemaker["lossiness"], "lossy");
 
+    let superannotate = formats
+        .iter()
+        .find(|entry| entry["name"] == "superannotate")
+        .expect("superannotate entry");
+    let superannotate_aliases = superannotate["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(superannotate_aliases.contains(&"superannotate-json"));
+    assert!(superannotate_aliases.contains(&"sa"));
+    assert_eq!(superannotate["file_based"], true);
+    assert_eq!(superannotate["directory_based"], true);
+    assert_eq!(superannotate["lossiness"], "lossy");
+
+    let supervisely = formats
+        .iter()
+        .find(|entry| entry["name"] == "supervisely")
+        .expect("supervisely entry");
+    let supervisely_aliases = supervisely["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(supervisely_aliases.contains(&"supervisely-json"));
+    assert!(supervisely_aliases.contains(&"sly"));
+    assert_eq!(supervisely["file_based"], true);
+    assert_eq!(supervisely["directory_based"], true);
+    assert_eq!(supervisely["lossiness"], "lossy");
+
     let coco = formats
         .iter()
         .find(|entry| entry["name"] == "coco")
@@ -2608,7 +2714,15 @@ fn list_formats_json_output_has_expected_schema() {
     assert_eq!(ir_json["read"], true);
     assert_eq!(ir_json["write"], true);
 
-    for name in ["tfod", "yolo", "voc", "hf", "sagemaker"] {
+    for name in [
+        "tfod",
+        "yolo",
+        "voc",
+        "hf",
+        "sagemaker",
+        "superannotate",
+        "supervisely",
+    ] {
         let entry = formats
             .iter()
             .find(|format| format["name"] == name)
@@ -2730,6 +2844,50 @@ fn convert_auto_detects_label_studio_format() {
         .stdout(predicates::str::contains("(label-studio)"));
 
     let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_auto_detects_superannotate_json_format() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("auto_detect_superannotate.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.superannotate.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(superannotate)"));
+}
+
+#[test]
+fn convert_auto_detects_supervisely_json_format() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("auto_detect_supervisely.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.supervisely.json",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(supervisely)"));
 }
 
 #[test]
@@ -2927,6 +3085,100 @@ fn convert_auto_detects_hf_directory() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(hf)"));
+}
+
+#[test]
+fn convert_auto_detects_superannotate_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let source_dir = temp.path().join("sample_superannotate");
+    fs::create_dir_all(source_dir.join("annotations")).expect("create annotations dir");
+    fs::copy(
+        "tests/fixtures/sample_valid.superannotate.json",
+        source_dir.join("annotations/sa_image.json"),
+    )
+    .expect("copy fixture");
+    let output_path = temp.path().join("auto_detect_superannotate_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        source_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(superannotate)"));
+}
+
+#[test]
+fn convert_auto_does_not_detect_superannotate_from_nested_child_only() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let nested_dir = temp.path().join("archive/export/annotations");
+    fs::create_dir_all(&nested_dir).expect("create nested annotations dir");
+    fs::copy(
+        "tests/fixtures/sample_valid.superannotate.json",
+        nested_dir.join("sa_image.json"),
+    )
+    .expect("copy fixture");
+    let output_path = temp
+        .path()
+        .join("should_not_detect_nested_superannotate.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("unrecognized directory layout"));
+}
+
+#[test]
+fn convert_auto_detects_supervisely_project_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let project_dir = temp.path().join("sample_supervisely");
+    fs::create_dir_all(project_dir.join("dataset_01/ann")).expect("create ann dir");
+    fs::write(
+        project_dir.join("meta.json"),
+        r#"{"classes": [{"title": "cat"}]}"#,
+    )
+    .expect("write meta");
+    fs::copy(
+        "tests/fixtures/sample_valid.supervisely.json",
+        project_dir.join("dataset_01/ann/sample.jpg.json"),
+    )
+    .expect("copy fixture");
+    let output_path = temp.path().join("auto_detect_supervisely_project.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        project_dir.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(supervisely)"));
 }
 
 #[test]

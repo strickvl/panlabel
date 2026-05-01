@@ -10,7 +10,7 @@ For current, implemented behavior, use:
 ## Current baseline
 
 - ✅ Detection task support (axis-aligned bboxes)
-- ✅ Formats: IR JSON, COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory, Hugging Face ImageFolder metadata
+- ✅ Formats: IR JSON, COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, SuperAnnotate JSON, Supervisely JSON, CreateML JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory, Hugging Face ImageFolder metadata
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, stats, diff, sample, list-formats
 
@@ -68,8 +68,8 @@ format that panlabel already supports. Differences are in directory layout and
 
 - ✅ Google Cloud AutoML Vision CSV — GCP's annotation/import format; CSV rows with `set,path,label,x1,y1,,,x2,y2,,`
 - ✅ SageMaker Ground Truth Manifest — AWS JSON Lines object-detection output manifest (`.manifest` / `.jsonl`)
-- ⏳ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `instances` array
-- ⏳ Supervisely JSON — annotation platform with nested project structure; per-image JSON in a `ann/` directory with `objects` containing `classTitle` and geometry
+- ✅ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `metadata` + `instances`; directory + single-file support
+- ✅ Supervisely JSON — annotation platform with nested project structure; per-image JSON in `ann/` with `size` + `objects`; dataset and project-root support
 - ⏳ Scale AI JSON — commercial data labeling export; JSON with `annotations` array, bbox as `{left, top, width, height}`
 - ⏳ LabelBox JSON — Labelbox platform export (NDJSON); nested structure with `objects` containing `bbox` and `schemaId`
 - ✅ VGG Image Annotator (VIA) JSON — popular academic tool; single JSON file keyed by `filename+size` with `regions` containing `shape_attributes`

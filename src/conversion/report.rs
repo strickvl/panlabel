@@ -352,6 +352,30 @@ pub enum ConversionIssueCode {
     /// LabelMe writer does not copy images.
     LabelmeWriterNoImageCopy,
 
+    // SuperAnnotate policy (Info level)
+    /// SuperAnnotate reader deterministic ID assignment policy.
+    SuperannotateReaderIdAssignment,
+    /// SuperAnnotate reader polygon/rotated-geometry envelope behavior.
+    SuperannotatePolygonEnvelopeApplied,
+    /// SuperAnnotate writer canonical file layout.
+    SuperannotateWriterFileLayout,
+    /// SuperAnnotate writer emits all annotations as bboxes.
+    SuperannotateWriterRectanglePolicy,
+    /// SuperAnnotate writer does not copy images.
+    SuperannotateWriterNoImageCopy,
+
+    // Supervisely policy (Info level)
+    /// Supervisely reader deterministic ID assignment policy.
+    SuperviselyReaderIdAssignment,
+    /// Supervisely reader polygon envelope behavior.
+    SuperviselyPolygonEnvelopeApplied,
+    /// Supervisely writer canonical project layout.
+    SuperviselyWriterProjectLayout,
+    /// Supervisely writer emits all annotations as rectangles.
+    SuperviselyWriterRectanglePolicy,
+    /// Supervisely writer does not copy images.
+    SuperviselyWriterNoImageCopy,
+
     // CreateML policy (Info level)
     /// CreateML reader deterministic ID assignment policy.
     CreatemlReaderIdAssignment,
@@ -508,6 +532,16 @@ impl ConversionIssueCode {
         Self::LabelmeWriterFileLayout,
         Self::LabelmeWriterRectanglePolicy,
         Self::LabelmeWriterNoImageCopy,
+        Self::SuperannotateReaderIdAssignment,
+        Self::SuperannotatePolygonEnvelopeApplied,
+        Self::SuperannotateWriterFileLayout,
+        Self::SuperannotateWriterRectanglePolicy,
+        Self::SuperannotateWriterNoImageCopy,
+        Self::SuperviselyReaderIdAssignment,
+        Self::SuperviselyPolygonEnvelopeApplied,
+        Self::SuperviselyWriterProjectLayout,
+        Self::SuperviselyWriterRectanglePolicy,
+        Self::SuperviselyWriterNoImageCopy,
         Self::CreatemlReaderIdAssignment,
         Self::CreatemlReaderImageResolution,
         Self::CreatemlWriterDeterministicOrder,
@@ -614,6 +648,16 @@ impl ConversionIssueCode {
             Self::LabelmeWriterFileLayout => "labelme_writer_file_layout",
             Self::LabelmeWriterRectanglePolicy => "labelme_writer_rectangle_policy",
             Self::LabelmeWriterNoImageCopy => "labelme_writer_no_image_copy",
+            Self::SuperannotateReaderIdAssignment => "superannotate_reader_id_assignment",
+            Self::SuperannotatePolygonEnvelopeApplied => "superannotate_polygon_envelope_applied",
+            Self::SuperannotateWriterFileLayout => "superannotate_writer_file_layout",
+            Self::SuperannotateWriterRectanglePolicy => "superannotate_writer_rectangle_policy",
+            Self::SuperannotateWriterNoImageCopy => "superannotate_writer_no_image_copy",
+            Self::SuperviselyReaderIdAssignment => "supervisely_reader_id_assignment",
+            Self::SuperviselyPolygonEnvelopeApplied => "supervisely_polygon_envelope_applied",
+            Self::SuperviselyWriterProjectLayout => "supervisely_writer_project_layout",
+            Self::SuperviselyWriterRectanglePolicy => "supervisely_writer_rectangle_policy",
+            Self::SuperviselyWriterNoImageCopy => "supervisely_writer_no_image_copy",
             Self::CreatemlReaderIdAssignment => "createml_reader_id_assignment",
             Self::CreatemlReaderImageResolution => "createml_reader_image_resolution",
             Self::CreatemlWriterDeterministicOrder => "createml_writer_deterministic_order",

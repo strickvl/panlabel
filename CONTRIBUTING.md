@@ -23,6 +23,8 @@ If all tests pass, you're ready to go.
 | COCO format adapter | `src/ir/io_coco_json.rs` |
 | CVAT format adapter | `src/ir/io_cvat_xml.rs` |
 | Label Studio format adapter | `src/ir/io_label_studio_json.rs` |
+| SuperAnnotate format adapter | `src/ir/io_superannotate_json.rs` |
+| Supervisely format adapter | `src/ir/io_supervisely_json.rs` |
 | TFOD format adapter | `src/ir/io_tfod_csv.rs` |
 | YOLO format adapter | `src/ir/io_yolo.rs` |
 | Pascal VOC format adapter | `src/ir/io_voc_xml.rs` |

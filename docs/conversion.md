@@ -25,6 +25,8 @@ Format-level lossiness relative to IR:
 - `hf`: lossy
 - `sagemaker`: lossy
 - `labelme`: lossy
+- `superannotate`: lossy
+- `supervisely`: lossy
 - `create-ml`: lossy
 - `kitti`: lossy
 - `via`: lossy
@@ -137,6 +139,16 @@ These codes are designed to be stable for programmatic use.
 | `labelme_writer_file_layout` | LabelMe writer canonical annotations/ directory layout |
 | `labelme_writer_rectangle_policy` | LabelMe writer emits all annotations as rectangle shapes |
 | `labelme_writer_no_image_copy` | LabelMe writer does not copy image files |
+| `superannotate_reader_id_assignment` | SuperAnnotate reader deterministic ID assignment policy |
+| `superannotate_polygon_envelope_applied` | SuperAnnotate reader converted polygon/rotated geometries to axis-aligned bbox envelopes |
+| `superannotate_writer_file_layout` | SuperAnnotate writer canonical annotations/ and classes/ directory layout |
+| `superannotate_writer_rectangle_policy` | SuperAnnotate writer emits all annotations as bbox instances |
+| `superannotate_writer_no_image_copy` | SuperAnnotate writer does not copy image files |
+| `supervisely_reader_id_assignment` | Supervisely reader deterministic ID assignment policy |
+| `supervisely_polygon_envelope_applied` | Supervisely reader converted polygon geometries to axis-aligned bbox envelopes |
+| `supervisely_writer_project_layout` | Supervisely writer canonical project layout with meta.json and dataset/ann/ |
+| `supervisely_writer_rectangle_policy` | Supervisely writer emits all annotations as rectangle objects |
+| `supervisely_writer_no_image_copy` | Supervisely writer does not copy image files |
 | `createml_reader_id_assignment` | CreateML reader deterministic ID assignment policy |
 | `createml_reader_image_resolution` | CreateML reader image dimension resolution precedence |
 | `createml_writer_deterministic_order` | CreateML writer deterministic ordering policy |

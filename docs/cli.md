@@ -31,7 +31,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <format>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
 - `--strict` (treat warnings as errors)
 - `--output-format <text|json>` (default: `text`)
 - `--output <text|json>` (backward-compatible alias)
@@ -44,8 +44,8 @@ Invalid `--format` and output mode values are rejected by clap at parse time.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
 - `--input`, `-i`: input path (required for local inputs; optional with `--hf-repo` when `--from hf`)
 - `--output`, `-o`: output path
 - `--strict`
@@ -184,6 +184,8 @@ Show format capabilities and lossiness class.
    - VOC marker: `Annotations/` with top-level `.xml` files (or path itself is `Annotations/`). `JPEGImages/` is optional, matching the reader's behavior.
    - CVAT marker: `annotations.xml` at directory root
    - LabelMe marker: `annotations/` with LabelMe `.json` files (containing `shapes` key), or co-located LabelMe `.json` files
+   - SuperAnnotate marker: root `annotations/` directory with SuperAnnotate JSON files (`metadata` object + `instances` array), or matching JSON files at root
+   - Supervisely marker: root `ann/` directory with Supervisely JSON files (`size` object + `objects` array), or project root with `meta.json` and one or more dataset `ann/` directories
    - KITTI marker: `label_2/` with top-level `.txt` files AND sibling `image_2/` directory (or path itself is `label_2/` with sibling `image_2/`). If `label_2/` with `.txt` files exist but `image_2/` is missing, this is reported as an incomplete layout.
    - HF marker: `metadata.jsonl` or `metadata.parquet` at root or in an immediate subdirectory, or parquet shard files (e.g. `data/train-*.parquet`)
    - if multiple markers match, detection fails with an ambiguity error listing the evidence for each format
@@ -197,6 +199,8 @@ Show format capabilities and lossiness class.
      - empty array-root: ambiguous between Label Studio and CreateML (requires explicit `--from`)
      - non-empty array-root: Label Studio task shape (`data.image` string) -> `label-studio`; CreateML shape (`image` string + `annotations` array) -> `create-ml`
      - object-root with `shapes` array -> `labelme`
+     - object-root with `metadata` object + `instances` array -> `superannotate`
+     - object-root with `size` object + `objects` array -> `supervisely`
      - object-root with entries containing `filename` + `regions` -> `via`
      - object-root with `annotations[0].bbox` array -> `coco`
      - object-root with bbox object (`min/max` or `xmin/ymin/xmax/ymax`) -> `ir-json`
@@ -258,4 +262,10 @@ panlabel convert -f labelme -t coco -i ./labelme_dataset -o coco_output.json
 
 # Convert a CreateML JSON file to COCO JSON
 panlabel convert -f create-ml -t coco -i annotations.json -o coco_output.json
+
+# Convert SuperAnnotate annotations to IR JSON
+panlabel convert -f superannotate -t ir-json -i ./superannotate_export -o out.ir.json
+
+# Convert Supervisely project annotations to COCO JSON
+panlabel convert -f supervisely -t coco -i ./supervisely_project -o out.coco.json --allow-lossy
 ```

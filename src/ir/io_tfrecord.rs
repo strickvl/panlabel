@@ -80,6 +80,10 @@ mod feature {
     use super::{BytesList, FloatList, Int64List};
     use prost::Oneof;
 
+    // Variant names mirror the canonical `tf.train.Feature` proto schema
+    // (BytesList / FloatList / Int64List); renaming would diverge from
+    // feature.proto, which is the schema readers will cross-reference.
+    #[allow(clippy::enum_variant_names)]
     #[derive(Clone, PartialEq, Oneof)]
     pub enum Kind {
         #[prost(message, tag = "1")]

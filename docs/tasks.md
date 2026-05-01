@@ -35,6 +35,7 @@ within those boundaries.
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
 | `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
 | `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
+| `sagemaker` | yes | yes | AWS Ground Truth manifest JSONL (`.manifest` / `.jsonl`); dynamic label attribute + `<label>-metadata`; object-detection rows only |
 | `labelme` | yes | yes | per-image JSON; `rectangle` and `polygon` shapes (polygons flattened to bbox envelopes); file or directory based |
 | `create-ml` | yes | yes | Apple CreateML JSON array; center-based absolute pixel coordinates; file based |
 | `kitti` | yes | yes | directory-based; per-image `.txt` files with 15-field KITTI rows; absolute pixel coordinates |
@@ -70,6 +71,7 @@ format accepts and rejects:
 | `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
 | `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
 | `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |
+| `sagemaker` | Object-detection label block with `annotations` + `image_size`, plus `<label>-metadata` (`groundtruth/object-detection`) | Segmentation/classification Ground Truth task types are rejected; mixed/ambiguous label attributes are rejected |
 | `labelme` | `rectangle` shapes (2 points) and `polygon` shapes (3+ points, flattened to bbox envelope) | Other shape types (e.g. `circle`, `line`) are rejected with a clear error |
 | `create-ml` | `coordinates` objects with center-based pixel bboxes (`x`, `y`, `width`, `height`) | Fixed bbox schema; no non-bbox geometry |
 | `kitti` | 15/16-field space-separated rows (type + bbox + 3D fields + optional score) | Fixed 15/16-field schema; no non-bbox geometry |

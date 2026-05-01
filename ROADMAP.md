@@ -67,7 +67,7 @@ format that panlabel already supports. Differences are in directory layout and
 #### Annotation-tool formats
 
 - ✅ Google Cloud AutoML Vision CSV — GCP's annotation/import format; CSV rows with `set,path,label,x1,y1,,,x2,y2,,`
-- ⏳ Sagemaker GroundTruth Manifest — AWS annotation format; JSON Lines with `source-ref` and label job output as nested object per line
+- ✅ SageMaker Ground Truth Manifest — AWS JSON Lines object-detection output manifest (`.manifest` / `.jsonl`)
 - ⏳ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `instances` array
 - ⏳ Supervisely JSON — annotation platform with nested project structure; per-image JSON in a `ann/` directory with `objects` containing `classTitle` and geometry
 - ⏳ Scale AI JSON — commercial data labeling export; JSON with `annotations` array, bbox as `{left, top, width, height}`

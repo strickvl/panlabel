@@ -21,6 +21,7 @@ Current scope: **object detection** bounding boxes only.
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
 | `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
 | `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
+| `sagemaker` | file (`.manifest` / `.jsonl`) | yes | yes | lossy |
 | `labelme` | file (`.json`) or directory (`annotations/`) | yes | yes | lossy |
 | `create-ml` | file (`.json`) | yes | yes | lossy |
 | `kitti` | directory (`label_2/` + `image_2/`) | yes | yes | lossy |
@@ -222,6 +223,43 @@ Writer behavior:
 IR provenance notes:
 - reader stores HF provenance in `Dataset.info.attributes` (for example `hf_bbox_format`)
 - remote imports may also populate `hf_repo_id`, `hf_revision`, `hf_split`, `hf_license`, `hf_description`
+
+## SageMaker Ground Truth Manifest (`sagemaker` / `sagemaker-manifest` / `sagemaker-ground-truth` / `ground-truth` / `groundtruth` / `aws-sagemaker`)
+
+- Path kind: JSON Lines file (`.manifest` or `.jsonl`).
+- Scope: annotated **object-detection only** (`groundtruth/object-detection`).
+- One JSON object per line with:
+  - `source-ref` (image reference)
+  - dynamic label attribute object (commonly `bounding-box`) with `annotations` and `image_size`
+  - matching `<label>-metadata` object
+- Bboxes are read as absolute pixel `left/top/width/height` and converted to IR XYXY.
+
+Reader behavior:
+- auto-detects a single object-detection label attribute per row
+- rejects ambiguous rows (multiple candidate label attributes) and manifests mixing label attribute names across rows
+- resolves category names from metadata `class-map`; falls back to numeric `class_id` strings when needed
+- preserves per-object confidence from `<label>-metadata.objects[].confidence` to IR `Annotation.confidence`
+- preserves source and metadata provenance in attributes (`sagemaker_source_ref`, `sagemaker_label_attribute_name`, etc.)
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by numeric source `class_id` order
+- reader annotation IDs: by sorted image order then source annotation order
+- writer rows: sorted by `Image.file_name` (lexicographic)
+
+Writer behavior:
+- emits deterministic JSONL with one row per image (including unannotated images)
+- label attribute name:
+  - uses `Dataset.info.attributes["sagemaker_label_attribute_name"]` when present
+  - otherwise defaults to `bounding-box`
+- metadata defaults are deterministic: `type=groundtruth/object-detection`, `human-annotated=yes`, `job-name=panlabel-export`
+- writes category `class-map` for all categories and assigns output class IDs by `CategoryId` order
+- does **not** copy image binaries
+
+Limitations:
+- object-detection manifests only (segmentation/classification Ground Truth task types are rejected)
+- one label attribute per manifest (mixed or ambiguous attributes are rejected)
+- no S3 probing for image dimensions (dimensions come from manifest `image_size`)
 
 ## CVAT XML (`cvat` / `cvat-xml`)
 

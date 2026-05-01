@@ -117,6 +117,9 @@ panlabel convert -f retinanet -t coco -i annotations.csv -o coco_output.json
 # Convert local HF ImageFolder metadata to COCO JSON
 panlabel convert -f hf -t coco -i ./hf_dataset -o coco_output.json
 
+# Convert SageMaker Ground Truth manifest to COCO JSON
+panlabel convert -f sagemaker -t coco -i output.manifest -o coco_output.json
+
 # Convert remote HF dataset repo to COCO JSON (requires --features hf when building from source)
 panlabel convert -f hf -t coco --hf-repo rishitdagli/cppe-5 --split train -o coco_output.json
 
@@ -174,6 +177,7 @@ panlabel list-formats --output json
 | `yolo` | `images/ + labels/` directory | YOLO `.txt` labels (flat or split-aware, optional confidence) | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
+| `sagemaker` | `.manifest` / `.jsonl` file | AWS SageMaker Ground Truth object-detection manifest | Lossy |
 | `labelme` | `.json` file or `annotations/` directory | LabelMe per-image JSON annotations | Lossy |
 | `create-ml` | `.json` | Apple CreateML annotation format | Lossy |
 | `kitti` | `label_2/ + image_2/` directory | KITTI object detection labels | Lossy |

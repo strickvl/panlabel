@@ -31,7 +31,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <format>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
 - `--strict` (treat warnings as errors)
 - `--output-format <text|json>` (default: `text`)
 - `--output <text|json>` (backward-compatible alias)
@@ -44,8 +44,8 @@ Invalid `--format` and output mode values are rejected by clap at parse time.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
 - `--input`, `-i`: input path (required for local inputs; optional with `--hf-repo` when `--from hf`)
 - `--output`, `-o`: output path
 - `--strict`
@@ -189,6 +189,7 @@ Show format capabilities and lossiness class.
    - if multiple markers match, detection fails with an ambiguity error listing the evidence for each format
    - if only partial matches exist (e.g. YOLO labels without images), the error explains what's missing
 2. If input path is a file:
+   - `.manifest` / `.jsonl`: first non-empty JSON object row with `source-ref` + one object-detection label block (`groundtruth/object-detection` metadata, or `annotations` + `image_size`) → `sagemaker`
    - `.csv`: content-based detection — 8 columns → `tfod`, 6 columns → `retinanet`, or detected by header match
    - `.xml`:
      - root `<annotations>` -> `cvat`
@@ -248,6 +249,9 @@ panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --allo
 
 # Convert only the train split from a YOLO dataset
 panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --split train --allow-lossy
+
+# Convert SageMaker manifest to COCO JSON
+panlabel convert -f sagemaker -t coco -i annotations.manifest -o coco_output.json
 
 # Convert a LabelMe directory to COCO JSON
 panlabel convert -f labelme -t coco -i ./labelme_dataset -o coco_output.json

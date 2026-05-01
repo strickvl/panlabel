@@ -16,6 +16,7 @@ write these formats:
 - **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
 - **Pascal VOC XML** (`voc` / `pascal-voc` / `voc-xml`) — VOC-style XML directories
 - **Hugging Face ImageFolder metadata** (`hf` / `hf-imagefolder` / `huggingface`) — `metadata.jsonl` / `metadata.parquet` directories (remote Hub import is supported in `convert`)
+- **SageMaker Ground Truth Manifest** (`sagemaker` / `sagemaker-manifest` / `sagemaker-ground-truth` / `ground-truth` / `groundtruth` / `aws-sagemaker`) — `.manifest` / `.jsonl` object-detection JSON Lines
 
 Not yet supported: segmentation, keypoints/pose, oriented bounding boxes (OBB),
 or classification-only label formats. See the [roadmap](../ROADMAP.md) for
@@ -46,6 +47,7 @@ behavior lives:
 | YOLO format behavior | `src/ir/io_yolo.rs` |
 | Pascal VOC format behavior | `src/ir/io_voc_xml.rs` |
 | HF ImageFolder format behavior | `src/ir/io_hf_imagefolder.rs` (+ `src/ir/io_hf_parquet.rs` with `hf-parquet`) |
+| SageMaker Ground Truth Manifest behavior | `src/ir/io_sagemaker_manifest.rs` |
 | HF remote resolve/preflight/acquire | `src/hf/` (`hf-remote` feature) |
 | Lossiness logic | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |

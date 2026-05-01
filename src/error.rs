@@ -363,6 +363,130 @@ pub enum PanlabelError {
         source: imagesize::ImageError,
     },
 
+    #[error("Failed to parse Datumaro JSON from {path}: {source}")]
+    DatumaroJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Failed to write Datumaro JSON to {path}: {source}")]
+    DatumaroJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Invalid Datumaro JSON at {path}: {message}")]
+    DatumaroJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse WIDER Face TXT row in {path}:{line}: {message}")]
+    WiderFaceTxtParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+    #[error("Invalid WIDER Face TXT at {path}: {message}")]
+    WiderFaceTxtInvalid { path: PathBuf, message: String },
+    #[error("WIDER Face image not found: {image_ref} (searched from {path})")]
+    WiderFaceImageNotFound { path: PathBuf, image_ref: String },
+    #[error("Failed to read WIDER Face image dimensions from {path}: {source}")]
+    WiderFaceImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to parse OIDv4 TXT row in {path}:{line}: {message}")]
+    Oidv4TxtParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+    #[error("Invalid OIDv4 TXT at {path}: {message}")]
+    Oidv4TxtInvalid { path: PathBuf, message: String },
+    #[error("OIDv4 image not found: {image_ref} (searched from {path})")]
+    Oidv4ImageNotFound { path: PathBuf, image_ref: String },
+    #[error("Failed to read OIDv4 image dimensions from {path}: {source}")]
+    Oidv4ImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to parse BDD100K JSON from {path}: {source}")]
+    Bdd100kJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Failed to write BDD100K JSON to {path}: {source}")]
+    Bdd100kJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Invalid BDD100K JSON at {path}: {message}")]
+    Bdd100kJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse V7 Darwin JSON from {path}: {source}")]
+    V7DarwinJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Failed to write V7 Darwin JSON to {path}: {source}")]
+    V7DarwinJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Invalid V7 Darwin JSON at {path}: {message}")]
+    V7DarwinJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse Edge Impulse labels JSON from {path}: {source}")]
+    EdgeImpulseJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Failed to write Edge Impulse labels JSON to {path}: {source}")]
+    EdgeImpulseJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Invalid Edge Impulse labels JSON at {path}: {message}")]
+    EdgeImpulseJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse OpenLABEL JSON from {path}: {source}")]
+    OpenLabelJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Failed to write OpenLABEL JSON to {path}: {source}")]
+    OpenLabelJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Invalid OpenLABEL JSON at {path}: {message}")]
+    OpenLabelJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse VIA CSV from {path}: {source}")]
+    ViaCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+    #[error("Failed to write VIA CSV to {path}: {source}")]
+    ViaCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+    #[error("Invalid VIA CSV at {path}: {message}")]
+    ViaCsvInvalid { path: PathBuf, message: String },
+
     #[error("Failed to parse OpenImages CSV from {path}: {source}")]
     OpenImagesCsvParse {
         path: PathBuf,

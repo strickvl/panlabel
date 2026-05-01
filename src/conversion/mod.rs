@@ -47,6 +47,14 @@ pub enum Format {
     Via,
     Retinanet,
     OpenImages,
+    Datumaro,
+    WiderFace,
+    Oidv4,
+    Bdd100k,
+    V7Darwin,
+    EdgeImpulse,
+    OpenLabel,
+    ViaCsv,
     KaggleWheat,
     AutoMlVision,
     Udacity,
@@ -95,6 +103,14 @@ impl Format {
             Format::Via => "via",
             Format::Retinanet => "retinanet",
             Format::OpenImages => "openimages",
+            Format::Datumaro => "datumaro",
+            Format::WiderFace => "wider-face",
+            Format::Oidv4 => "oidv4",
+            Format::Bdd100k => "bdd100k",
+            Format::V7Darwin => "v7-darwin",
+            Format::EdgeImpulse => "edge-impulse",
+            Format::OpenLabel => "openlabel",
+            Format::ViaCsv => "via-csv",
             Format::KaggleWheat => "kaggle-wheat",
             Format::AutoMlVision => "automl-vision",
             Format::Udacity => "udacity",
@@ -139,6 +155,14 @@ impl Format {
             Format::Via => IrLossiness::Lossy,
             Format::Retinanet => IrLossiness::Lossy,
             Format::OpenImages => IrLossiness::Lossy,
+            Format::Datumaro => IrLossiness::Lossy,
+            Format::WiderFace => IrLossiness::Lossy,
+            Format::Oidv4 => IrLossiness::Lossy,
+            Format::Bdd100k => IrLossiness::Lossy,
+            Format::V7Darwin => IrLossiness::Lossy,
+            Format::EdgeImpulse => IrLossiness::Lossy,
+            Format::OpenLabel => IrLossiness::Lossy,
+            Format::ViaCsv => IrLossiness::Lossy,
             Format::KaggleWheat => IrLossiness::Lossy,
             Format::AutoMlVision => IrLossiness::Lossy,
             Format::Udacity => IrLossiness::Lossy,
@@ -193,6 +217,14 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Via => analyze_to_via(dataset, &mut report),
         Format::Retinanet => analyze_to_retinanet(dataset, &mut report),
         Format::OpenImages => analyze_to_openimages(dataset, &mut report),
+        Format::Datumaro => analyze_to_basic_bbox_preserving(dataset, &mut report, true),
+        Format::WiderFace => analyze_to_wider_face(dataset, &mut report),
+        Format::Oidv4 => analyze_to_basic_bbox_preserving(dataset, &mut report, false),
+        Format::Bdd100k => analyze_to_basic_bbox_preserving(dataset, &mut report, true),
+        Format::V7Darwin => analyze_to_basic_bbox_preserving(dataset, &mut report, false),
+        Format::EdgeImpulse => analyze_to_basic_bbox_preserving(dataset, &mut report, false),
+        Format::OpenLabel => analyze_to_basic_bbox_preserving(dataset, &mut report, true),
+        Format::ViaCsv => analyze_to_via_csv(dataset, &mut report),
         Format::KaggleWheat => analyze_to_kaggle_wheat(dataset, &mut report),
         Format::AutoMlVision => analyze_to_automl_vision(dataset, &mut report),
         Format::Udacity => analyze_to_udacity(dataset, &mut report),
@@ -226,6 +258,14 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Via => add_via_reader_policy(&mut report),
         Format::Retinanet => add_retinanet_reader_policy(&mut report),
         Format::OpenImages => add_openimages_reader_policy(&mut report),
+        Format::Datumaro => add_simple_reader_policy(&mut report, ConversionIssueCode::DatumaroReaderIdAssignment, "Datumaro reader assigns IDs deterministically and reads bbox annotations only"),
+        Format::WiderFace => add_simple_reader_policy(&mut report, ConversionIssueCode::WiderFaceReaderIdAssignment, "WIDER Face reader assigns IDs deterministically and maps all boxes to face"),
+        Format::Oidv4 => add_simple_reader_policy(&mut report, ConversionIssueCode::Oidv4ReaderIdAssignment, "OIDv4 reader assigns IDs deterministically from Label/ files"),
+        Format::Bdd100k => add_simple_reader_policy(&mut report, ConversionIssueCode::Bdd100kReaderIdAssignment, "BDD100K reader assigns IDs deterministically and reads box2d labels only"),
+        Format::V7Darwin => add_simple_reader_policy(&mut report, ConversionIssueCode::V7DarwinReaderIdAssignment, "V7 Darwin reader assigns IDs deterministically and reads bounding_box annotations only"),
+        Format::EdgeImpulse => add_simple_reader_policy(&mut report, ConversionIssueCode::EdgeImpulseReaderIdAssignment, "Edge Impulse reader assigns IDs deterministically from bounding_boxes.labels"),
+        Format::OpenLabel => add_simple_reader_policy(&mut report, ConversionIssueCode::OpenlabelReaderIdAssignment, "OpenLABEL reader treats frames as static images and reads 2D bbox values only"),
+        Format::ViaCsv => add_simple_reader_policy(&mut report, ConversionIssueCode::ViaCsvReaderIdAssignment, "VIA CSV reader assigns IDs deterministically and reads rect regions only"),
         Format::KaggleWheat => add_kaggle_wheat_reader_policy(&mut report),
         Format::AutoMlVision => add_automl_vision_reader_policy(&mut report),
         Format::Udacity => add_udacity_reader_policy(&mut report),
@@ -260,6 +300,14 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Via => add_via_writer_policy(&mut report),
         Format::Retinanet => add_retinanet_writer_policy(&mut report),
         Format::OpenImages => add_openimages_writer_policy(&mut report),
+        Format::Datumaro => add_simple_writer_policy(&mut report, ConversionIssueCode::DatumaroWriterDeterministicOrder, "Datumaro writer emits deterministic bbox-only JSON"),
+        Format::WiderFace => add_simple_writer_policy(&mut report, ConversionIssueCode::WiderFaceWriterFileLayout, "WIDER Face writer emits aggregate TXT with default face attributes"),
+        Format::Oidv4 => add_simple_writer_policy(&mut report, ConversionIssueCode::Oidv4WriterFileLayout, "OIDv4 writer emits Label/ .txt files and does not copy images"),
+        Format::Bdd100k => add_simple_writer_policy(&mut report, ConversionIssueCode::Bdd100kWriterDeterministicOrder, "BDD100K writer emits deterministic box2d JSON"),
+        Format::V7Darwin => add_simple_writer_policy(&mut report, ConversionIssueCode::V7DarwinWriterDeterministicOrder, "V7 Darwin writer emits deterministic bbox-only JSON"),
+        Format::EdgeImpulse => add_simple_writer_policy(&mut report, ConversionIssueCode::EdgeImpulseWriterDeterministicOrder, "Edge Impulse writer emits deterministic bounding_boxes.labels and does not copy images"),
+        Format::OpenLabel => add_simple_writer_policy(&mut report, ConversionIssueCode::OpenlabelWriterFrameLayout, "OpenLABEL writer emits one static-image frame per IR image"),
+        Format::ViaCsv => add_simple_writer_policy(&mut report, ConversionIssueCode::ViaCsvWriterDeterministicOrder, "VIA CSV writer emits deterministic rect rows and does not copy images"),
         Format::KaggleWheat => add_kaggle_wheat_writer_policy(&mut report),
         Format::AutoMlVision => add_automl_vision_writer_policy(&mut report),
         Format::Udacity => add_udacity_writer_policy(&mut report),
@@ -2411,6 +2459,59 @@ fn add_openimages_writer_policy(report: &mut ConversionReport) {
         ConversionIssueCode::OpenimagesWriterDeterministicOrder,
         "OpenImages writer orders rows by annotation ID".to_string(),
     ));
+}
+
+// ============================================================================
+// New bbox-only adapters
+// ============================================================================
+
+fn analyze_to_basic_bbox_preserving(
+    dataset: &Dataset,
+    report: &mut ConversionReport,
+    preserves_confidence: bool,
+) {
+    add_dataset_metadata_and_license_drop_warnings(dataset, report);
+    add_image_attributes_drop_warning(dataset, report);
+    add_category_supercategory_drop_warning(dataset, report);
+    if !preserves_confidence {
+        add_annotation_confidence_drop_warning(dataset, report);
+    }
+    add_annotation_attributes_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn analyze_to_wider_face(dataset: &Dataset, report: &mut ConversionReport) {
+    analyze_to_basic_bbox_preserving(dataset, report, false);
+    if dataset.categories.len() > 1 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::CollapseMultipleCategoriesToSingleClass,
+            format!(
+                "{} categories will be collapsed to WIDER Face's single face class",
+                dataset.categories.len()
+            ),
+        ));
+    }
+    report.output.categories = if dataset.annotations.is_empty() { 0 } else { 1 };
+}
+
+fn analyze_to_via_csv(dataset: &Dataset, report: &mut ConversionReport) {
+    analyze_to_basic_bbox_preserving(dataset, report, false);
+}
+
+fn add_simple_reader_policy(
+    report: &mut ConversionReport,
+    code: ConversionIssueCode,
+    message: &str,
+) {
+    report.add(ConversionIssue::reader_info(code, message.to_string()));
+}
+
+fn add_simple_writer_policy(
+    report: &mut ConversionReport,
+    code: ConversionIssueCode,
+    message: &str,
+) {
+    report.add(ConversionIssue::writer_info(code, message.to_string()));
 }
 
 // ============================================================================

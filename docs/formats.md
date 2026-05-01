@@ -7,7 +7,9 @@ Panlabel converts through a canonical intermediate representation (IR). All
 bounding boxes are represented as **pixel-space XYXY** in the IR, and each
 format adapter handles the mapping to/from its own coordinate system.
 
-Current scope: **object detection** bounding boxes only.
+Current scope: **mainstream/static-image 2D axis-aligned object detection** bounding boxes only.
+Not first-class in current scope: segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels.
+In broad schemas that include richer structures, panlabel skips/reports unsupported structures or treats conversion as lossy.
 
 ## Format matrix
 
@@ -44,6 +46,14 @@ Current scope: **object detection** bounding boxes only.
 | `kaggle-wheat` | file (`.csv`) | yes | yes | lossy |
 | `automl-vision` | file (`.csv`) | yes | yes | lossy |
 | `udacity` | file (`.csv`) | yes | yes | lossy |
+| `datumaro` | file (`.json`) | yes | yes | lossy |
+| `wider-face` | file (`.txt`) | yes | yes | lossy |
+| `oidv4` | directory (`Label/`) or file (`.txt`) | yes | yes | lossy |
+| `bdd100k` | file (`.json`) | yes | yes | lossy |
+| `v7-darwin` | file (`.json`) | yes | yes | lossy |
+| `edge-impulse` | file (`bounding_boxes.labels`) or directory containing it | yes | yes | lossy |
+| `openlabel` | file (`.json`) | yes | yes | lossy |
+| `via-csv` | file (`.csv`) | yes | yes | lossy |
 
 ## IR JSON (`ir-json`)
 
@@ -968,6 +978,56 @@ Limitations:
 - no confidence/attributes
 - images without annotations are not emitted
 - TFOD/Udacity auto-detection uses coordinate range heuristic
+
+## Datumaro JSON (`datumaro` / `datumaro-json` / `datumaro-dataset`)
+
+- Path kind: JSON file.
+- Supports bbox subset; unsupported non-bbox annotations are skipped and counted in `dataset.info.attributes["datumaro_unsupported_annotations_skipped"]`.
+- Writer is deterministic and does **not** copy image binaries.
+
+## WIDER Face TXT (`wider-face` / `widerface` / `wider-face-txt`)
+
+- Path kind: aggregate TXT file.
+- Panlabel collapses categories to a single `face` class on write.
+- Extra WIDER fields are preserved in `wider_face_*` annotation attributes when present.
+- Writer is deterministic and does **not** copy image binaries.
+
+## OIDv4 TXT (`oidv4` / `oidv4-txt` / `openimages-v4-txt` / `oid`)
+
+- Path kind: directory or TXT file.
+- Directory detection and canonical layout use uppercase `Label/` (not YOLO-style lowercase `labels/`).
+- Writer is deterministic and does **not** copy image binaries.
+
+## BDD100K / Scalabel JSON (`bdd100k` / `scalabel`)
+
+- Path kind: JSON file.
+- Supports `labels[].box2d` bbox subset.
+- Non-box labels are skipped and counted in `dataset.info.attributes["bdd100k_unsupported_labels_skipped"]`.
+
+## V7 Darwin JSON (`v7-darwin` / `darwin` / `v7`)
+
+- Path kind: JSON file.
+- Supports bbox subset (`annotations[].bounding_box`).
+- Non-bbox annotations are skipped and counted in `dataset.info.attributes["darwin_unsupported_annotations_skipped"]`.
+
+## Edge Impulse labels (`edge-impulse`)
+
+- Path kind: `bounding_boxes.labels` file (or directory containing it).
+- Supports bbox-only label rows from Edge Impulse JSON.
+- Writer is deterministic and does **not** copy image binaries.
+
+## ASAM OpenLABEL JSON (`openlabel`)
+
+- Path kind: JSON file.
+- Supports static-image 2D bbox subset (`openlabel.frames.*.objects.*.object_data.bbox`).
+- Unsupported non-bbox object data is skipped and counted in `dataset.info.attributes["openlabel_unsupported_data_skipped"]`.
+
+## VIA CSV (`via-csv` / `vgg-via-csv`)
+
+- Path kind: CSV file.
+- Separate adapter from VIA JSON (`via`); `via-csv` is not an alias for `via`.
+- Non-rect regions are skipped and counted in `dataset.info.attributes["via_csv_non_rect_regions_skipped"]`.
+- Writer is deterministic and does **not** copy image binaries.
 
 ## Future expansion rule
 

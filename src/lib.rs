@@ -179,6 +179,55 @@ enum ConvertFormat {
     /// Google OpenImages CSV annotation format.
     #[value(name = "openimages", alias = "openimages-csv", alias = "open-images")]
     OpenImages,
+    /// Datumaro JSON annotation format.
+    #[value(name = "datumaro", alias = "datumaro-json", alias = "datumaro-dataset")]
+    Datumaro,
+    /// WIDER Face aggregate TXT annotation format.
+    #[value(name = "wider-face", alias = "widerface", alias = "wider-face-txt")]
+    WiderFace,
+    /// OIDv4 Toolkit TXT label format.
+    #[value(
+        name = "oidv4",
+        alias = "oidv4-txt",
+        alias = "openimages-v4-txt",
+        alias = "oid"
+    )]
+    Oidv4,
+    /// BDD100K / Scalabel JSON detection format.
+    #[value(
+        name = "bdd100k",
+        alias = "bdd100k-json",
+        alias = "scalabel",
+        alias = "scalabel-json"
+    )]
+    Bdd100k,
+    /// V7 Darwin JSON annotation format.
+    #[value(
+        name = "v7-darwin",
+        alias = "darwin",
+        alias = "darwin-json",
+        alias = "v7"
+    )]
+    V7Darwin,
+    /// Edge Impulse bounding_boxes.labels format.
+    #[value(
+        name = "edge-impulse",
+        alias = "edge-impulse-labels",
+        alias = "edge-impulse-bounding-boxes",
+        alias = "bounding-boxes-labels"
+    )]
+    EdgeImpulse,
+    /// ASAM OpenLABEL JSON 2D bbox subset.
+    #[value(
+        name = "openlabel",
+        alias = "asam-openlabel",
+        alias = "openlabel-json",
+        alias = "asam-openlabel-json"
+    )]
+    OpenLabel,
+    /// VGG Image Annotator CSV format.
+    #[value(name = "via-csv", alias = "vgg-via-csv")]
+    ViaCsv,
     /// Kaggle Global Wheat Detection CSV format.
     #[value(name = "kaggle-wheat", alias = "kaggle-wheat-csv")]
     KaggleWheat,
@@ -226,6 +275,14 @@ impl ConvertFormat {
             ConvertFormat::Via => conversion::Format::Via,
             ConvertFormat::Retinanet => conversion::Format::Retinanet,
             ConvertFormat::OpenImages => conversion::Format::OpenImages,
+            ConvertFormat::Datumaro => conversion::Format::Datumaro,
+            ConvertFormat::WiderFace => conversion::Format::WiderFace,
+            ConvertFormat::Oidv4 => conversion::Format::Oidv4,
+            ConvertFormat::Bdd100k => conversion::Format::Bdd100k,
+            ConvertFormat::V7Darwin => conversion::Format::V7Darwin,
+            ConvertFormat::EdgeImpulse => conversion::Format::EdgeImpulse,
+            ConvertFormat::OpenLabel => conversion::Format::OpenLabel,
+            ConvertFormat::ViaCsv => conversion::Format::ViaCsv,
             ConvertFormat::KaggleWheat => conversion::Format::KaggleWheat,
             ConvertFormat::AutoMlVision => conversion::Format::AutoMlVision,
             ConvertFormat::Udacity => conversion::Format::Udacity,
@@ -358,6 +415,55 @@ enum ConvertFromFormat {
     /// Google OpenImages CSV annotation format.
     #[value(name = "openimages", alias = "openimages-csv", alias = "open-images")]
     OpenImages,
+    /// Datumaro JSON annotation format.
+    #[value(name = "datumaro", alias = "datumaro-json", alias = "datumaro-dataset")]
+    Datumaro,
+    /// WIDER Face aggregate TXT annotation format.
+    #[value(name = "wider-face", alias = "widerface", alias = "wider-face-txt")]
+    WiderFace,
+    /// OIDv4 Toolkit TXT label format.
+    #[value(
+        name = "oidv4",
+        alias = "oidv4-txt",
+        alias = "openimages-v4-txt",
+        alias = "oid"
+    )]
+    Oidv4,
+    /// BDD100K / Scalabel JSON detection format.
+    #[value(
+        name = "bdd100k",
+        alias = "bdd100k-json",
+        alias = "scalabel",
+        alias = "scalabel-json"
+    )]
+    Bdd100k,
+    /// V7 Darwin JSON annotation format.
+    #[value(
+        name = "v7-darwin",
+        alias = "darwin",
+        alias = "darwin-json",
+        alias = "v7"
+    )]
+    V7Darwin,
+    /// Edge Impulse bounding_boxes.labels format.
+    #[value(
+        name = "edge-impulse",
+        alias = "edge-impulse-labels",
+        alias = "edge-impulse-bounding-boxes",
+        alias = "bounding-boxes-labels"
+    )]
+    EdgeImpulse,
+    /// ASAM OpenLABEL JSON 2D bbox subset.
+    #[value(
+        name = "openlabel",
+        alias = "asam-openlabel",
+        alias = "openlabel-json",
+        alias = "asam-openlabel-json"
+    )]
+    OpenLabel,
+    /// VGG Image Annotator CSV format.
+    #[value(name = "via-csv", alias = "vgg-via-csv")]
+    ViaCsv,
     /// Kaggle Global Wheat Detection CSV format.
     #[value(name = "kaggle-wheat", alias = "kaggle-wheat-csv")]
     KaggleWheat,
@@ -406,6 +512,14 @@ impl ConvertFromFormat {
             ConvertFromFormat::Via => Some(ConvertFormat::Via),
             ConvertFromFormat::Retinanet => Some(ConvertFormat::Retinanet),
             ConvertFromFormat::OpenImages => Some(ConvertFormat::OpenImages),
+            ConvertFromFormat::Datumaro => Some(ConvertFormat::Datumaro),
+            ConvertFromFormat::WiderFace => Some(ConvertFormat::WiderFace),
+            ConvertFromFormat::Oidv4 => Some(ConvertFormat::Oidv4),
+            ConvertFromFormat::Bdd100k => Some(ConvertFormat::Bdd100k),
+            ConvertFromFormat::V7Darwin => Some(ConvertFormat::V7Darwin),
+            ConvertFromFormat::EdgeImpulse => Some(ConvertFormat::EdgeImpulse),
+            ConvertFromFormat::OpenLabel => Some(ConvertFormat::OpenLabel),
+            ConvertFromFormat::ViaCsv => Some(ConvertFormat::ViaCsv),
             ConvertFromFormat::KaggleWheat => Some(ConvertFormat::KaggleWheat),
             ConvertFromFormat::AutoMlVision => Some(ConvertFormat::AutoMlVision),
             ConvertFromFormat::Udacity => Some(ConvertFormat::Udacity),
@@ -1007,6 +1121,66 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         format: ConvertFormat::OpenImages,
         aliases: &["openimages-csv", "open-images"],
         description: "Google OpenImages CSV annotation format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Datumaro,
+        aliases: &["datumaro-json", "datumaro-dataset"],
+        description: "Datumaro JSON annotation format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::WiderFace,
+        aliases: &["widerface", "wider-face-txt"],
+        description: "WIDER Face aggregate TXT annotation format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Oidv4,
+        aliases: &["oidv4-txt", "openimages-v4-txt", "oid"],
+        description: "OIDv4 Toolkit TXT label format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Bdd100k,
+        aliases: &["bdd100k-json", "scalabel", "scalabel-json"],
+        description: "BDD100K / Scalabel JSON detection format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::V7Darwin,
+        aliases: &["darwin", "darwin-json", "v7"],
+        description: "V7 Darwin JSON annotation format",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::EdgeImpulse,
+        aliases: &[
+            "edge-impulse-labels",
+            "edge-impulse-bounding-boxes",
+            "bounding-boxes-labels",
+        ],
+        description: "Edge Impulse bounding_boxes.labels format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::OpenLabel,
+        aliases: &["asam-openlabel", "openlabel-json", "asam-openlabel-json"],
+        description: "ASAM OpenLABEL JSON 2D bbox subset",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::ViaCsv,
+        aliases: &["vgg-via-csv"],
+        description: "VGG Image Annotator CSV format",
         file_based: true,
         directory_based: false,
     },
@@ -1743,6 +1917,14 @@ fn read_dataset_with_options(
         ConvertFormat::Via => ir::io_via_json::read_via_json(path),
         ConvertFormat::Retinanet => ir::io_retinanet_csv::read_retinanet_csv(path),
         ConvertFormat::OpenImages => ir::io_openimages_csv::read_openimages_csv(path),
+        ConvertFormat::Datumaro => ir::io_datumaro_json::read_datumaro_json(path),
+        ConvertFormat::WiderFace => ir::io_wider_face_txt::read_wider_face_txt(path),
+        ConvertFormat::Oidv4 => ir::io_oidv4_txt::read_oidv4_txt(path),
+        ConvertFormat::Bdd100k => ir::io_bdd100k_json::read_bdd100k_json(path),
+        ConvertFormat::V7Darwin => ir::io_v7_darwin_json::read_v7_darwin_json(path),
+        ConvertFormat::EdgeImpulse => ir::io_edge_impulse_labels::read_edge_impulse_labels(path),
+        ConvertFormat::OpenLabel => ir::io_openlabel_json::read_openlabel_json(path),
+        ConvertFormat::ViaCsv => ir::io_via_csv::read_via_csv(path),
         ConvertFormat::KaggleWheat => ir::io_kaggle_wheat_csv::read_kaggle_wheat_csv(path),
         ConvertFormat::AutoMlVision => ir::io_automl_vision_csv::read_automl_vision_csv(path),
         ConvertFormat::Udacity => ir::io_udacity_csv::read_udacity_csv(path),
@@ -1814,6 +1996,16 @@ fn write_dataset_with_options(
         ConvertFormat::Via => ir::io_via_json::write_via_json(path, dataset),
         ConvertFormat::Retinanet => ir::io_retinanet_csv::write_retinanet_csv(path, dataset),
         ConvertFormat::OpenImages => ir::io_openimages_csv::write_openimages_csv(path, dataset),
+        ConvertFormat::Datumaro => ir::io_datumaro_json::write_datumaro_json(path, dataset),
+        ConvertFormat::WiderFace => ir::io_wider_face_txt::write_wider_face_txt(path, dataset),
+        ConvertFormat::Oidv4 => ir::io_oidv4_txt::write_oidv4_txt(path, dataset),
+        ConvertFormat::Bdd100k => ir::io_bdd100k_json::write_bdd100k_json(path, dataset),
+        ConvertFormat::V7Darwin => ir::io_v7_darwin_json::write_v7_darwin_json(path, dataset),
+        ConvertFormat::EdgeImpulse => {
+            ir::io_edge_impulse_labels::write_edge_impulse_labels(path, dataset)
+        }
+        ConvertFormat::OpenLabel => ir::io_openlabel_json::write_openlabel_json(path, dataset),
+        ConvertFormat::ViaCsv => ir::io_via_csv::write_via_csv(path, dataset),
         ConvertFormat::KaggleWheat => {
             ir::io_kaggle_wheat_csv::write_kaggle_wheat_csv(path, dataset)
         }
@@ -1991,6 +2183,14 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Via => "via",
         ConvertFormat::Retinanet => "retinanet",
         ConvertFormat::OpenImages => "openimages",
+        ConvertFormat::Datumaro => "datumaro",
+        ConvertFormat::WiderFace => "wider-face",
+        ConvertFormat::Oidv4 => "oidv4",
+        ConvertFormat::Bdd100k => "bdd100k",
+        ConvertFormat::V7Darwin => "v7-darwin",
+        ConvertFormat::EdgeImpulse => "edge-impulse",
+        ConvertFormat::OpenLabel => "openlabel",
+        ConvertFormat::ViaCsv => "via-csv",
         ConvertFormat::KaggleWheat => "kaggle-wheat",
         ConvertFormat::AutoMlVision => "automl-vision",
         ConvertFormat::Udacity => "udacity",
@@ -2187,6 +2387,8 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         reason: "unrecognized directory layout. Expected one of:\n  \
                  - YOLO: labels/ with .txt files and sibling images/\n  \
                  - YOLO Keras / YOLOv4 PyTorch TXT: yolo_keras.txt, yolov4_pytorch.txt, annotations.txt, or train.txt\n  \
+                 - OIDv4: Label/ directories with .txt labels\n  \
+                 - Edge Impulse: bounding_boxes.labels at directory root\n  \
                  - VOC: Annotations/ with .xml files\n  \
                  - CVAT: annotations.xml at directory root\n  \
                  - IBM Cloud Annotations: _annotations.json at directory root\n  \
@@ -2419,6 +2621,22 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
 
     // --- Cityscapes ---
     let mut cityscapes = FormatProbe::new("Cityscapes", ConvertFormat::Cityscapes);
+    let mut edge_impulse = FormatProbe::new("Edge Impulse", ConvertFormat::EdgeImpulse);
+    if path.join("bounding_boxes.labels").is_file() {
+        edge_impulse
+            .found
+            .push("bounding_boxes.labels at root".into());
+    }
+    probes.push(edge_impulse);
+
+    let mut oidv4 = FormatProbe::new("OIDv4", ConvertFormat::Oidv4);
+    if ir::io_oidv4_txt::dir_has_oidv4_label_files(path)? {
+        oidv4
+            .found
+            .push("Label/ directories with .txt labels".into());
+    }
+    probes.push(oidv4);
+
     if path.join("gtFine").is_dir() {
         if dir_contains_cityscapes_json(&path.join("gtFine"))? {
             cityscapes
@@ -2911,11 +3129,26 @@ fn detect_tfrecord_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
 }
 
 fn detect_txt_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    if ir::io_wider_face_txt::looks_like_wider_face_txt_file(path)? {
+        return Ok(ConvertFormat::WiderFace);
+    }
+
+    let filename_lower = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if (filename_lower.contains("oidv4") || filename_lower.contains("openimages-v4"))
+        && ir::io_oidv4_txt::looks_like_oidv4_txt_file(path)?
+    {
+        return Ok(ConvertFormat::Oidv4);
+    }
+
     let looks_like = ir::io_yolo_keras_txt::looks_like_yolo_keras_txt_file(path)?;
     if !looks_like {
         return Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "TXT file does not match the YOLO Keras / YOLOv4 PyTorch absolute-coordinate grammar. Use --from to specify format explicitly.".to_string(),
+            reason: "TXT file does not match WIDER Face, conservative OIDv4 filename hints, or YOLO Keras / YOLOv4 PyTorch absolute-coordinate grammar. Use --from to specify format explicitly.".to_string(),
         });
     }
 
@@ -3009,6 +3242,10 @@ fn detect_csv_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             .unwrap_or(false)
     {
         return Ok(ConvertFormat::VottCsv);
+    }
+
+    if ir::io_via_csv::is_via_csv_header(first) {
+        return Ok(ConvertFormat::ViaCsv);
     }
 
     // RetinaNet: 6 columns
@@ -3190,6 +3427,14 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             });
         }
 
+        if ir::io_bdd100k_json::is_likely_bdd100k_file(&value) {
+            return Ok(ConvertFormat::Bdd100k);
+        }
+
+        if ir::io_v7_darwin_json::is_likely_v7_darwin_file(&value) {
+            return Ok(ConvertFormat::V7Darwin);
+        }
+
         if ir::io_labelbox_json::is_likely_labelbox_row(&items[0]) {
             return Ok(ConvertFormat::Labelbox);
         }
@@ -3214,6 +3459,26 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             path: path.to_path_buf(),
             reason: "array-root JSON not recognized (expected Labelbox export-row array, Scale AI task/response array, Unity Perception frame array, Label Studio task array, or CreateML image array). Use --from to specify format explicitly.".to_string(),
         });
+    }
+
+    if ir::io_edge_impulse_labels::is_likely_edge_impulse_labels(&value) {
+        return Ok(ConvertFormat::EdgeImpulse);
+    }
+
+    if ir::io_openlabel_json::is_likely_openlabel_file(&value) {
+        return Ok(ConvertFormat::OpenLabel);
+    }
+
+    if ir::io_datumaro_json::is_likely_datumaro_file(&value) {
+        return Ok(ConvertFormat::Datumaro);
+    }
+
+    if ir::io_bdd100k_json::is_likely_bdd100k_file(&value) {
+        return Ok(ConvertFormat::Bdd100k);
+    }
+
+    if ir::io_v7_darwin_json::is_likely_v7_darwin_file(&value) {
+        return Ok(ConvertFormat::V7Darwin);
     }
 
     // Object-root: check for Labelbox export row before COCO/IR heuristic.

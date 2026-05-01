@@ -6,7 +6,7 @@ what you need here.
 
 ## What does panlabel support today?
 
-Panlabel currently supports **object detection bounding boxes**. It can read and
+Panlabel currently supports **mainstream/static-image 2D axis-aligned object detection bounding boxes**. It can read and
 write these formats:
 
 - **IR JSON** (`ir-json`) — panlabel's own lossless intermediate representation
@@ -20,6 +20,7 @@ write these formats:
 - **LabelMe JSON** (`labelme` / `labelme-json`) — LabelMe per-image JSON (single file or directory)
 - **Apple CreateML JSON** (`create-ml` / `createml` / `create-ml-json`) — Apple CreateML annotation format
 - **VIA JSON** (`via` / `via-json` / `vgg-via`) — VGG Image Annotator JSON
+- **VIA CSV** (`via-csv` / `vgg-via-csv`) — VGG Image Annotator CSV (separate from VIA JSON)
 - **SuperAnnotate JSON** (`superannotate` / `superannotate-json` / `sa`) — SuperAnnotate JSON export (file or `annotations/` directory)
 - **Supervisely JSON** (`supervisely` / `supervisely-json` / `sly`) — Supervisely project / dataset JSON (file, `ann/` directory, or full project with `meta.json`)
 - **Cityscapes JSON** (`cityscapes` / `cityscapes-json`) — Cityscapes polygon JSON (file, `gtFine/`, or dataset root), flattened to bbox envelopes
@@ -40,10 +41,18 @@ write these formats:
 - **Udacity Self-Driving Car CSV** (`udacity` / `udacity-csv` / `self-driving-car`) — Udacity Self-Driving Car Dataset CSV
 - **Hugging Face ImageFolder metadata** (`hf` / `hf-imagefolder` / `huggingface`) — `metadata.jsonl` / `metadata.parquet` directories (remote Hub import is supported in `convert`)
 - **SageMaker Ground Truth Manifest** (`sagemaker` / `sagemaker-manifest` / `sagemaker-ground-truth` / `ground-truth` / `groundtruth` / `aws-sagemaker`) — `.manifest` / `.jsonl` object-detection JSON Lines
+- **Datumaro JSON** (`datumaro` / `datumaro-json` / `datumaro-dataset`) — Datumaro annotation JSON
+- **WIDER Face TXT** (`wider-face` / `widerface` / `wider-face-txt`) — aggregate face bbox TXT (single `face` category in panlabel)
+- **OIDv4 TXT** (`oidv4` / `oidv4-txt` / `openimages-v4-txt` / `oid`) — toolkit TXT labels with `Label/` directories
+- **BDD100K / Scalabel JSON** (`bdd100k` / `bdd100k-json` / `scalabel` / `scalabel-json`) — bbox detection subset
+- **V7 Darwin JSON** (`v7-darwin` / `darwin` / `darwin-json` / `v7`) — bbox detection subset
+- **Edge Impulse labels JSON** (`edge-impulse` / `edge-impulse-labels`) — `bounding_boxes.labels`
+- **ASAM OpenLABEL JSON** (`openlabel` / `asam-openlabel` / `openlabel-json`) — static-image 2D bbox subset
 
-Not yet supported: segmentation, keypoints/pose, oriented bounding boxes (OBB),
-or classification-only label formats. See the [roadmap](../ROADMAP.md) for
-what's planned.
+Not yet supported as first-class tasks: segmentation, keypoints/pose, oriented bounding boxes (OBB),
+video tracking IDs, 3D/multisensor labels, or classification-only label formats.
+When these richer structures appear inside broad schemas, panlabel skips/reports them or treats the conversion as lossy.
+See the [roadmap](../ROADMAP.md) for what's planned.
 
 ## Which page do I need?
 
@@ -78,10 +87,18 @@ behavior lives:
 | LabelMe format behavior | `src/ir/io_labelme_json.rs` |
 | Apple CreateML format behavior | `src/ir/io_createml_json.rs` |
 | VIA JSON format behavior | `src/ir/io_via_json.rs` |
+| VIA CSV format behavior | `src/ir/io_via_csv.rs` |
 | SuperAnnotate format behavior | `src/ir/io_superannotate_json.rs` (+ `src/ir/io_super_json_common.rs`) |
 | Supervisely format behavior | `src/ir/io_supervisely_json.rs` (+ `src/ir/io_super_json_common.rs`) |
 | Cityscapes format behavior | `src/ir/io_cityscapes_json.rs` |
 | Marmot format behavior | `src/ir/io_marmot_xml.rs` |
+| Datumaro format behavior | `src/ir/io_datumaro_json.rs` |
+| WIDER Face format behavior | `src/ir/io_wider_face_txt.rs` |
+| OIDv4 format behavior | `src/ir/io_oidv4_txt.rs` |
+| BDD100K format behavior | `src/ir/io_bdd100k_json.rs` |
+| V7 Darwin format behavior | `src/ir/io_v7_darwin_json.rs` |
+| Edge Impulse format behavior | `src/ir/io_edge_impulse_labels.rs` |
+| OpenLABEL format behavior | `src/ir/io_openlabel_json.rs` |
 | YOLO format behavior | `src/ir/io_yolo.rs` |
 | YOLO Keras / YOLOv4 PyTorch TXT behavior | `src/ir/io_yolo_keras_txt.rs` |
 | Pascal VOC format behavior | `src/ir/io_voc_xml.rs` |

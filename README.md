@@ -16,6 +16,10 @@ fast, single-binary CLI that converts between common object detection annotation
 formats — with built-in validation, clear lossiness warnings, and no Python
 dependencies to manage.
 
+Panlabel’s current core scope is **mainstream/static-image 2D axis-aligned object-detection bbox conversion**.
+It does **not** provide first-class segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels.
+When broad schemas include richer structures, panlabel either skips/reports those structures or treats the conversion as lossy.
+
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
 
@@ -151,6 +155,14 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `supervisely` | `.json` file or `ann/` / `meta.json` project directory | Supervisely JSON project / dataset | Lossy |
 | `cityscapes` | `.json`, `gtFine/`, or dataset root with `gtFine/` | Cityscapes polygon JSON; polygons become bbox envelopes | Lossy |
 | `marmot` | `.xml` file or directory with same-stem companion images | Marmot XML document-layout composites; hex doubles become pixel bboxes | Lossy |
+| `datumaro` | `.json` | Datumaro JSON annotation format | Lossy |
+| `wider-face` | `.txt` | WIDER Face aggregate TXT (single `face` class in panlabel) | Lossy |
+| `oidv4` | directory with `Label/` or `.txt` | OIDv4 Toolkit TXT labels (directory probe uses `Label/`, not YOLO `labels/`) | Lossy |
+| `bdd100k` | `.json` | BDD100K / Scalabel JSON detection subset | Lossy |
+| `v7-darwin` | `.json` | V7 Darwin JSON bbox subset | Lossy |
+| `edge-impulse` | `bounding_boxes.labels` file or containing directory | Edge Impulse bounding-box labels JSON | Lossy |
+| `openlabel` | `.json` | ASAM OpenLABEL JSON static-image 2D bbox subset | Lossy |
+| `via-csv` | `.csv` | VGG Image Annotator CSV (separate format from VIA JSON) | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 

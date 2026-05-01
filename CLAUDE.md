@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -117,6 +117,7 @@ src/
 │   ├── space.rs        # Pixel/Normalized coordinate space markers
 │   ├── ids.rs          # Strongly-typed IDs (ImageId, AnnotationId, etc.)
 │   ├── io_coco_json.rs # COCO JSON reader/writer
+│   ├── io_cvat_xml.rs  # CVAT XML reader/writer
 │   ├── io_label_studio_json.rs # Label Studio JSON reader/writer
 │   ├── io_labelme_json.rs     # LabelMe JSON reader/writer (file + directory)
 │   ├── io_createml_json.rs    # Apple CreateML JSON reader/writer
@@ -130,6 +131,12 @@ src/
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
 │   ├── io_voc_xml.rs   # Pascal VOC XML reader/writer (directory-based)
+│   ├── io_hf_imagefolder.rs   # Hugging Face ImageFolder metadata reader/writer
+│   ├── io_hf_parquet.rs       # Hugging Face parquet metadata support (feature-gated)
+│   ├── io_sagemaker_manifest.rs # AWS SageMaker Ground Truth manifest reader/writer
+│   ├── io_superannotate_json.rs # SuperAnnotate JSON reader/writer
+│   ├── io_supervisely_json.rs   # Supervisely JSON reader/writer
+│   ├── io_super_json_common.rs  # Shared helpers for SuperAnnotate/Supervisely adapters
 │   └── io_json.rs      # IR JSON format (canonical serialization)
 ├── validation/         # Dataset validation
 │   ├── mod.rs          # validate_dataset() function
@@ -150,12 +157,17 @@ tests/
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
+├── cvat_roundtrip.rs      # CVAT XML format roundtrip tests
 ├── label_studio_roundtrip.rs # Label Studio format roundtrip tests
 ├── labelme_roundtrip.rs   # LabelMe format roundtrip tests
 ├── createml_roundtrip.rs  # CreateML format roundtrip tests
 ├── kitti_roundtrip.rs     # KITTI format roundtrip tests
 ├── via_roundtrip.rs       # VIA JSON format roundtrip tests
 ├── retinanet_csv_roundtrip.rs # RetinaNet CSV format roundtrip tests
+├── hf_imagefolder_roundtrip.rs   # HF ImageFolder format roundtrip tests
+├── sagemaker_manifest_roundtrip.rs # SageMaker Ground Truth manifest roundtrip tests
+├── superannotate_roundtrip.rs # SuperAnnotate JSON format roundtrip tests
+├── supervisely_roundtrip.rs   # Supervisely JSON format roundtrip tests
 └── fixtures/           # Test fixture files
 
 proptest-regressions/
@@ -193,6 +205,15 @@ docs/
   - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`
 
 If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
+
+### Adding a new format adapter
+
+When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), update **all** of the following in the same change so the docs do not drift:
+
+- `README.md` — add a row to the **Supported formats** table. Only add a Quick-start example if the format is a name-recognizable platform (e.g. SuperAnnotate, Supervisely, SageMaker) or has a meaningfully different invocation. Don't add a Quick-start line for every format.
+- `CLAUDE.md` — append the format to the project-status `Supports …` line, the `src/ir/` tree comment, the `tests/` tree comment (new roundtrip test), and the auto-detection rules under "Convert with Auto-Detection" if applicable.
+- `AGENTS.md` — append the new `io_*.rs` to the `src/ir/` description line, and any new `tests/*_roundtrip.rs` to the test list line.
+- `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md` — these are the source-of-truth docs. The README is the storefront and goes stale fastest, which is why it's listed first.
 
 ## CLI Commands
 

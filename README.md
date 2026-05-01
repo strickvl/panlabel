@@ -84,75 +84,26 @@ cargo add panlabel
 ## Quick start
 
 ```sh
-# Convert COCO annotations to YOLO (auto-detects the input format)
+# Convert between formats (auto-detects the input)
 panlabel convert --from auto --to yolo -i annotations.json -o ./yolo_out --allow-lossy
-
-# Convert a YOLO dataset to COCO JSON
-panlabel convert -f yolo -t coco -i ./my_dataset -o coco_output.json
-
-# Convert a Pascal VOC dataset to COCO JSON
-panlabel convert -f voc -t coco -i ./voc_dataset -o coco_output.json
-
-# Convert Label Studio JSON to COCO JSON
-panlabel convert -f label-studio -t coco -i export.json -o coco_output.json
-
-# Convert CVAT XML to COCO JSON
-panlabel convert -f cvat -t coco -i annotations.xml -o coco_output.json
-
-# Convert a LabelMe directory to COCO JSON
-panlabel convert -f labelme -t coco -i ./labelme_dataset -o coco_output.json
-
-# Convert Apple CreateML JSON to COCO JSON
-panlabel convert -f create-ml -t coco -i createml_annotations.json -o coco_output.json
-
-# Convert a KITTI dataset to COCO JSON
-panlabel convert -f kitti -t coco -i ./kitti_dataset -o coco_output.json
-
-# Convert VIA JSON to COCO JSON
-panlabel convert -f via -t coco -i via_annotations.json -o coco_output.json
-
-# Convert RetinaNet CSV to COCO JSON
-panlabel convert -f retinanet -t coco -i annotations.csv -o coco_output.json
-
-# Convert local HF ImageFolder metadata to COCO JSON
-panlabel convert -f hf -t coco -i ./hf_dataset -o coco_output.json
-
-# Convert SageMaker Ground Truth manifest to COCO JSON
-panlabel convert -f sagemaker -t coco -i output.manifest -o coco_output.json
-
-# Convert remote HF dataset repo to COCO JSON (requires --features hf when building from source)
-panlabel convert -f hf -t coco --hf-repo rishitdagli/cppe-5 --split train -o coco_output.json
-
-# Convert a zip-style HF dataset repo split to IR JSON (auto-detects extracted payload format)
-panlabel convert -f hf -t ir-json --hf-repo keremberke/football-object-detection --split train -o football.ir.json
 
 # Check a dataset for problems before training
 panlabel validate --format coco annotations.json
 
-# Get machine-readable validation output
-panlabel validate --format coco annotations.json --output-format json
-
 # Get a quick overview of what's in a dataset
 panlabel stats --format coco annotations.json
 
-# Compare two datasets
+# Compare two datasets semantically
 panlabel diff --format-a auto --format-b auto old.json new.json
 
 # Sample a smaller subset for quick experiments
 panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42
 
-# Preview a conversion without writing output files
-panlabel convert --from auto --to ir-json -i annotations.json -o preview.ir.json --dry-run
-
-# Preview a deterministic sample without writing output files
-panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42 --dry-run
-
-# Ask for a machine-readable conversion/sample report
-panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42 --output-format json
-
-# Discover supported formats as JSON
-panlabel list-formats --output json
+# See every supported format and its capabilities
+panlabel list-formats
 ```
+
+The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` — pick any source/destination from the [Supported formats](#supported-formats) table. See [More convert examples](#more-convert-examples) below for lossless vs. lossy conversions, machine-readable JSON reports, dry runs, and remote Hugging Face datasets.
 
 ## What can panlabel do?
 
@@ -187,6 +138,8 @@ panlabel list-formats --output json
 | `kaggle-wheat` | `.csv` | Kaggle Global Wheat Detection CSV | Lossy |
 | `automl-vision` | `.csv` | Google Cloud AutoML Vision CSV | Lossy |
 | `udacity` | `.csv` | Udacity Self-Driving Car Dataset CSV | Lossy |
+| `superannotate` | `.json` file or `annotations/` directory | SuperAnnotate JSON export | Lossy |
+| `supervisely` | `.json` file or `ann/` / `meta.json` project directory | Supervisely JSON project / dataset | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 
@@ -209,6 +162,13 @@ panlabel convert --from auto -t coco -i input.csv -o output.json --output-format
 
 # Preview a conversion without touching the output path
 panlabel convert --from auto -t coco -i input.csv -o output.json --dry-run
+
+# Convert a remote Hugging Face dataset repo to COCO JSON
+# (requires --features hf when building from source)
+panlabel convert -f hf -t coco --hf-repo rishitdagli/cppe-5 --split train -o coco_output.json
+
+# Convert a zip-style HF dataset repo split to IR JSON (auto-detects extracted payload)
+panlabel convert -f hf -t ir-json --hf-repo keremberke/football-object-detection --split train -o football.ir.json
 ```
 
 Dry runs still do the real thinking work — format detection, validation, sampling/conversion analysis, and lossiness checks — but they skip the final filesystem write. That means they are good for “what would happen?” checks, but they do **not** prove that the output path is writable.

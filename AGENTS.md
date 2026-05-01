@@ -3,12 +3,12 @@
 ## Project Structure & Module Organization
 - `src/lib.rs` is the library entry point with CLI command dispatch.
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
-- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for YOLO TXT directory format (flat Darknet-style and split-aware layouts, with optional confidence token), `src/ir/io_voc_xml.rs` for Pascal VOC XML, `src/ir/io_label_studio_json.rs` for Label Studio JSON, `src/ir/io_labelme_json.rs` for LabelMe JSON (per-image, file + directory), `src/ir/io_createml_json.rs` for Apple CreateML JSON, `src/ir/io_kitti.rs` for KITTI object detection labels, `src/ir/io_via_json.rs` for VGG Image Annotator (VIA) JSON, and `src/ir/io_retinanet_csv.rs` for RetinaNet Keras CSV.
+- `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for YOLO TXT directory format (flat Darknet-style and split-aware layouts, with optional confidence token), `src/ir/io_voc_xml.rs` for Pascal VOC XML, `src/ir/io_label_studio_json.rs` for Label Studio JSON, `src/ir/io_labelme_json.rs` for LabelMe JSON (per-image, file + directory), `src/ir/io_createml_json.rs` for Apple CreateML JSON, `src/ir/io_kitti.rs` for KITTI object detection labels, `src/ir/io_via_json.rs` for VGG Image Annotator (VIA) JSON, `src/ir/io_retinanet_csv.rs` for RetinaNet Keras CSV, `src/ir/io_sagemaker_manifest.rs` for AWS SageMaker Ground Truth manifests, `src/ir/io_superannotate_json.rs` for SuperAnnotate JSON, `src/ir/io_supervisely_json.rs` for Supervisely JSON, and `src/ir/io_super_json_common.rs` shared helpers for the SuperAnnotate/Supervisely adapters.
 - `src/conversion/` contains conversion lossiness analysis and stable report issue codes.
 - `src/stats/` contains dataset statistics logic and HTML/text/JSON reporting.
 - `src/validation/` contains dataset validation logic.
 - `tests/cli.rs` contains CLI integration tests using `assert_cmd`.
-- `tests/tfod_csv_roundtrip.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, and `tests/retinanet_csv_roundtrip.rs` cover format-specific integration behavior.
+- `tests/tfod_csv_roundtrip.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`, `tests/sagemaker_manifest_roundtrip.rs`, `tests/superannotate_roundtrip.rs`, and `tests/supervisely_roundtrip.rs` cover format-specific integration behavior.
 - `tests/proptest_*.rs` add property-based roundtrip/idempotency/subset checks; shared helpers live in `tests/proptest_helpers/mod.rs` and `tests/common/mod.rs`.
 - `docs/` is the durable documentation home for users and contributors.
 - `benches/` contains Criterion benchmarks.
@@ -89,6 +89,7 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 - If you change conversion/lossiness/report codes, update `docs/conversion.md`.
 - Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`, and `tests/proptest_*.rs`), since user-visible behavior is asserted there.
 - If you change auto-detection heuristics, update `docs/cli.md` and keep examples aligned with `tests/cli.rs`.
+- **When adding a new format adapter** (any new `src/ir/io_*.rs`), update **all** of: `README.md` (Supported formats table; add a Quick-start example only if it's a name-recognizable platform with a meaningfully different invocation), `CLAUDE.md` (project-status `Supports …` line plus the `src/ir/` and `tests/` tree comments), `AGENTS.md` (the `src/ir/` description line and the test list line), and the relevant `docs/` files. The README is the storefront and goes stale fastest, so it must always be in the change.
 - Keep forward-looking priorities in `ROADMAP.md` (separate from current-behavior docs).
 
 ## Configuration & Data Tips

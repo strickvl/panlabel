@@ -52,6 +52,7 @@ pub mod io_label_studio_json;
 pub mod io_labelme_json;
 pub mod io_openimages_csv;
 pub mod io_retinanet_csv;
+pub mod io_sagemaker_manifest;
 pub mod io_tfod_csv;
 pub mod io_udacity_csv;
 pub mod io_via_json;

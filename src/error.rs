@@ -340,6 +340,19 @@ pub enum PanlabelError {
     #[error("Failed to write HF metadata.jsonl at {path}: {message}")]
     HfWriteError { path: PathBuf, message: String },
 
+    #[error("Failed to parse SageMaker Ground Truth manifest at {path}, line {line}: {message}")]
+    SageMakerManifestParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error("Invalid SageMaker Ground Truth manifest at {path}: {message}")]
+    SageMakerManifestInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to write SageMaker Ground Truth manifest at {path}: {message}")]
+    SageMakerManifestWrite { path: PathBuf, message: String },
+
     #[cfg(feature = "hf-parquet")]
     #[error("Failed to parse HF metadata.parquet at {path}: {message}")]
     HfParquetParse { path: PathBuf, message: String },

@@ -219,6 +219,8 @@ pub enum ConversionIssueCode {
     DropAnnotationAttributes,
     /// Images without annotations will not appear in output.
     DropImagesWithoutAnnotations,
+    /// Categories not referenced by annotations will not appear in output.
+    DropUnusedCategories,
 
     // IR -> COCO lossiness
     /// Dataset info.name has no COCO equivalent.
@@ -269,6 +271,14 @@ pub enum ConversionIssueCode {
     TfodReaderIdAssignment,
     /// TFOD writer orders rows by annotation ID.
     TfodWriterRowOrder,
+    /// TFRecord reader assigns IDs deterministically.
+    TfrecordReaderIdAssignment,
+    /// TFRecord reader payload support/mapping policy.
+    TfrecordReaderPayloadPolicy,
+    /// TFRecord writer emits Examples in deterministic order.
+    TfrecordWriterExampleOrder,
+    /// TFRecord writer payload support/mapping policy.
+    TfrecordWriterPayloadPolicy,
     /// YOLO reader assigns IDs by deterministic ordering.
     YoloReaderIdAssignment,
     /// YOLO reader class-map precedence/source.
@@ -594,6 +604,7 @@ impl ConversionIssueCode {
         Self::DropAnnotationConfidence,
         Self::DropAnnotationAttributes,
         Self::DropImagesWithoutAnnotations,
+        Self::DropUnusedCategories,
         Self::DropDatasetInfoName,
         Self::CocoAttributesMayNotBePreserved,
         Self::CocoWriterDeterministicOrder,
@@ -612,6 +623,10 @@ impl ConversionIssueCode {
         Self::YoloWriterDataYamlPolicy,
         Self::TfodReaderIdAssignment,
         Self::TfodWriterRowOrder,
+        Self::TfrecordReaderIdAssignment,
+        Self::TfrecordReaderPayloadPolicy,
+        Self::TfrecordWriterExampleOrder,
+        Self::TfrecordWriterPayloadPolicy,
         Self::YoloReaderIdAssignment,
         Self::YoloReaderClassMapSource,
         Self::YoloReaderSplitHandling,
@@ -759,6 +774,7 @@ impl ConversionIssueCode {
             Self::DropAnnotationConfidence => "drop_annotation_confidence",
             Self::DropAnnotationAttributes => "drop_annotation_attributes",
             Self::DropImagesWithoutAnnotations => "drop_images_without_annotations",
+            Self::DropUnusedCategories => "drop_unused_categories",
             Self::DropDatasetInfoName => "drop_dataset_info_name",
             Self::CocoAttributesMayNotBePreserved => "coco_attributes_may_not_be_preserved",
             Self::CocoWriterDeterministicOrder => "coco_writer_deterministic_order",
@@ -777,6 +793,10 @@ impl ConversionIssueCode {
             Self::YoloWriterDataYamlPolicy => "yolo_writer_data_yaml_policy",
             Self::TfodReaderIdAssignment => "tfod_reader_id_assignment",
             Self::TfodWriterRowOrder => "tfod_writer_row_order",
+            Self::TfrecordReaderIdAssignment => "tfrecord_reader_id_assignment",
+            Self::TfrecordReaderPayloadPolicy => "tfrecord_reader_payload_policy",
+            Self::TfrecordWriterExampleOrder => "tfrecord_writer_example_order",
+            Self::TfrecordWriterPayloadPolicy => "tfrecord_writer_payload_policy",
             Self::YoloReaderIdAssignment => "yolo_reader_id_assignment",
             Self::YoloReaderClassMapSource => "yolo_reader_class_map_source",
             Self::YoloReaderSplitHandling => "yolo_reader_split_handling",

@@ -22,6 +22,7 @@ Current scope: **object detection** bounding boxes only.
 | `scale-ai` | file (`.json`) or directory (`annotations/` or co-located JSONs) | yes | yes | lossy |
 | `unity-perception` | file (`.json`) or SOLO-like directory | yes | yes (directory only) | lossy |
 | `tfod` | file (`.csv`) | yes | yes | lossy |
+| `tfrecord` | file (`.tfrecord`) | yes | yes | lossy |
 | `vott-csv` | file (`.csv`) | yes | yes | lossy |
 | `vott-json` | file (`.json`) or directory (`vott-json-export/`) | yes | yes | lossy |
 | `yolo` | directory (`images/` + `labels/`) or split image-list `.txt` via `data.yaml` | yes | yes | lossy |
@@ -173,6 +174,27 @@ Limitations:
 - no image-level license/date metadata
 - no annotation confidence/attributes
 - images without annotations are not represented in TFOD output
+
+## TFRecord (`tfrecord` / `tfrecords` / `tf-record` / `tfod-tfrecord` / `tfod-tfrerecord`)
+
+- Path kind: single `.tfrecord` file.
+- V1 scope: **uncompressed TFOD-style `tf.train.Example` object-detection bbox records only**.
+- TFRecord is a container format; arbitrary payloads are intentionally out of scope in v1.
+- Bounding boxes use normalized `xmin/xmax/ymin/ymax` feature lists and map to/from IR pixel-space XYXY.
+- One TFRecord Example maps to one image plus zero or more objects.
+
+Deterministic policy:
+- reader image IDs: by filename (lexicographic)
+- reader category IDs: by class name (lexicographic)
+- reader annotation IDs: by record order then object order
+- writer example order: by image filename then image ID
+- writer object order: by annotation ID
+
+Limitations:
+- no dataset-level metadata/licenses
+- no image-level license/date metadata
+- arbitrary/non-TFOD Example payloads are not supported
+- sharded directories, compression, and embedded image-byte roundtrip are out of scope in v1
 
 ## VoTT CSV (`vott-csv` / `vott`)
 

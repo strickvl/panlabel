@@ -128,7 +128,8 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `labelbox` | `.json` / `.jsonl` / `.ndjson` | Labelbox current export rows (`data_row` / `projects.*.labels`) | Lossy |
 | `scale-ai` | `.json` file or directory (`annotations/`) | Scale AI image annotation task/response JSON | Lossy |
 | `unity-perception` | `.json` file or SOLO-like directory | Unity Perception / SOLO synthetic-data bbox JSON | Lossy |
-| `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
+| `tfod` | `.csv` | TensorFlow Object Detection CSV (normalized bbox corners) | Lossy |
+| `tfrecord` | `.tfrecord` | TensorFlow Object Detection API-style `tf.train.Example` records (single-file, uncompressed, bbox-only in v1) | Lossy |
 | `vott-csv` | `.csv` | Microsoft VoTT CSV export (`image,xmin,ymin,xmax,ymax,label`) | Lossy |
 | `vott-json` | `.json` file or `vott-json-export/` directory | Microsoft VoTT JSON export (`assets` / per-asset JSON with `regions`) | Lossy |
 | `yolo` | `images/ + labels/` directory, or split `data.yaml` pointing to image-list `.txt` files | YOLO `.txt` labels (flat, split-aware, Scaled-YOLOv4 aliases, optional confidence) | Lossy |
@@ -152,6 +153,8 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `marmot` | `.xml` file or directory with same-stem companion images | Marmot XML document-layout composites; hex doubles become pixel bboxes | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
+
+TFRecord support in v1 is intentionally narrow: panlabel currently supports only single-file, uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records (not arbitrary TFRecord payloads).
 
 `list-formats` shows canonical names (for example `label-studio`), while commands also accept aliases (for example `ls`, `label-studio-json`). Across commands, `--output-format` is the consistent way to request JSON reports; `convert` and `sample` also keep `--report` as an alias. JSON is pretty-printed on a terminal and compact when piped or captured, which makes it friendlier for scripts and agents. `stats` also adapts its text renderer: rich/Unicode on a terminal, plain text layout when piped.
 

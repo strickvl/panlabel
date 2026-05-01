@@ -97,6 +97,16 @@ enum ConvertFormat {
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+    /// TensorFlow Object Detection API TFRecord Examples.
+    #[value(
+        name = "tfrecord",
+        alias = "tfrecords",
+        alias = "tf-record",
+        alias = "tfod-tfrecord",
+        // Intentional typo-tolerant alias for a common doubled-"re" input mistake.
+        alias = "tfod-tfrerecord"
+    )]
+    Tfrecord,
     /// Microsoft VoTT CSV export.
     #[value(name = "vott-csv", alias = "vott")]
     VottCsv,
@@ -197,6 +207,7 @@ impl ConvertFormat {
             ConvertFormat::ScaleAi => conversion::Format::ScaleAi,
             ConvertFormat::UnityPerception => conversion::Format::UnityPerception,
             ConvertFormat::Tfod => conversion::Format::Tfod,
+            ConvertFormat::Tfrecord => conversion::Format::Tfrecord,
             ConvertFormat::VottCsv => conversion::Format::VottCsv,
             ConvertFormat::VottJson => conversion::Format::VottJson,
             ConvertFormat::Yolo => conversion::Format::Yolo,
@@ -265,6 +276,16 @@ enum ConvertFromFormat {
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+    /// TensorFlow Object Detection API TFRecord Examples.
+    #[value(
+        name = "tfrecord",
+        alias = "tfrecords",
+        alias = "tf-record",
+        alias = "tfod-tfrecord",
+        // Intentional typo-tolerant alias for a common doubled-"re" input mistake.
+        alias = "tfod-tfrerecord"
+    )]
+    Tfrecord,
     /// Microsoft VoTT CSV export.
     #[value(name = "vott-csv", alias = "vott")]
     VottCsv,
@@ -366,6 +387,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::ScaleAi => Some(ConvertFormat::ScaleAi),
             ConvertFromFormat::UnityPerception => Some(ConvertFormat::UnityPerception),
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
+            ConvertFromFormat::Tfrecord => Some(ConvertFormat::Tfrecord),
             ConvertFromFormat::VottCsv => Some(ConvertFormat::VottCsv),
             ConvertFromFormat::VottJson => Some(ConvertFormat::VottJson),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
@@ -540,7 +562,7 @@ struct StatsArgs {
     /// Input path to analyze.
     input: PathBuf,
 
-    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'yolo', 'voc', or 'hf').
+    /// Input format ('ir-json', 'coco', 'cvat', 'label-studio', 'tfod', 'tfrecord', 'yolo', 'voc', or 'hf').
     ///
     /// If omitted, panlabel auto-detects the format. If detection fails for a JSON
     /// file, stats falls back to reading as ir-json.
@@ -840,6 +862,13 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         format: ConvertFormat::Tfod,
         aliases: &["tfod-csv"],
         description: "TensorFlow Object Detection format (CSV)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Tfrecord,
+        aliases: &["tfrecords", "tf-record", "tfod-tfrecord", "tfod-tfrerecord"],
+        description: "TensorFlow Object Detection API TFRecord Examples",
         file_based: true,
         directory_based: false,
     },
@@ -1695,6 +1724,7 @@ fn read_dataset_with_options(
             ir::io_unity_perception_json::read_unity_perception_json(path)
         }
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
+        ConvertFormat::Tfrecord => ir::io_tfrecord::read_tfrecord(path),
         ConvertFormat::VottCsv => ir::io_vott_csv::read_vott_csv(path),
         ConvertFormat::VottJson => ir::io_vott_json::read_vott_json(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir_with_options(path, yolo_options),
@@ -1755,6 +1785,7 @@ fn write_dataset_with_options(
             ir::io_unity_perception_json::write_unity_perception_json(path, dataset)
         }
         ConvertFormat::Tfod => ir::io_tfod_csv::write_tfod_csv(path, dataset),
+        ConvertFormat::Tfrecord => ir::io_tfrecord::write_tfrecord(path, dataset),
         ConvertFormat::VottCsv => ir::io_vott_csv::write_vott_csv(path, dataset),
         ConvertFormat::VottJson => ir::io_vott_json::write_vott_json(path, dataset),
         ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
@@ -1941,6 +1972,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::ScaleAi => "scale-ai",
         ConvertFormat::UnityPerception => "unity-perception",
         ConvertFormat::Tfod => "tfod",
+        ConvertFormat::Tfrecord => "tfrecord",
         ConvertFormat::VottCsv => "vott-csv",
         ConvertFormat::VottJson => "vott-json",
         ConvertFormat::Yolo => "yolo",
@@ -2055,6 +2087,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext.to_lowercase().as_str() {
             "csv" => return detect_csv_format(path),
+            "tfrecord" | "tfrecords" => return detect_tfrecord_format(path),
             "json" => return detect_json_format(path),
             "jsonl" | "ndjson" | "manifest" => return detect_jsonl_format(path),
             "xml" => return detect_xml_format(path),
@@ -2066,7 +2099,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // Keep message stable (existing CLI tests assert this substring).
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized file extension (expected .json, .jsonl, .ndjson, .manifest, .csv, .xml, or .txt). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized file extension (expected .json, .jsonl, .ndjson, .manifest, .csv, .xml, .txt, or .tfrecord). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -2865,6 +2898,18 @@ fn data_yaml_has_split_keys(path: &Path) -> Option<Vec<String>> {
 /// Heuristics:
 /// - 8 columns (filename,width,height,class,xmin,ymin,xmax,ymax) -> TFOD
 /// - 6 columns (path,x1,y1,x2,y2,class_name or headerless data) -> RetinaNet
+fn detect_tfrecord_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    if ir::io_tfrecord::is_supported_tfrecord_file(path)? {
+        Ok(ConvertFormat::Tfrecord)
+    } else {
+        Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "TFRecord framing is valid only for uncompressed TFOD-style tf.train.Example records in v1, or the file is not a TFRecord. Use --from to specify format explicitly."
+                .to_string(),
+        })
+    }
+}
+
 fn detect_txt_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     let looks_like = ir::io_yolo_keras_txt::looks_like_yolo_keras_txt_file(path)?;
     if !looks_like {

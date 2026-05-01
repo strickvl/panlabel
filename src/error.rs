@@ -203,6 +203,25 @@ pub enum PanlabelError {
     #[error("Invalid TFOD CSV: {path}: {message}")]
     TfodCsvInvalid { path: PathBuf, message: String },
 
+    #[error("Failed to read TFRecord from {path}: {message}")]
+    TfrecordRead { path: PathBuf, message: String },
+
+    #[error("Failed to write TFRecord to {path}: {message}")]
+    TfrecordWrite { path: PathBuf, message: String },
+
+    #[error("Invalid TFRecord at {path}: {message}")]
+    TfrecordInvalid { path: PathBuf, message: String },
+
+    #[error(
+        "Failed to decode TFRecord tf.train.Example at {path}, record {record_index}: {source}"
+    )]
+    TfrecordProtobufDecode {
+        path: PathBuf,
+        record_index: usize,
+        #[source]
+        source: prost::DecodeError,
+    },
+
     #[error("Invalid YOLO dataset layout at {path}: {message}")]
     YoloLayoutInvalid { path: PathBuf, message: String },
 

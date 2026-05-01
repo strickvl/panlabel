@@ -10,7 +10,7 @@ For current, implemented behavior, use:
 ## Current baseline
 
 - ✅ Detection task support (axis-aligned bboxes)
-- ✅ Formats: broad object-detection coverage across JSON, XML, CSV, TXT, and directory layouts; see `docs/formats.md` for the exhaustive implemented list
+- ✅ Formats: broad object-detection coverage across JSON, XML, CSV, TXT, TFRecord, and directory layouts; see `docs/formats.md` for the exhaustive implemented list
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, stats, diff, sample, list-formats
 
@@ -23,6 +23,8 @@ before expanding to new annotation tasks (segmentation, classification).
 
 Goal: comprehensive coverage of every object detection annotation format in
 active or legacy use, so that any dataset can be converted to any other format.
+
+Status note: object-detection format coverage is now feature-complete relative to this roadmap's currently planned detection-format list. This does **not** imply support for arbitrary TFRecord payloads; TFRecord support is intentionally limited to the v1 TFOD-style `tf.train.Example` bbox scope above.
 
 #### Already supported
 
@@ -41,6 +43,7 @@ active or legacy use, so that any dataset can be converted to any other format.
 - ✅ Kaggle Wheat CSV (Kaggle Global Wheat Detection format with bbox string)
 - ✅ Google Cloud AutoML Vision CSV (GCP import/export format with sparse layout)
 - ✅ Udacity Self-Driving Car CSV (absolute pixel coordinate CSV)
+- ✅ TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records)
 
 #### YOLO variant improvements
 
@@ -81,7 +84,8 @@ format that panlabel already supports. Differences are in directory layout and
 
 #### Model-specific formats
 
-- ⏳ TFRecords — TensorFlow binary protobuf format; harder to support (requires protobuf parsing), but widely used for TF training pipelines
+- ✅ TFRecord v1 — single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records
+- ⏳ Broader TFRecord payload coverage — arbitrary TFRecord payloads/shards/compression remain out of scope
 - ✅ RetinaNet Keras CSV — simple `path,x1,y1,x2,y2,class_name` CSV (one row per annotation); used with keras-retinanet
 - ✅ YOLO Keras / YOLOv4 PyTorch TXT — simple `path x1,y1,x2,y2,class_id ...` TXT rows with absolute pixel coordinates
 

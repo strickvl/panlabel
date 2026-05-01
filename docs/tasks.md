@@ -36,6 +36,7 @@ within those boundaries.
 | `scale-ai` | yes | yes | Scale AI image annotation task/response JSON; boxes direct, polygons and rotated boxes with vertices flattened to bbox envelopes, unsupported geometry rejected clearly |
 | `unity-perception` | yes | yes | Unity Perception/SOLO frame and captures JSON; `BoundingBox2D` values direct, non-bbox annotations skipped with warnings |
 | `tfod` | yes | yes | normalized CSV format; lossy |
+| `tfrecord` | yes | yes | TensorFlow Object Detection API-style `tf.train.Example` bbox records; single-file uncompressed only in v1 |
 | `vott-csv` | yes | yes | Microsoft VoTT headered CSV; absolute pixel XYXY coordinates; file based |
 | `vott-json` | yes | yes | Microsoft VoTT aggregate/per-asset JSON; rectangles direct, polygon-like point regions flattened to bbox envelopes; file or directory based |
 | `yolo` | yes | yes | directory/list-split based; normalized center-format rows |
@@ -92,6 +93,7 @@ format accepts and rejects:
 | `yolo-keras` / `yolov4-pytorch` | Rows like `image xmin,ymin,xmax,ymax,class_id ...`; image-only rows for unannotated images | Malformed box tokens and non-XYXY boxes are rejected with file/line context |
 | `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
 | `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
+| `tfrecord` | TFOD-style `tf.train.Example` object features with normalized bbox corners | Arbitrary TFRecord payloads, compression, and non-bbox tasks are out of scope in v1 |
 | `vott-csv` | Headered rows with `image,xmin,ymin,xmax,ymax,label` | Fixed schema; no non-bbox geometry |
 | `vott-json` | `RECTANGLE` regions with `boundingBox`, plus point-based polygon-like regions flattened to bbox envelopes | Unsupported tagged regions with no `boundingBox` or `points` are rejected |
 | `ibm-cloud-annotations` | Localization JSON objects with normalized `x,y,x2,y2,label` | Fixed localization schema; no non-bbox geometry |

@@ -27,6 +27,7 @@ pub enum Format {
     Yolo,
     Voc,
     HfImagefolder,
+    SageMaker,
     LabelMe,
     CreateMl,
     Kitti,
@@ -61,6 +62,7 @@ impl Format {
             Format::Yolo => "yolo",
             Format::Voc => "voc",
             Format::HfImagefolder => "hf",
+            Format::SageMaker => "sagemaker",
             Format::LabelMe => "labelme",
             Format::CreateMl => "create-ml",
             Format::Kitti => "kitti",
@@ -91,6 +93,7 @@ impl Format {
             Format::Yolo => IrLossiness::Lossy,
             Format::Voc => IrLossiness::Lossy,
             Format::HfImagefolder => IrLossiness::Lossy,
+            Format::SageMaker => IrLossiness::Lossy,
             Format::LabelMe => IrLossiness::Lossy,
             Format::CreateMl => IrLossiness::Lossy,
             Format::Kitti => IrLossiness::Lossy,
@@ -130,6 +133,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Cvat => analyze_to_cvat(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
         Format::HfImagefolder => analyze_to_hf(dataset, &mut report),
+        Format::SageMaker => analyze_to_sagemaker(dataset, &mut report),
         Format::LabelMe => analyze_to_labelme(dataset, &mut report),
         Format::CreateMl => analyze_to_createml(dataset, &mut report),
         Format::Kitti => analyze_to_kitti(dataset, &mut report),
@@ -150,6 +154,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
         Format::Coco => add_coco_reader_policy(&mut report),
         Format::HfImagefolder => add_hf_reader_policy(&mut report),
+        Format::SageMaker => add_sagemaker_reader_policy(&mut report),
         Format::LabelMe => add_labelme_reader_policy(dataset, &mut report),
         Format::CreateMl => add_createml_reader_policy(&mut report),
         Format::Kitti => add_kitti_reader_policy(&mut report),
@@ -171,6 +176,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::Cvat => add_cvat_writer_policy(&mut report),
         Format::Coco => add_coco_writer_policy(&mut report),
         Format::HfImagefolder => add_hf_writer_policy(&mut report),
+        Format::SageMaker => add_sagemaker_writer_policy(&mut report),
         Format::LabelMe => add_labelme_writer_policy(&mut report),
         Format::CreateMl => add_createml_writer_policy(&mut report),
         Format::Kitti => add_kitti_writer_policy(&mut report),
@@ -537,6 +543,99 @@ fn analyze_to_hf(dataset: &Dataset, report: &mut ConversionReport) {
     report.output = report.input.clone();
 }
 
+/// Analyze conversion to SageMaker Ground Truth manifest format.
+fn analyze_to_sagemaker(dataset: &Dataset, report: &mut ConversionReport) {
+    let info_has_unrepresentable_fields = dataset.info.name.is_some()
+        || dataset.info.version.is_some()
+        || dataset.info.description.is_some()
+        || dataset.info.url.is_some()
+        || dataset.info.year.is_some()
+        || dataset.info.contributor.is_some()
+        || dataset.info.date_created.is_some()
+        || dataset.info.attributes.keys().any(|key| {
+            !matches!(
+                key.as_str(),
+                "sagemaker_label_attribute_name" | "sagemaker_creation_date"
+            )
+        });
+
+    if info_has_unrepresentable_fields {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata outside SageMaker label-attribute/date hints will be dropped"
+                .to_string(),
+        ));
+    }
+
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    let images_with_unrepresentable_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| {
+            img.license_id.is_some()
+                || img.date_captured.is_some()
+                || img.attributes.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        "sagemaker_source_ref"
+                            | "sagemaker_image_depth"
+                            | "sagemaker_creation_date"
+                            | "sagemaker_job_name"
+                    )
+                })
+        })
+        .count();
+    if images_with_unrepresentable_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata/attributes outside SageMaker's preserved source-ref/depth/date/job-name set",
+                images_with_unrepresentable_metadata
+            ),
+        ));
+    }
+
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+
+    let anns_with_attributes = dataset
+        .annotations
+        .iter()
+        .filter(|ann| !ann.attributes.is_empty())
+        .count();
+    if anns_with_attributes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes that will be dropped; SageMaker class IDs are assigned from category order on write",
+                anns_with_attributes
+            ),
+        ));
+    }
+
+    // SageMaker manifests preserve all images, categories, annotations, bbox
+    // geometry, and annotation confidence values.
+    report.output = report.input.clone();
+}
+
 /// Analyze conversion to CVAT XML format.
 fn analyze_to_cvat(dataset: &Dataset, report: &mut ConversionReport) {
     if !dataset.info.is_empty() {
@@ -888,6 +987,49 @@ fn add_hf_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::HfWriterDeterministicOrder,
         "HF writer orders metadata rows by image file_name and annotation lists by annotation ID"
+            .to_string(),
+    ));
+}
+
+/// Add policy notes for SageMaker Ground Truth reader behavior.
+fn add_sagemaker_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::SagemakerReaderIdAssignment,
+        "SageMaker reader assigns IDs deterministically: images by derived file_name, categories by source class_id, annotations by image/source order"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::SagemakerReaderLabelAttributeDetection,
+        "SageMaker reader accepts one object-detection label attribute per manifest and rejects mixed or ambiguous label attributes"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::SagemakerReaderClassMapResolution,
+        "SageMaker reader resolves category names from metadata class-map, falling back to the numeric class_id string"
+            .to_string(),
+    ));
+}
+
+/// Add policy notes for SageMaker Ground Truth writer behavior.
+fn add_sagemaker_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SagemakerWriterDeterministicOrder,
+        "SageMaker writer orders JSONL rows by image file_name and annotations by annotation ID"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SagemakerWriterClassMapPolicy,
+        "SageMaker writer assigns class_id values by CategoryId order and emits class-map entries for all categories"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SagemakerWriterMetadataDefaults,
+        "SageMaker writer defaults the label attribute to 'bounding-box', preserves stored job-name/creation-date hints when present, and emits deterministic object-detection metadata defaults"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SagemakerWriterNoImageCopy,
+        "SageMaker writer creates only the manifest file; image binaries are not copied"
             .to_string(),
     ));
 }

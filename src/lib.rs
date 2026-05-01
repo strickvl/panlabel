@@ -23,7 +23,7 @@ pub mod stats;
 pub mod validation;
 
 use std::fs::File;
-use std::io::{BufReader, IsTerminal, Write};
+use std::io::{BufRead, BufReader, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -89,6 +89,16 @@ enum ConvertFormat {
     /// Hugging Face ImageFolder metadata format (directory-based).
     #[value(name = "hf", alias = "hf-imagefolder", alias = "huggingface")]
     HfImagefolder,
+    /// AWS SageMaker Ground Truth object-detection manifest (JSON Lines).
+    #[value(
+        name = "sagemaker",
+        alias = "sagemaker-manifest",
+        alias = "sagemaker-ground-truth",
+        alias = "ground-truth",
+        alias = "groundtruth",
+        alias = "aws-sagemaker"
+    )]
+    SageMaker,
     /// LabelMe annotation format (per-image JSON, directory-based).
     #[value(name = "labelme", alias = "labelme-json")]
     LabelMe,
@@ -134,6 +144,7 @@ impl ConvertFormat {
             ConvertFormat::Yolo => conversion::Format::Yolo,
             ConvertFormat::Voc => conversion::Format::Voc,
             ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
+            ConvertFormat::SageMaker => conversion::Format::SageMaker,
             ConvertFormat::LabelMe => conversion::Format::LabelMe,
             ConvertFormat::CreateMl => conversion::Format::CreateMl,
             ConvertFormat::Kitti => conversion::Format::Kitti,
@@ -182,6 +193,16 @@ enum ConvertFromFormat {
     /// Hugging Face ImageFolder metadata format (directory-based).
     #[value(name = "hf", alias = "hf-imagefolder", alias = "huggingface")]
     HfImagefolder,
+    /// AWS SageMaker Ground Truth object-detection manifest (JSON Lines).
+    #[value(
+        name = "sagemaker",
+        alias = "sagemaker-manifest",
+        alias = "sagemaker-ground-truth",
+        alias = "ground-truth",
+        alias = "groundtruth",
+        alias = "aws-sagemaker"
+    )]
+    SageMaker,
     /// LabelMe annotation format (per-image JSON, directory-based).
     #[value(name = "labelme", alias = "labelme-json")]
     LabelMe,
@@ -228,6 +249,7 @@ impl ConvertFromFormat {
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
             ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
             ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
+            ConvertFromFormat::SageMaker => Some(ConvertFormat::SageMaker),
             ConvertFromFormat::LabelMe => Some(ConvertFormat::LabelMe),
             ConvertFromFormat::CreateMl => Some(ConvertFormat::CreateMl),
             ConvertFromFormat::Kitti => Some(ConvertFormat::Kitti),
@@ -681,6 +703,19 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         description: "Hugging Face ImageFolder metadata (metadata.jsonl/parquet)",
         file_based: false,
         directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::SageMaker,
+        aliases: &[
+            "sagemaker-manifest",
+            "sagemaker-ground-truth",
+            "ground-truth",
+            "groundtruth",
+            "aws-sagemaker",
+        ],
+        description: "AWS SageMaker Ground Truth object-detection manifest",
+        file_based: true,
+        directory_based: false,
     },
     FormatCatalogEntry {
         format: ConvertFormat::LabelMe,
@@ -1433,6 +1468,7 @@ fn read_dataset_with_options(
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir_with_options(path, yolo_options),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
+        ConvertFormat::SageMaker => ir::io_sagemaker_manifest::read_sagemaker_manifest(path),
         ConvertFormat::LabelMe => ir::io_labelme_json::read_labelme_json(path),
         ConvertFormat::CreateMl => ir::io_createml_json::read_createml_json(path),
         ConvertFormat::Kitti => ir::io_kitti::read_kitti_dir(path),
@@ -1477,6 +1513,9 @@ fn write_dataset_with_options(
         ConvertFormat::Voc => ir::io_voc_xml::write_voc_dir(path, dataset),
         ConvertFormat::HfImagefolder => {
             ir::io_hf_imagefolder::write_hf_imagefolder_with_options(path, dataset, hf_options)
+        }
+        ConvertFormat::SageMaker => {
+            ir::io_sagemaker_manifest::write_sagemaker_manifest(path, dataset)
         }
         ConvertFormat::LabelMe => ir::io_labelme_json::write_labelme_json(path, dataset),
         ConvertFormat::CreateMl => ir::io_createml_json::write_createml_json(path, dataset),
@@ -1641,6 +1680,7 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::Yolo => "yolo",
         ConvertFormat::Voc => "voc",
         ConvertFormat::HfImagefolder => "hf",
+        ConvertFormat::SageMaker => "sagemaker",
         ConvertFormat::LabelMe => "labelme",
         ConvertFormat::CreateMl => "create-ml",
         ConvertFormat::Kitti => "kitti",
@@ -1744,6 +1784,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         match ext.to_lowercase().as_str() {
             "csv" => return detect_csv_format(path),
             "json" => return detect_json_format(path),
+            "jsonl" | "manifest" => return detect_jsonl_format(path),
             "xml" => return detect_xml_format(path),
             _ => {}
         }
@@ -1752,7 +1793,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // Keep message stable (existing CLI tests assert this substring).
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized file extension (expected .json, .csv, or .xml). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized file extension (expected .json, .jsonl, .manifest, .csv, or .xml). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -2335,6 +2376,52 @@ fn detect_tfod_vs_udacity(
     Ok(ConvertFormat::Tfod)
 }
 
+/// Detect whether a JSON Lines file is a SageMaker Ground Truth manifest.
+///
+/// Heuristic: first non-empty line is an object with a string `source-ref`
+/// and exactly one object-detection label attribute. The label attribute is
+/// dynamic, so we accept either a sibling `<label>-metadata.type` of
+/// `groundtruth/object-detection` or the canonical `annotations` +
+/// `image_size` label-object shape.
+fn detect_jsonl_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    let file = File::open(path).map_err(PanlabelError::Io)?;
+    let reader = BufReader::new(file);
+    let mut first_non_empty = None;
+    for line in reader.lines() {
+        let line = line.map_err(PanlabelError::Io)?;
+        if !line.trim().is_empty() {
+            first_non_empty = Some(line);
+            break;
+        }
+    }
+
+    let Some(line) = first_non_empty else {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "JSON Lines file is empty; cannot determine format. Use --from to specify format explicitly."
+                .to_string(),
+        });
+    };
+
+    let value: serde_json::Value =
+        serde_json::from_str(&line).map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: format!(
+                "failed to parse first JSON Lines row while detecting format: {source}"
+            ),
+        })?;
+
+    if is_likely_sagemaker_manifest_row(&value) {
+        Ok(ConvertFormat::SageMaker)
+    } else {
+        Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "JSON Lines file not recognized as a SageMaker Ground Truth object-detection manifest. Use --from to specify format explicitly."
+                .to_string(),
+        })
+    }
+}
+
 ///
 /// Heuristics:
 /// - Array-root JSON: Label Studio task export
@@ -2540,4 +2627,58 @@ fn is_likely_via_project(value: &serde_json::Value) -> bool {
     // objects containing "filename" and "regions" keys.
     obj.values()
         .any(|v| v.is_object() && v.get("filename").is_some() && v.get("regions").is_some())
+}
+
+fn is_likely_sagemaker_manifest_row(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    if !obj
+        .get("source-ref")
+        .and_then(|value| value.as_str())
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+    {
+        return false;
+    }
+
+    obj.iter()
+        .filter(|(key, value)| is_likely_sagemaker_label_attribute(obj, key, value))
+        .count()
+        == 1
+}
+
+fn is_likely_sagemaker_label_attribute(
+    row: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) -> bool {
+    if key == "source-ref" || key.ends_with("-metadata") {
+        return false;
+    }
+
+    let Some(label_obj) = value.as_object() else {
+        return false;
+    };
+
+    let metadata_key = format!("{key}-metadata");
+    let metadata_says_object_detection = row
+        .get(&metadata_key)
+        .and_then(|metadata| metadata.as_object())
+        .and_then(|metadata| metadata.get("type"))
+        .and_then(|value| value.as_str())
+        .map(|metadata_type| metadata_type == "groundtruth/object-detection")
+        .unwrap_or(false);
+
+    let has_detection_shape = label_obj
+        .get("annotations")
+        .map(|value| value.is_array())
+        .unwrap_or(false)
+        && label_obj
+            .get("image_size")
+            .map(|value| value.is_array())
+            .unwrap_or(false);
+
+    metadata_says_object_detection || has_detection_shape
 }

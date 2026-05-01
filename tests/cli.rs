@@ -1310,6 +1310,30 @@ fn convert_format_aliases_work() {
 }
 
 #[test]
+fn convert_sagemaker_format_aliases_work() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("test_convert_sagemaker_alias.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "groundtruth",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.sagemaker.manifest",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Converted"));
+
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
 fn convert_nonexistent_file_fails() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args([
@@ -1489,6 +1513,105 @@ fn convert_to_yolo_report_includes_policy_notes() {
     let issues = parsed["issues"].as_array().expect("issues array");
     assert!(issues.iter().any(|issue| issue["severity"] == "info"));
     assert!(stdout.contains("yolo_writer_float_precision"));
+}
+
+#[test]
+fn convert_from_sagemaker_report_includes_reader_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_sagemaker_source.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "sagemaker",
+        "-t",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.sagemaker.manifest",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--report",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    let issues = parsed["issues"].as_array().expect("issues array");
+    assert!(issues.iter().any(|issue| issue["severity"] == "info"));
+    assert!(stdout.contains("sagemaker_reader_id_assignment"));
+    assert!(stdout.contains("sagemaker_reader_label_attribute_detection"));
+}
+
+#[test]
+fn convert_to_sagemaker_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_sagemaker.manifest");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "sagemaker",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--report",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    let issues = parsed["issues"].as_array().expect("issues array");
+    assert!(issues.iter().any(|issue| issue["severity"] == "info"));
+    assert!(stdout.contains("sagemaker_writer_class_map_policy"));
+    assert!(stdout.contains("sagemaker_writer_metadata_defaults"));
+}
+
+#[test]
+fn convert_to_sagemaker_blocks_lossy_without_allow_lossy() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("blocked_sagemaker.manifest");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "sagemaker",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--report",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(!output.status.success());
+
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    let issues = parsed["issues"].as_array().expect("issues array");
+    assert!(issues
+        .iter()
+        .any(|issue| issue["code"] == "drop_dataset_info"));
+    assert!(issues.iter().any(|issue| issue["code"] == "drop_licenses"));
+    assert!(issues
+        .iter()
+        .any(|issue| issue["code"] == "drop_category_supercategory"));
+    assert!(stdout.contains("sagemaker_writer_class_map_policy"));
 }
 
 #[test]
@@ -2395,6 +2518,7 @@ fn list_formats_shows_all_formats() {
         .stdout(predicates::str::contains("yolo"))
         .stdout(predicates::str::contains("voc"))
         .stdout(predicates::str::contains("hf"))
+        .stdout(predicates::str::contains("sagemaker"))
         .stdout(predicates::str::contains("Supported formats"));
 }
 
@@ -2430,7 +2554,7 @@ fn list_formats_json_output_has_expected_schema() {
     let (stdout, parsed) = stdout_json(&output);
     assert_compact_json(&stdout);
     let formats = parsed.as_array().expect("top-level array");
-    assert_eq!(formats.len(), 17);
+    assert_eq!(formats.len(), 18);
 
     let label_studio = formats
         .iter()
@@ -2452,6 +2576,22 @@ fn list_formats_json_output_has_expected_schema() {
     assert_eq!(yolo["directory_based"], true);
     assert_eq!(yolo["file_based"], false);
 
+    let sagemaker = formats
+        .iter()
+        .find(|entry| entry["name"] == "sagemaker")
+        .expect("sagemaker entry");
+    let sagemaker_aliases = sagemaker["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(sagemaker_aliases.contains(&"sagemaker-manifest"));
+    assert!(sagemaker_aliases.contains(&"groundtruth"));
+    assert_eq!(sagemaker["file_based"], true);
+    assert_eq!(sagemaker["directory_based"], false);
+    assert_eq!(sagemaker["lossiness"], "lossy");
+
     let coco = formats
         .iter()
         .find(|entry| entry["name"] == "coco")
@@ -2468,7 +2608,7 @@ fn list_formats_json_output_has_expected_schema() {
     assert_eq!(ir_json["read"], true);
     assert_eq!(ir_json["write"], true);
 
-    for name in ["tfod", "yolo", "voc", "hf"] {
+    for name in ["tfod", "yolo", "voc", "hf", "sagemaker"] {
         let entry = formats
             .iter()
             .find(|format| format["name"] == name)
@@ -2590,6 +2730,58 @@ fn convert_auto_detects_label_studio_format() {
         .stdout(predicates::str::contains("(label-studio)"));
 
     let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_auto_detects_sagemaker_manifest_format() {
+    let temp_dir = std::env::temp_dir();
+    let output_path = temp_dir.join("auto_detect_sagemaker.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.sagemaker.manifest",
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(sagemaker)"));
+
+    let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_auto_detects_sagemaker_jsonl_format() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let jsonl_path = temp.path().join("sample.jsonl");
+    fs::copy(
+        "tests/fixtures/sample_valid.sagemaker.manifest",
+        &jsonl_path,
+    )
+    .expect("copy manifest fixture to jsonl");
+    let output_path = temp.path().join("auto_detect_sagemaker_jsonl.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        jsonl_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(sagemaker)"));
 }
 
 #[test]

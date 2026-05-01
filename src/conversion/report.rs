@@ -322,6 +322,22 @@ pub enum ConversionIssueCode {
     /// HF writer deterministic output ordering policy.
     HfWriterDeterministicOrder,
 
+    // SageMaker Ground Truth policy (Info level)
+    /// SageMaker reader deterministic ID assignment policy.
+    SagemakerReaderIdAssignment,
+    /// SageMaker reader label attribute detection policy.
+    SagemakerReaderLabelAttributeDetection,
+    /// SageMaker reader class-map/category resolution policy.
+    SagemakerReaderClassMapResolution,
+    /// SageMaker writer deterministic ordering policy.
+    SagemakerWriterDeterministicOrder,
+    /// SageMaker writer class-map/class_id assignment policy.
+    SagemakerWriterClassMapPolicy,
+    /// SageMaker writer metadata default policy.
+    SagemakerWriterMetadataDefaults,
+    /// SageMaker writer does not copy images.
+    SagemakerWriterNoImageCopy,
+
     // LabelMe policy (Info level)
     /// LabelMe reader deterministic ID assignment policy.
     LabelmeReaderIdAssignment,
@@ -479,6 +495,13 @@ impl ConversionIssueCode {
         Self::CvatWriterDropUnusedCategories,
         Self::HfReaderCategoryResolution,
         Self::HfWriterDeterministicOrder,
+        Self::SagemakerReaderIdAssignment,
+        Self::SagemakerReaderLabelAttributeDetection,
+        Self::SagemakerReaderClassMapResolution,
+        Self::SagemakerWriterDeterministicOrder,
+        Self::SagemakerWriterClassMapPolicy,
+        Self::SagemakerWriterMetadataDefaults,
+        Self::SagemakerWriterNoImageCopy,
         Self::LabelmeReaderIdAssignment,
         Self::LabelmeReaderPathPolicy,
         Self::LabelmePolygonEnvelopeApplied,
@@ -576,6 +599,15 @@ impl ConversionIssueCode {
             Self::CvatWriterDropUnusedCategories => "cvat_writer_drop_unused_categories",
             Self::HfReaderCategoryResolution => "hf_reader_category_resolution",
             Self::HfWriterDeterministicOrder => "hf_writer_deterministic_order",
+            Self::SagemakerReaderIdAssignment => "sagemaker_reader_id_assignment",
+            Self::SagemakerReaderLabelAttributeDetection => {
+                "sagemaker_reader_label_attribute_detection"
+            }
+            Self::SagemakerReaderClassMapResolution => "sagemaker_reader_class_map_resolution",
+            Self::SagemakerWriterDeterministicOrder => "sagemaker_writer_deterministic_order",
+            Self::SagemakerWriterClassMapPolicy => "sagemaker_writer_class_map_policy",
+            Self::SagemakerWriterMetadataDefaults => "sagemaker_writer_metadata_defaults",
+            Self::SagemakerWriterNoImageCopy => "sagemaker_writer_no_image_copy",
             Self::LabelmeReaderIdAssignment => "labelme_reader_id_assignment",
             Self::LabelmeReaderPathPolicy => "labelme_reader_path_policy",
             Self::LabelmePolygonEnvelopeApplied => "labelme_polygon_envelope_applied",

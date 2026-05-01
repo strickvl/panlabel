@@ -23,6 +23,7 @@ Format-level lossiness relative to IR:
 - `yolo`: lossy
 - `voc`: lossy
 - `hf`: lossy
+- `sagemaker`: lossy
 - `labelme`: lossy
 - `create-ml`: lossy
 - `kitti`: lossy
@@ -123,6 +124,13 @@ These codes are designed to be stable for programmatic use.
 | `hf_reader_object_container_precedence` | HF reader selects object container: --hf-objects-column, then 'objects', then 'faces' |
 | `hf_reader_bbox_format_dependence` | HF reader bbox interpretation depends on --hf-bbox-format flag |
 | `hf_writer_deterministic_order` | HF writer deterministic metadata/annotation ordering policy |
+| `sagemaker_reader_id_assignment` | SageMaker reader deterministic ID assignment policy |
+| `sagemaker_reader_label_attribute_detection` | SageMaker reader detects one object-detection label attribute and rejects mixed/ambiguous manifests |
+| `sagemaker_reader_class_map_resolution` | SageMaker reader resolves category names from class-map with numeric class_id fallback |
+| `sagemaker_writer_deterministic_order` | SageMaker writer deterministic JSONL row and annotation ordering policy |
+| `sagemaker_writer_class_map_policy` | SageMaker writer assigns class IDs by CategoryId order and emits class-map entries |
+| `sagemaker_writer_metadata_defaults` | SageMaker writer deterministic label-attribute and metadata default policy |
+| `sagemaker_writer_no_image_copy` | SageMaker writer does not copy image files |
 | `labelme_reader_id_assignment` | LabelMe reader deterministic ID assignment policy |
 | `labelme_reader_path_policy` | LabelMe reader file-name/path derivation policy |
 | `labelme_polygon_envelope_applied` | LabelMe reader converted polygon shapes to axis-aligned bbox envelopes |

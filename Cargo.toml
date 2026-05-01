@@ -30,7 +30,7 @@ hf-remote = ["dep:hf-hub", "dep:ureq", "dep:url", "dep:zip"]
 hf = ["hf-parquet", "hf-remote"]
 
 [dependencies]
-clap = { version = "4.5.60", features = ["cargo", "derive", "env"] }
+clap = { version = "4.6.1", features = ["cargo", "derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0"
@@ -45,7 +45,7 @@ ureq = { version = "3.3", features = ["json"], optional = true }
 url = { version = "2.5", optional = true }
 arrow = { version = "58.1.0", default-features = false, optional = true }
 parquet = { version = "58.1.0", default-features = false, features = ["arrow", "json", "snap", "brotli", "flate2-zlib-rs", "lz4", "zstd"], optional = true }
-zip = { version = "8.5.1", default-features = false, features = ["deflate"], optional = true }
+zip = { version = "8.6.0", default-features = false, features = ["deflate"], optional = true }
 
 [dev-dependencies]
 assert_cmd = "2.2"

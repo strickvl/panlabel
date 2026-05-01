@@ -150,6 +150,42 @@ pub enum PanlabelError {
     #[error("Invalid Supervisely dataset layout at {path}: {message}")]
     SuperviselyLayoutInvalid { path: PathBuf, message: String },
 
+    #[error("Failed to parse Cityscapes JSON from {path}: {source}")]
+    CityscapesJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write Cityscapes JSON to {path}: {source}")]
+    CityscapesJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid Cityscapes dataset layout at {path}: {message}")]
+    CityscapesLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Invalid Marmot XML dataset layout at {path}: {message}")]
+    MarmotLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse Marmot XML from {path}: {message}")]
+    MarmotXmlParse { path: PathBuf, message: String },
+
+    #[error("Marmot XML companion image not found for {path} (tried: {searched})")]
+    MarmotImageNotFound { path: PathBuf, searched: String },
+
+    #[error("Failed to read Marmot XML companion image dimensions from {path}: {source}")]
+    MarmotImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to write Marmot XML at {path}: {message}")]
+    MarmotWriteError { path: PathBuf, message: String },
+
     #[error("Failed to parse TFOD CSV from {path}: {source}")]
     TfodCsvParse {
         path: PathBuf,
@@ -204,6 +240,33 @@ pub enum PanlabelError {
 
     #[error("Failed to write YOLO dataset at {path}: {message}")]
     YoloWriteError { path: PathBuf, message: String },
+
+    #[error("Invalid YOLO Keras-style TXT dataset at {path}: {message}")]
+    YoloKerasTxtInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse YOLO Keras-style TXT row in {path}:{line}: {message}")]
+    YoloKerasTxtParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error("YOLO Keras-style TXT image not found: {image_ref} (searched from {path}; tried: {searched})")]
+    YoloKerasTxtImageNotFound {
+        path: PathBuf,
+        image_ref: String,
+        searched: String,
+    },
+
+    #[error("Failed to read YOLO Keras-style TXT image dimensions from {path}: {source}")]
+    YoloKerasTxtImageDimensionRead {
+        path: PathBuf,
+        #[source]
+        source: imagesize::ImageError,
+    },
+
+    #[error("Failed to write YOLO Keras-style TXT dataset at {path}: {message}")]
+    YoloKerasTxtWriteError { path: PathBuf, message: String },
 
     #[error("Invalid VOC dataset layout at {path}: {message}")]
     VocLayoutInvalid { path: PathBuf, message: String },

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -136,12 +136,15 @@ src/
 │   ├── io_retinanet_csv.rs # RetinaNet Keras CSV reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
+│   ├── io_yolo_keras_txt.rs # YOLO Keras / YOLOv4 PyTorch TXT reader/writer
 │   ├── io_voc_xml.rs   # Pascal VOC XML reader/writer (directory-based)
 │   ├── io_hf_imagefolder.rs   # Hugging Face ImageFolder metadata reader/writer
 │   ├── io_hf_parquet.rs       # Hugging Face parquet metadata support (feature-gated)
 │   ├── io_sagemaker_manifest.rs # AWS SageMaker Ground Truth manifest reader/writer
 │   ├── io_superannotate_json.rs # SuperAnnotate JSON reader/writer
 │   ├── io_supervisely_json.rs   # Supervisely JSON reader/writer
+│   ├── io_cityscapes_json.rs    # Cityscapes polygon JSON reader/writer
+│   ├── io_marmot_xml.rs         # Marmot XML reader/writer
 │   ├── io_super_json_common.rs  # Shared helpers for SuperAnnotate/Supervisely adapters
 │   └── io_json.rs      # IR JSON format (canonical serialization)
 ├── validation/         # Dataset validation
@@ -162,6 +165,7 @@ tests/
 ├── proptest_*.rs       # Property tests per adapter + cross-format subset checks
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
+├── yolo_keras_roundtrip.rs # YOLO Keras / YOLOv4 PyTorch TXT roundtrip tests
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
 ├── cvat_roundtrip.rs      # CVAT XML format roundtrip tests
 ├── label_studio_roundtrip.rs # Label Studio format roundtrip tests
@@ -177,6 +181,8 @@ tests/
 ├── sagemaker_manifest_roundtrip.rs # SageMaker Ground Truth manifest roundtrip tests
 ├── superannotate_roundtrip.rs # SuperAnnotate JSON format roundtrip tests
 ├── supervisely_roundtrip.rs   # Supervisely JSON format roundtrip tests
+├── cityscapes_roundtrip.rs    # Cityscapes JSON format roundtrip tests
+├── marmot_roundtrip.rs        # Marmot XML format roundtrip tests
 └── fixtures/           # Test fixture files
 
 proptest-regressions/
@@ -211,7 +217,7 @@ docs/
   - CLI and auto-detection: `src/lib.rs`
   - Format adapters: `src/ir/io_*.rs`
   - Lossiness/report codes: `src/conversion/*`
-  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/scale_ai_roundtrip.rs`, `tests/unity_perception_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/cloud_annotations_roundtrip.rs`, `tests/vott_csv_roundtrip.rs`, `tests/vott_json_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`
+  - User-visible behavior checks: `tests/cli.rs`, `tests/*_roundtrip.rs`, and `tests/proptest_*.rs`
 
 If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
 
@@ -246,22 +252,19 @@ When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), updat
 ### Convert with Auto-Detection
 
 The `--from auto` flag detects format from file extension/content for files and layout markers for directories:
-- `.csv` → content-based: 8 columns → TFOD, 6 columns → RetinaNet (or detected by header match)
+- `.csv` → content-based: 8 columns → TFOD or Udacity by coordinate range/header, 6 columns → RetinaNet, or other recognized CSV headers
+- `.txt` → specifically named YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT files can be detected; shared names such as `train.txt` and `train_annotations.txt` are ambiguous and require explicit `--from`
+- `.xml` → root `<annotations>` = CVAT; root `<Page CropBox="...">` = Marmot
 - `.jsonl` / `.ndjson` / `.manifest`: Labelbox export-row shape is checked before SageMaker manifest rows
 - `.json`:
   - empty array-root JSON (`[]`) → ambiguous (Label Studio or CreateML); requires explicit `--from`
-  - non-empty array-root: Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) → Labelbox; Scale AI task/response shape (`response.annotations` or `params.attachment`) → Scale AI; Label Studio task shape (`data.image`) → Label Studio; CreateML shape (`image` + `annotations`) → CreateML
-  - object-root with Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) → Labelbox
-  - object-root with Scale AI task/response shape (`response.annotations`, root `annotations`, or `params.attachment`) → Scale AI
-  - object-root with `shapes` array → LabelMe
-  - object-root with entries containing `filename` + `regions` → VIA
-  - object-root: requires a non-empty `annotations` array, then peek at `annotations[0].bbox`: array = COCO, object = IR JSON (empty datasets cannot be auto-detected)
-- directory with `labels/` containing `.txt` files AND sibling `images/` → YOLO (labels without images is reported as an incomplete layout)
-- directory with `Annotations/` containing top-level `.xml` files → VOC (`JPEGImages/` is optional, matching the reader)
-- directory with `annotations.xml` at root → CVAT
-- directory with `annotations/` containing LabelMe `.json` files (or co-located `.json` files with `shapes` key) → LabelMe
-- directory with `label_2/` containing `.txt` files AND sibling `image_2/` → KITTI
-- directory with `metadata.jsonl`, `metadata.parquet`, or parquet shard files → HF
+  - non-empty array-root: Labelbox, Scale AI, Unity Perception, Label Studio, or CreateML by row/task shape
+  - object-root: Labelbox, Scale AI, Unity Perception, LabelMe, VoTT JSON, SuperAnnotate, Cityscapes, Supervisely, VIA, COCO, or IR JSON by schema markers
+- directory with `labels/` containing `.txt` files AND sibling `images/`, or `data.yaml` split keys pointing to image dirs/list files → YOLO (labels without images is reported as an incomplete layout)
+- directory with matching YOLO Keras / YOLOv4 PyTorch TXT annotation files → YOLO Keras or YOLOv4 PyTorch; shared names may be ambiguous
+- directory with `gtFine/<split>/<city>/*_gtFine_polygons.json`, a `gtFine/` root, or matching Cityscapes polygon JSON files → Cityscapes
+- directory with Marmot `<Page CropBox="...">` XML files plus same-stem companion images → Marmot
+- directory markers also cover VOC, CVAT, IBM Cloud Annotations, VoTT JSON, Scale AI, Unity Perception, LabelMe, SuperAnnotate, Supervisely, KITTI, and HF layouts
 - detection uses evidence-based probing (`FormatProbe` + `probe_dir_formats()`) that reports what was found/missing
 - `stats` falls back to `ir-json` for parseable JSON files but surfaces malformed JSON errors directly
 

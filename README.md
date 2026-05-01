@@ -131,7 +131,9 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
 | `vott-csv` | `.csv` | Microsoft VoTT CSV export (`image,xmin,ymin,xmax,ymax,label`) | Lossy |
 | `vott-json` | `.json` file or `vott-json-export/` directory | Microsoft VoTT JSON export (`assets` / per-asset JSON with `regions`) | Lossy |
-| `yolo` | `images/ + labels/` directory | YOLO `.txt` labels (flat or split-aware, optional confidence) | Lossy |
+| `yolo` | `images/ + labels/` directory, or split `data.yaml` pointing to image-list `.txt` files | YOLO `.txt` labels (flat, split-aware, Scaled-YOLOv4 aliases, optional confidence) | Lossy |
+| `yolo-keras` | `.txt` file or directory (`yolo_keras.txt`, `annotations.txt`, `train.txt`) | YOLO Keras absolute-coordinate TXT (`image xmin,ymin,xmax,ymax,class_id ...`) | Lossy |
+| `yolov4-pytorch` | `.txt` file or directory (`yolov4_pytorch.txt`, `train_annotation.txt`, `train.txt`) | YOLOv4 PyTorch absolute-coordinate TXT (`image xmin,ymin,xmax,ymax,class_id ...`) | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |
 | `sagemaker` | `.manifest` / `.jsonl` file | AWS SageMaker Ground Truth object-detection manifest | Lossy |
@@ -146,6 +148,8 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `udacity` | `.csv` | Udacity Self-Driving Car Dataset CSV | Lossy |
 | `superannotate` | `.json` file or `annotations/` directory | SuperAnnotate JSON export | Lossy |
 | `supervisely` | `.json` file or `ann/` / `meta.json` project directory | Supervisely JSON project / dataset | Lossy |
+| `cityscapes` | `.json`, `gtFine/`, or dataset root with `gtFine/` | Cityscapes polygon JSON; polygons become bbox envelopes | Lossy |
+| `marmot` | `.xml` file or directory with same-stem companion images | Marmot XML document-layout composites; hex doubles become pixel bboxes | Lossy |
 
 Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
 

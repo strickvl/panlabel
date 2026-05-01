@@ -108,9 +108,21 @@ enum ConvertFormat {
         name = "yolo",
         alias = "ultralytics",
         alias = "yolov8",
-        alias = "yolov5"
+        alias = "yolov5",
+        alias = "scaled-yolov4",
+        alias = "scaled-yolov4-txt"
     )]
     Yolo,
+    /// YOLO Keras absolute-coordinate TXT format.
+    #[value(name = "yolo-keras", alias = "yolo-keras-txt", alias = "keras-yolo")]
+    YoloKeras,
+    /// YOLOv4 PyTorch absolute-coordinate TXT format.
+    #[value(
+        name = "yolov4-pytorch",
+        alias = "yolov4-pytorch-txt",
+        alias = "pytorch-yolov4"
+    )]
+    YoloV4Pytorch,
     /// Pascal VOC XML format (directory-based).
     #[value(name = "voc", alias = "pascal-voc", alias = "voc-xml")]
     Voc,
@@ -136,6 +148,12 @@ enum ConvertFormat {
     /// Supervisely JSON annotation/project format.
     #[value(name = "supervisely", alias = "supervisely-json", alias = "sly")]
     Supervisely,
+    /// Cityscapes polygon JSON annotation format.
+    #[value(name = "cityscapes", alias = "cityscapes-json")]
+    Cityscapes,
+    /// Marmot XML document-layout annotation format.
+    #[value(name = "marmot", alias = "marmot-xml")]
+    Marmot,
     /// Apple CreateML annotation format (JSON).
     #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
     CreateMl,
@@ -182,12 +200,16 @@ impl ConvertFormat {
             ConvertFormat::VottCsv => conversion::Format::VottCsv,
             ConvertFormat::VottJson => conversion::Format::VottJson,
             ConvertFormat::Yolo => conversion::Format::Yolo,
+            ConvertFormat::YoloKeras => conversion::Format::YoloKeras,
+            ConvertFormat::YoloV4Pytorch => conversion::Format::YoloV4Pytorch,
             ConvertFormat::Voc => conversion::Format::Voc,
             ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
             ConvertFormat::SageMaker => conversion::Format::SageMaker,
             ConvertFormat::LabelMe => conversion::Format::LabelMe,
             ConvertFormat::SuperAnnotate => conversion::Format::SuperAnnotate,
             ConvertFormat::Supervisely => conversion::Format::Supervisely,
+            ConvertFormat::Cityscapes => conversion::Format::Cityscapes,
+            ConvertFormat::Marmot => conversion::Format::Marmot,
             ConvertFormat::CreateMl => conversion::Format::CreateMl,
             ConvertFormat::Kitti => conversion::Format::Kitti,
             ConvertFormat::Via => conversion::Format::Via,
@@ -254,9 +276,21 @@ enum ConvertFromFormat {
         name = "yolo",
         alias = "ultralytics",
         alias = "yolov8",
-        alias = "yolov5"
+        alias = "yolov5",
+        alias = "scaled-yolov4",
+        alias = "scaled-yolov4-txt"
     )]
     Yolo,
+    /// YOLO Keras absolute-coordinate TXT format.
+    #[value(name = "yolo-keras", alias = "yolo-keras-txt", alias = "keras-yolo")]
+    YoloKeras,
+    /// YOLOv4 PyTorch absolute-coordinate TXT format.
+    #[value(
+        name = "yolov4-pytorch",
+        alias = "yolov4-pytorch-txt",
+        alias = "pytorch-yolov4"
+    )]
+    YoloV4Pytorch,
     /// Pascal VOC XML format (directory-based).
     #[value(name = "voc", alias = "pascal-voc", alias = "voc-xml")]
     Voc,
@@ -282,6 +316,12 @@ enum ConvertFromFormat {
     /// Supervisely JSON annotation/project format.
     #[value(name = "supervisely", alias = "supervisely-json", alias = "sly")]
     Supervisely,
+    /// Cityscapes polygon JSON annotation format.
+    #[value(name = "cityscapes", alias = "cityscapes-json")]
+    Cityscapes,
+    /// Marmot XML document-layout annotation format.
+    #[value(name = "marmot", alias = "marmot-xml")]
+    Marmot,
     /// Apple CreateML annotation format (JSON).
     #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
     CreateMl,
@@ -329,12 +369,16 @@ impl ConvertFromFormat {
             ConvertFromFormat::VottCsv => Some(ConvertFormat::VottCsv),
             ConvertFromFormat::VottJson => Some(ConvertFormat::VottJson),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
+            ConvertFromFormat::YoloKeras => Some(ConvertFormat::YoloKeras),
+            ConvertFromFormat::YoloV4Pytorch => Some(ConvertFormat::YoloV4Pytorch),
             ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
             ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
             ConvertFromFormat::SageMaker => Some(ConvertFormat::SageMaker),
             ConvertFromFormat::LabelMe => Some(ConvertFormat::LabelMe),
             ConvertFromFormat::SuperAnnotate => Some(ConvertFormat::SuperAnnotate),
             ConvertFromFormat::Supervisely => Some(ConvertFormat::Supervisely),
+            ConvertFromFormat::Cityscapes => Some(ConvertFormat::Cityscapes),
+            ConvertFromFormat::Marmot => Some(ConvertFormat::Marmot),
             ConvertFromFormat::CreateMl => Some(ConvertFormat::CreateMl),
             ConvertFromFormat::Kitti => Some(ConvertFormat::Kitti),
             ConvertFromFormat::Via => Some(ConvertFormat::Via),
@@ -815,9 +859,29 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
     },
     FormatCatalogEntry {
         format: ConvertFormat::Yolo,
-        aliases: &["ultralytics", "yolov8", "yolov5"],
-        description: "Ultralytics YOLO .txt (directory-based)",
+        aliases: &[
+            "ultralytics",
+            "yolov8",
+            "yolov5",
+            "scaled-yolov4",
+            "scaled-yolov4-txt",
+        ],
+        description: "YOLO .txt labels (directory/list-file based)",
         file_based: false,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::YoloKeras,
+        aliases: &["yolo-keras-txt", "keras-yolo"],
+        description: "YOLO Keras absolute-coordinate TXT annotations",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::YoloV4Pytorch,
+        aliases: &["yolov4-pytorch-txt", "pytorch-yolov4"],
+        description: "YOLOv4 PyTorch absolute-coordinate TXT annotations",
+        file_based: true,
         directory_based: true,
     },
     FormatCatalogEntry {
@@ -865,6 +929,20 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         format: ConvertFormat::Supervisely,
         aliases: &["supervisely-json", "sly"],
         description: "Supervisely JSON annotation/project format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Cityscapes,
+        aliases: &["cityscapes-json"],
+        description: "Cityscapes polygon JSON annotation format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Marmot,
+        aliases: &["marmot-xml"],
+        description: "Marmot XML document-layout annotations",
         file_based: true,
         directory_based: true,
     },
@@ -1620,12 +1698,16 @@ fn read_dataset_with_options(
         ConvertFormat::VottCsv => ir::io_vott_csv::read_vott_csv(path),
         ConvertFormat::VottJson => ir::io_vott_json::read_vott_json(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir_with_options(path, yolo_options),
+        ConvertFormat::YoloKeras => ir::io_yolo_keras_txt::read_yolo_keras_txt(path),
+        ConvertFormat::YoloV4Pytorch => ir::io_yolo_keras_txt::read_yolov4_pytorch_txt(path),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
         ConvertFormat::SageMaker => ir::io_sagemaker_manifest::read_sagemaker_manifest(path),
         ConvertFormat::LabelMe => ir::io_labelme_json::read_labelme_json(path),
         ConvertFormat::SuperAnnotate => ir::io_superannotate_json::read_superannotate_json(path),
         ConvertFormat::Supervisely => ir::io_supervisely_json::read_supervisely_json(path),
+        ConvertFormat::Cityscapes => ir::io_cityscapes_json::read_cityscapes_json(path),
+        ConvertFormat::Marmot => ir::io_marmot_xml::read_marmot_xml(path),
         ConvertFormat::CreateMl => ir::io_createml_json::read_createml_json(path),
         ConvertFormat::Kitti => ir::io_kitti::read_kitti_dir(path),
         ConvertFormat::Via => ir::io_via_json::read_via_json(path),
@@ -1676,6 +1758,10 @@ fn write_dataset_with_options(
         ConvertFormat::VottCsv => ir::io_vott_csv::write_vott_csv(path, dataset),
         ConvertFormat::VottJson => ir::io_vott_json::write_vott_json(path, dataset),
         ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
+        ConvertFormat::YoloKeras => ir::io_yolo_keras_txt::write_yolo_keras_txt(path, dataset),
+        ConvertFormat::YoloV4Pytorch => {
+            ir::io_yolo_keras_txt::write_yolov4_pytorch_txt(path, dataset)
+        }
         ConvertFormat::Voc => ir::io_voc_xml::write_voc_dir(path, dataset),
         ConvertFormat::HfImagefolder => {
             ir::io_hf_imagefolder::write_hf_imagefolder_with_options(path, dataset, hf_options)
@@ -1690,6 +1776,8 @@ fn write_dataset_with_options(
         ConvertFormat::Supervisely => {
             ir::io_supervisely_json::write_supervisely_json(path, dataset)
         }
+        ConvertFormat::Cityscapes => ir::io_cityscapes_json::write_cityscapes_json(path, dataset),
+        ConvertFormat::Marmot => ir::io_marmot_xml::write_marmot_xml(path, dataset),
         ConvertFormat::CreateMl => ir::io_createml_json::write_createml_json(path, dataset),
         ConvertFormat::Kitti => ir::io_kitti::write_kitti_dir(path, dataset),
         ConvertFormat::Via => ir::io_via_json::write_via_json(path, dataset),
@@ -1856,12 +1944,16 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::VottCsv => "vott-csv",
         ConvertFormat::VottJson => "vott-json",
         ConvertFormat::Yolo => "yolo",
+        ConvertFormat::YoloKeras => "yolo-keras",
+        ConvertFormat::YoloV4Pytorch => "yolov4-pytorch",
         ConvertFormat::Voc => "voc",
         ConvertFormat::HfImagefolder => "hf",
         ConvertFormat::SageMaker => "sagemaker",
         ConvertFormat::LabelMe => "labelme",
         ConvertFormat::SuperAnnotate => "superannotate",
         ConvertFormat::Supervisely => "supervisely",
+        ConvertFormat::Cityscapes => "cityscapes",
+        ConvertFormat::Marmot => "marmot",
         ConvertFormat::CreateMl => "create-ml",
         ConvertFormat::Kitti => "kitti",
         ConvertFormat::Via => "via",
@@ -1966,6 +2058,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             "json" => return detect_json_format(path),
             "jsonl" | "ndjson" | "manifest" => return detect_jsonl_format(path),
             "xml" => return detect_xml_format(path),
+            "txt" => return detect_txt_format(path),
             _ => {}
         }
     }
@@ -1973,7 +2066,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // Keep message stable (existing CLI tests assert this substring).
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized file extension (expected .json, .jsonl, .ndjson, .manifest, .csv, or .xml). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized file extension (expected .json, .jsonl, .ndjson, .manifest, .csv, .xml, or .txt). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -2060,6 +2153,7 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         path: path.to_path_buf(),
         reason: "unrecognized directory layout. Expected one of:\n  \
                  - YOLO: labels/ with .txt files and sibling images/\n  \
+                 - YOLO Keras / YOLOv4 PyTorch TXT: yolo_keras.txt, yolov4_pytorch.txt, annotations.txt, or train.txt\n  \
                  - VOC: Annotations/ with .xml files\n  \
                  - CVAT: annotations.xml at directory root\n  \
                  - IBM Cloud Annotations: _annotations.json at directory root\n  \
@@ -2069,6 +2163,8 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
                  - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n  \
                  - LabelMe: annotations/ with LabelMe .json files, or co-located .json files\n  \
                  - SuperAnnotate: annotations/ with SuperAnnotate .json files, or co-located .json files\n  \
+                 - Cityscapes: gtFine/<split>/<city>/*_gtFine_polygons.json files\n  \
+                 - Marmot: .xml files with Page@CropBox plus same-stem companion images\n  \
                  - Supervisely: ann/ with .json files, or project meta.json with dataset ann/ directories\n  \
                  - KITTI: label_2/ with .txt files and sibling image_2/\n\
                  Use --from to specify format explicitly."
@@ -2117,7 +2213,24 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
             ));
         }
     }
+    let yolo_complete = yolo.is_detected();
     probes.push(yolo);
+
+    // --- YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT ---
+    probes.push(probe_yolo_keras_txt_dir(
+        path,
+        "YOLO Keras TXT",
+        ConvertFormat::YoloKeras,
+        &ir::io_yolo_keras_txt::YOLO_KERAS_ANNOTATION_CANDIDATES,
+        !yolo_complete,
+    )?);
+    probes.push(probe_yolo_keras_txt_dir(
+        path,
+        "YOLOv4 PyTorch TXT",
+        ConvertFormat::YoloV4Pytorch,
+        &ir::io_yolo_keras_txt::YOLOV4_PYTORCH_ANNOTATION_CANDIDATES,
+        !yolo_complete,
+    )?);
 
     // --- VOC ---
     // Aligned with io_voc_xml::discover_layout: requires Annotations/ with
@@ -2271,6 +2384,41 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
     }
     probes.push(superannotate);
 
+    // --- Cityscapes ---
+    let mut cityscapes = FormatProbe::new("Cityscapes", ConvertFormat::Cityscapes);
+    if path.join("gtFine").is_dir() {
+        if dir_contains_cityscapes_json(&path.join("gtFine"))? {
+            cityscapes
+                .found
+                .push("gtFine/ with Cityscapes polygon JSON files".into());
+        } else {
+            cityscapes
+                .missing
+                .push("Cityscapes *_gtFine_polygons.json files".into());
+        }
+    } else if dir_contains_cityscapes_json(path)? {
+        cityscapes
+            .found
+            .push("Cityscapes polygon JSON files".into());
+    }
+    probes.push(cityscapes);
+
+    // --- Marmot ---
+    let mut marmot = FormatProbe::new("Marmot", ConvertFormat::Marmot);
+    let marmot_status = dir_contains_marmot_xml(path)?;
+    if marmot_status.found_xml {
+        marmot.found.push("Marmot Page XML files".into());
+        if marmot_status.missing_companion_images == 0 {
+            marmot.found.push("same-stem companion images".into());
+        } else {
+            marmot.missing.push(format!(
+                "same-stem companion image(s) for {} Marmot XML file(s)",
+                marmot_status.missing_companion_images
+            ));
+        }
+    }
+    probes.push(marmot);
+
     // --- Supervisely ---
     let mut supervisely = FormatProbe::new("Supervisely", ConvertFormat::Supervisely);
     if path.join("ann").is_dir() {
@@ -2313,6 +2461,37 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
     probes.push(supervisely);
 
     Ok(probes)
+}
+
+fn probe_yolo_keras_txt_dir(
+    path: &Path,
+    name: &'static str,
+    format: ConvertFormat,
+    candidates: &[&str],
+    allow_generic_train_txt: bool,
+) -> Result<FormatProbe, PanlabelError> {
+    let mut probe = FormatProbe::new(name, format);
+    for candidate_name in candidates {
+        if *candidate_name == "train.txt" && !allow_generic_train_txt {
+            continue;
+        }
+        let candidate = path.join(candidate_name);
+        if !candidate.is_file() {
+            continue;
+        }
+        if ir::io_yolo_keras_txt::looks_like_yolo_keras_txt_file(&candidate)? {
+            probe.found.push(format!(
+                "{} absolute-coordinate annotation file",
+                candidate_name
+            ));
+            break;
+        } else if candidate_name.contains("yolo") || *candidate_name == "annotations.txt" {
+            probe
+                .missing
+                .push(format!("valid {} row grammar in {}", name, candidate_name));
+        }
+    }
+    Ok(probe)
 }
 
 fn dir_contains_txt_files(path: &Path) -> Result<bool, PanlabelError> {
@@ -2531,6 +2710,69 @@ fn dir_contains_unity_perception_json(dir: &Path) -> Result<bool, PanlabelError>
     )
 }
 
+struct MarmotDirStatus {
+    found_xml: bool,
+    missing_companion_images: usize,
+}
+
+fn dir_contains_marmot_xml(dir: &Path) -> Result<MarmotDirStatus, PanlabelError> {
+    let mut found_xml = false;
+    let mut missing_companion_images = 0usize;
+    for entry in walkdir::WalkDir::new(dir).follow_links(true) {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: dir.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if !entry.file_type().is_file()
+            || !entry_path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("xml"))
+                .unwrap_or(false)
+        {
+            continue;
+        }
+        if ir::io_marmot_xml::is_likely_marmot_xml_file(entry_path)? {
+            found_xml = true;
+            if !ir::io_marmot_xml::has_companion_image(entry_path) {
+                missing_companion_images += 1;
+            }
+        }
+    }
+    Ok(MarmotDirStatus {
+        found_xml,
+        missing_companion_images,
+    })
+}
+
+fn dir_contains_cityscapes_json(dir: &Path) -> Result<bool, PanlabelError> {
+    for entry in walkdir::WalkDir::new(dir).follow_links(true) {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: dir.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if !entry.file_type().is_file()
+            || !entry_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.ends_with("_gtFine_polygons.json"))
+                .unwrap_or(false)
+        {
+            continue;
+        }
+        if let Ok(contents) = std::fs::read_to_string(entry_path) {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
+                if ir::io_cityscapes_json::is_likely_cityscapes_file(&value) {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
 /// Check if a directory contains at least one Supervisely annotation JSON file.
 fn dir_contains_supervisely_json(dir: &Path) -> Result<bool, PanlabelError> {
     dir_contains_json_matching(dir, is_likely_supervisely_file)
@@ -2623,6 +2865,38 @@ fn data_yaml_has_split_keys(path: &Path) -> Option<Vec<String>> {
 /// Heuristics:
 /// - 8 columns (filename,width,height,class,xmin,ymin,xmax,ymax) -> TFOD
 /// - 6 columns (path,x1,y1,x2,y2,class_name or headerless data) -> RetinaNet
+fn detect_txt_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
+    let looks_like = ir::io_yolo_keras_txt::looks_like_yolo_keras_txt_file(path)?;
+    if !looks_like {
+        return Err(PanlabelError::FormatDetectionFailed {
+            path: path.to_path_buf(),
+            reason: "TXT file does not match the YOLO Keras / YOLOv4 PyTorch absolute-coordinate grammar. Use --from to specify format explicitly.".to_string(),
+        });
+    }
+
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let normalized = filename.replace('-', "_");
+
+    if normalized.contains("yolo_keras") || normalized.contains("keras_yolo") {
+        return Ok(ConvertFormat::YoloKeras);
+    }
+    if normalized.contains("yolov4_pytorch") || normalized.contains("pytorch_yolov4") {
+        return Ok(ConvertFormat::YoloV4Pytorch);
+    }
+
+    Err(PanlabelError::FormatDetectionFailed {
+        path: path.to_path_buf(),
+        reason: format!(
+            "TXT file matches both yolo-keras and yolov4-pytorch absolute-coordinate layouts, but filename '{}' is generic. Use --from yolo-keras or --from yolov4-pytorch to specify the intended public format.",
+            filename
+        ),
+    })
+}
+
 fn detect_csv_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     let file = std::fs::File::open(path).map_err(PanlabelError::Io)?;
     let reader = std::io::BufReader::new(file);
@@ -2932,6 +3206,10 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         return Ok(ConvertFormat::SuperAnnotate);
     }
 
+    if ir::io_cityscapes_json::is_likely_cityscapes_file(&value) {
+        return Ok(ConvertFormat::Cityscapes);
+    }
+
     if is_likely_supervisely_file(&value) {
         return Ok(ConvertFormat::Supervisely);
     }
@@ -3029,6 +3307,16 @@ fn detect_xml_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
 
     match doc.root_element().tag_name().name() {
         "annotations" => Ok(ConvertFormat::Cvat),
+        "Page" => {
+            if ir::io_marmot_xml::is_likely_marmot_xml_str(&xml, path)? {
+                Ok(ConvertFormat::Marmot)
+            } else {
+                Err(PanlabelError::FormatDetectionFailed {
+                    path: path.to_path_buf(),
+                    reason: "XML root is <Page>, but Page@CropBox is missing or malformed; cannot determine format. Use --from to specify format explicitly.".to_string(),
+                })
+            }
+        }
         "annotation" => Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
             reason: "XML root is <annotation> (looks like a single VOC file). Panlabel expects VOC as a directory layout; use --from voc with a VOC dataset directory.".to_string(),

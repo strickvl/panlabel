@@ -22,10 +22,14 @@ write these formats:
 - **VIA JSON** (`via` / `via-json` / `vgg-via`) — VGG Image Annotator JSON
 - **SuperAnnotate JSON** (`superannotate` / `superannotate-json` / `sa`) — SuperAnnotate JSON export (file or `annotations/` directory)
 - **Supervisely JSON** (`supervisely` / `supervisely-json` / `sly`) — Supervisely project / dataset JSON (file, `ann/` directory, or full project with `meta.json`)
+- **Cityscapes JSON** (`cityscapes` / `cityscapes-json`) — Cityscapes polygon JSON (file, `gtFine/`, or dataset root), flattened to bbox envelopes
+- **Marmot XML** (`marmot` / `marmot-xml`) — Marmot document-layout XML with hex-double CropBox/BBox composites
 - **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
 - **VoTT CSV** (`vott-csv` / `vott`) — Microsoft VoTT headered `image,xmin,ymin,xmax,ymax,label` CSV
 - **VoTT JSON** (`vott-json` / `vott-json-export`) — Microsoft VoTT aggregate/per-asset JSON with `regions`
-- **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
+- **YOLO directory/list splits** (`yolo` / `ultralytics` / `yolov8` / `yolov5` / `scaled-yolov4` / `scaled-yolov4-txt`) — YOLO label directories, including `data.yaml` splits that point to image-list `.txt` files
+- **YOLO Keras TXT** (`yolo-keras` / `yolo-keras-txt` / `keras-yolo`) — single-file absolute XYXY rows: `image xmin,ymin,xmax,ymax,class_id ...`
+- **YOLOv4 PyTorch TXT** (`yolov4-pytorch` / `yolov4-pytorch-txt` / `pytorch-yolov4`) — same shared absolute-coordinate TXT grammar as YOLO Keras
 - **Pascal VOC XML** (`voc` / `pascal-voc` / `voc-xml`) — VOC-style XML directories
 - **KITTI** (`kitti` / `kitti-txt`) — KITTI object detection labels (`label_2/` + `image_2/`)
 - **RetinaNet Keras CSV** (`retinanet` / `retinanet-csv` / `keras-retinanet`) — keras-retinanet CSV format
@@ -74,7 +78,10 @@ behavior lives:
 | VIA JSON format behavior | `src/ir/io_via_json.rs` |
 | SuperAnnotate format behavior | `src/ir/io_superannotate_json.rs` (+ `src/ir/io_super_json_common.rs`) |
 | Supervisely format behavior | `src/ir/io_supervisely_json.rs` (+ `src/ir/io_super_json_common.rs`) |
+| Cityscapes format behavior | `src/ir/io_cityscapes_json.rs` |
+| Marmot format behavior | `src/ir/io_marmot_xml.rs` |
 | YOLO format behavior | `src/ir/io_yolo.rs` |
+| YOLO Keras / YOLOv4 PyTorch TXT behavior | `src/ir/io_yolo_keras_txt.rs` |
 | Pascal VOC format behavior | `src/ir/io_voc_xml.rs` |
 | KITTI format behavior | `src/ir/io_kitti.rs` |
 | RetinaNet Keras CSV format behavior | `src/ir/io_retinanet_csv.rs` |

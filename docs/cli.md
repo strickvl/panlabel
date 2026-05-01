@@ -31,7 +31,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <format>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
+  - supported values: `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `scaled-yolov4`, `scaled-yolov4-txt`, `yolo-keras`, `yolo-keras-txt`, `keras-yolo`, `yolov4-pytorch`, `yolov4-pytorch-txt`, `pytorch-yolov4`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `cityscapes`, `cityscapes-json`, `marmot`, `marmot-xml`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
 - `--strict` (treat warnings as errors)
 - `--output-format <text|json>` (default: `text`)
 - `--output <text|json>` (backward-compatible alias)
@@ -44,8 +44,8 @@ Invalid `--format` and output mode values are rejected by clap at parse time.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `scaled-yolov4`, `scaled-yolov4-txt`, `yolo-keras`, `yolo-keras-txt`, `keras-yolo`, `yolov4-pytorch`, `yolov4-pytorch-txt`, `pytorch-yolov4`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `cityscapes`, `cityscapes-json`, `marmot`, `marmot-xml`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `scaled-yolov4`, `scaled-yolov4-txt`, `yolo-keras`, `yolo-keras-txt`, `keras-yolo`, `yolov4-pytorch`, `yolov4-pytorch-txt`, `pytorch-yolov4`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `cityscapes`, `cityscapes-json`, `marmot`, `marmot-xml`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
 - `--input`, `-i`: input path (required for local inputs; optional with `--hf-repo` when `--from hf`)
 - `--output`, `-o`: output path
 - `--strict`
@@ -73,7 +73,7 @@ while the blocking error goes to stderr (exit code 1).
 With `--dry-run`, panlabel still runs format detection, input validation, and lossiness analysis, but skips the final write step.
 
 Notes:
-- `--split` can be used with `--from hf` or `--from yolo`. For YOLO, it selects a single split from a split-aware dataset layout (e.g. `--split train`). Without `--split`, all splits are merged.
+- `--split` can be used with `--from hf` or `--from yolo`. For YOLO, it selects a single split from a split-aware dataset layout (e.g. `--split train`). Without `--split`, all splits are merged. YOLO split paths in `data.yaml` may be image directories or image-list `.txt` files.
 - `--hf-repo` can only be used with `--from hf`.
 - `--revision`/`--config` require `--hf-repo`.
 - Remote HF import (`--hf-repo`) needs a build with feature `hf-remote` (for full HF support from source: `cargo install panlabel --features hf`).
@@ -180,7 +180,8 @@ Show format capabilities and lossiness class.
 ## Auto-detection rules (`convert --from auto`, `diff --format-* auto`, `sample --from auto`, `stats` without `--format`)
 
 1. If input path is a directory:
-   - YOLO marker: `labels/` with `.txt` labels AND sibling `images/` directory (or path itself is `labels/` with sibling `images/`). If `labels/` with `.txt` files exist but `images/` is missing, this is reported as an incomplete layout.
+   - YOLO marker: `labels/` with `.txt` labels AND sibling `images/` directory (or path itself is `labels/` with sibling `images/`), or `data.yaml` with `train`/`val`/`test` split keys. Split keys may point to image directories or image-list `.txt` files. If `labels/` with `.txt` files exist but `images/` is missing, this is reported as an incomplete layout.
+   - YOLO Keras / YOLOv4 PyTorch TXT marker: a matching absolute-coordinate annotation file such as `yolo_keras.txt`, `yolov4_pytorch.txt`, `annotations.txt`, `train_annotations.txt`, or `train.txt`. Shared/generic filenames such as `train.txt` and `train_annotations.txt` can be ambiguous because both public names use the same row grammar.
    - VOC marker: `Annotations/` with top-level `.xml` files (or path itself is `Annotations/`). `JPEGImages/` is optional, matching the reader's behavior.
    - CVAT marker: `annotations.xml` at directory root
    - VoTT JSON marker: `vott-json-export/panlabel-export.json` or root `panlabel-export.json` with VoTT `assets`
@@ -188,6 +189,8 @@ Show format capabilities and lossiness class.
    - Unity Perception marker: SOLO frame/captures `.json` files with a `captures` array containing filename + annotations
    - LabelMe marker: `annotations/` with LabelMe `.json` files (containing `shapes` key), or co-located LabelMe `.json` files
    - SuperAnnotate marker: root `annotations/` directory with SuperAnnotate JSON files (`metadata` object + `instances` array), or matching JSON files at root
+   - Cityscapes marker: `gtFine/<split>/<city>/*_gtFine_polygons.json` files, a `gtFine/` root, or matching Cityscapes polygon JSON files
+   - Marmot marker: `.xml` files whose root is `<Page CropBox="...">` plus same-stem companion images for dimensions; XML without images is reported as an incomplete layout
    - Supervisely marker: root `ann/` directory with Supervisely JSON files (`size` object + `objects` array), or project root with `meta.json` and one or more dataset `ann/` directories
    - KITTI marker: `label_2/` with top-level `.txt` files AND sibling `image_2/` directory (or path itself is `label_2/` with sibling `image_2/`). If `label_2/` with `.txt` files exist but `image_2/` is missing, this is reported as an incomplete layout.
    - HF marker: `metadata.jsonl` or `metadata.parquet` at root or in an immediate subdirectory, or parquet shard files (e.g. `data/train-*.parquet`)
@@ -196,8 +199,10 @@ Show format capabilities and lossiness class.
 2. If input path is a file:
    - `.manifest` / `.jsonl` / `.ndjson`: first non-empty JSON object row with Labelbox `data_row` + `media_attributes` + `projects` → `labelbox`; otherwise `source-ref` + one object-detection label block (`groundtruth/object-detection` metadata, or `annotations` + `image_size`) → `sagemaker`
    - `.csv`: content-based detection — 8 columns → `tfod`, 6 columns → `retinanet`, or detected by header match
+   - `.txt`: YOLO Keras-style absolute-coordinate rows are detected from specific filenames (`yolo_keras.txt` / `yolov4_pytorch.txt`); shared/generic names such as `train.txt` and `train_annotations.txt` are ambiguous between `yolo-keras` and `yolov4-pytorch` and require explicit `--from`
    - `.xml`:
      - root `<annotations>` -> `cvat`
+     - root `<Page>` with a valid `CropBox` -> `marmot`
    - `.json`:
      - empty array-root: ambiguous between Label Studio and CreateML (requires explicit `--from`)
      - non-empty array-root: Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) -> `labelbox`; Scale AI task/response shape (`response.annotations`, root `annotations`, or `params.attachment`) -> `scale-ai`; Unity Perception frame/captures shape (`captures` with capture `filename` + `annotations`) -> `unity-perception`; Label Studio task shape -> `label-studio`; CreateML item shape -> `create-ml`
@@ -207,6 +212,7 @@ Show format capabilities and lossiness class.
      - object-root with `shapes` array -> `labelme`
      - object-root with VoTT `asset` + `regions`, or aggregate `assets` entries -> `vott-json`
      - object-root with `metadata` object + `instances` array -> `superannotate`
+     - object-root with `imgWidth`, `imgHeight`, and `objects` array -> `cityscapes`
      - object-root with `size` object + `objects` array -> `supervisely`
      - object-root with entries containing `filename` + `regions` -> `via`
      - object-root with `annotations[0].bbox` array -> `coco`
@@ -261,6 +267,15 @@ panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --allo
 # Convert only the train split from a YOLO dataset
 panlabel convert --from yolo --to coco -i ./yolo_dataset -o out.coco.json --split train --allow-lossy
 
+# Scaled-YOLOv4 names are aliases for the existing YOLO reader
+panlabel convert --from scaled-yolov4-txt --to coco -i ./scaled_yolov4_dataset -o out.coco.json --allow-lossy
+
+# Convert YOLO Keras absolute-coordinate TXT to COCO
+panlabel convert --from yolo-keras --to coco -i ./train.txt -o out.coco.json --allow-lossy
+
+# Convert YOLOv4 PyTorch TXT output from COCO
+panlabel convert --from coco --to yolov4-pytorch -i annotations.json -o ./yolov4_pytorch_out --allow-lossy
+
 # Convert SageMaker manifest to COCO JSON
 panlabel convert -f sagemaker -t coco -i annotations.manifest -o coco_output.json
 
@@ -275,4 +290,10 @@ panlabel convert -f superannotate -t ir-json -i ./superannotate_export -o out.ir
 
 # Convert Supervisely project annotations to COCO JSON
 panlabel convert -f supervisely -t coco -i ./supervisely_project -o out.coco.json --allow-lossy
+
+# Convert Cityscapes polygons to bbox IR JSON
+panlabel convert -f cityscapes -t ir-json -i ./cityscapes_root -o out.ir.json
+
+# Convert Marmot XML page-layout composites to bbox IR JSON
+panlabel convert -f marmot -t ir-json -i ./marmot_xml_dir -o out.ir.json
 ```

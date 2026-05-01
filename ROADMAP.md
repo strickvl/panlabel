@@ -47,22 +47,22 @@ active or legacy use, so that any dataset can be converted to any other format.
 - ✅ YOLO split-aware reading — `data.yaml` with `train:`/`val:`/`test:` path keys (Roboflow, Ultralytics Hub exports)
 - ✅ YOLO optional confidence token — parse optional 6th float as IR `confidence`
 - ✅ YOLO Darknet flat-directory layout — single `images/` + `labels/` directory without `data.yaml`, `classes.txt` for class names
-- ⏳ Scaled-YOLOv4 TXT — same token format as Ultralytics but different directory conventions
-- ⏳ YOLOv4 PyTorch TXT — single annotations file listing `image_path x1,y1,x2,y2,class_id` per line (absolute pixel coords, not normalized)
-- ⏳ YOLO Keras TXT — similar per-line format with absolute pixel coordinates
+- ✅ Scaled-YOLOv4 TXT aliases — `scaled-yolov4` / `scaled-yolov4-txt` map to existing YOLO support; `data.yaml` splits may point to image-list `.txt` files
+- ✅ YOLOv4 PyTorch TXT — shared Keras-style annotation file listing `image_path x1,y1,x2,y2,class_id` boxes per line (absolute pixel coords, not normalized)
+- ✅ YOLO Keras TXT — shared per-line format with absolute pixel coordinates
 
 Note: YOLOv5/v6/v7 PyTorch TXT all use the same normalized `class cx cy w h`
 format that panlabel already supports. Differences are in directory layout and
-`data.yaml` structure, covered by the split-aware reading item above.
+`data.yaml` structure, covered by split-aware reading and Scaled-YOLOv4 image-list split support above.
 
 #### Dataset formats
 
 - ✅ KITTI — space-separated `.txt` per image, 15 fields (type, truncated, occluded, alpha, bbox, dimensions, location, rotation_y, score); standard in autonomous driving
 - ✅ OpenImages CSV — Google's large-scale detection format; CSV with ImageID, Source, LabelName, Confidence, and bbox columns
-- ⏳ Cityscapes — JSON polygons per image with bounding box extraction; urban scene understanding (bbox subset of the polygon annotations)
+- ✅ Cityscapes — JSON polygons per image with bounding box extraction; urban scene understanding (bbox subset of the polygon annotations)
 - ✅ Kaggle Wheat Format — CSV with `image_id, width, height, bbox` columns (`[xmin, ymin, w, h]` as a string); encountered in Kaggle competitions
 - ✅ Udacity Self-Driving Car Dataset — CSV with frame/xmin/ymin/xmax/ymax/label columns; legacy autonomous driving dataset
-- ⏳ Marmot XML — XML format for document layout detection (table/figure regions); niche but datasets exist
+- ✅ Marmot XML — XML format for document layout detection (`Page@CropBox` + `Composite@BBox` hex doubles converted to pixel bboxes)
 
 #### Annotation-tool formats
 
@@ -70,6 +70,8 @@ format that panlabel already supports. Differences are in directory layout and
 - ✅ SageMaker Ground Truth Manifest — AWS JSON Lines object-detection output manifest (`.manifest` / `.jsonl`)
 - ✅ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `metadata` + `instances`; directory + single-file support
 - ✅ Supervisely JSON — annotation platform with nested project structure; per-image JSON in `ann/` with `size` + `objects`; dataset and project-root support
+- ✅ Cityscapes JSON — street-scene polygon JSON in `gtFine/<split>/<city>`; polygons flattened to bbox envelopes and ignored/stuff labels skipped
+- ✅ Marmot XML — document-layout XML with CropBox/BBox hex doubles and companion-image dimensions
 - ✅ Scale AI JSON — commercial data labeling export; task/response JSON with boxes, polygon envelopes, and rotated-box envelopes
 - ✅ LabelBox JSON — Labelbox platform export (JSON/NDJSON); nested rows with `data_row`, `media_attributes`, and project label objects
 - ✅ VGG Image Annotator (VIA) JSON — popular academic tool; single JSON file keyed by `filename+size` with `regions` containing `shape_attributes`
@@ -81,6 +83,7 @@ format that panlabel already supports. Differences are in directory layout and
 
 - ⏳ TFRecords — TensorFlow binary protobuf format; harder to support (requires protobuf parsing), but widely used for TF training pipelines
 - ✅ RetinaNet Keras CSV — simple `path,x1,y1,x2,y2,class_name` CSV (one row per annotation); used with keras-retinanet
+- ✅ YOLO Keras / YOLOv4 PyTorch TXT — simple `path x1,y1,x2,y2,class_id ...` TXT rows with absolute pixel coordinates
 
 ### CLI commands
 

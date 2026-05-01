@@ -24,13 +24,17 @@ Current scope: **object detection** bounding boxes only.
 | `tfod` | file (`.csv`) | yes | yes | lossy |
 | `vott-csv` | file (`.csv`) | yes | yes | lossy |
 | `vott-json` | file (`.json`) or directory (`vott-json-export/`) | yes | yes | lossy |
-| `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
+| `yolo` | directory (`images/` + `labels/`) or split image-list `.txt` via `data.yaml` | yes | yes | lossy |
+| `yolo-keras` | file (`.txt`) or directory (`yolo_keras.txt`, `annotations.txt`, `train.txt`) | yes | yes | lossy |
+| `yolov4-pytorch` | file (`.txt`) or directory (`yolov4_pytorch.txt`, `train_annotation.txt`, `train.txt`) | yes | yes | lossy |
 | `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
 | `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
 | `sagemaker` | file (`.manifest` / `.jsonl`) | yes | yes | lossy |
 | `labelme` | file (`.json`) or directory (`annotations/`) | yes | yes | lossy |
 | `superannotate` | file (`.json`) or directory (`annotations/` or co-located JSONs) | yes | yes | lossy |
 | `supervisely` | file (`.json`) or directory (`ann/` dataset or `meta.json` project) | yes | yes | lossy |
+| `cityscapes` | file (`.json`), `gtFine/`, or dataset root with `gtFine/` | yes | yes | lossy |
+| `marmot` | file (`.xml`) or directory of `.xml` files with companion images | yes | yes | lossy |
 | `create-ml` | file (`.json`) | yes | yes | lossy |
 | `kitti` | directory (`label_2/` + `image_2/`) | yes | yes | lossy |
 | `via` | file (`.json`) | yes | yes | lossy |
@@ -287,7 +291,7 @@ Limitations:
 - no annotation confidence/attributes in writer output
 - polygon point geometry is flattened to an axis-aligned bbox envelope on read
 
-## YOLO directory (`yolo` / `ultralytics` / `yolov8` / `yolov5`)
+## YOLO directory (`yolo` / `ultralytics` / `yolov8` / `yolov5` / `scaled-yolov4` / `scaled-yolov4-txt`)
 
 - Path kind: directory.
 - Accepted input path:
@@ -317,12 +321,16 @@ Supported path patterns in `data.yaml`:
 - Pattern A: `images/<split>` (e.g. `train: images/train`, labels inferred at `labels/train`)
 - Pattern B: `<split>/images` (e.g. `train: train/images`, labels at `train/labels`)
 - Pattern C: bare `<split>` pointing to a directory containing `images/` + `labels/`
+- Pattern D: image-list `.txt` file (e.g. `train: train.txt`, common in Scaled-YOLOv4-style exports)
 
 Behavior:
 - **Default (no `--split`):** all found splits are merged into a single IR Dataset. Image `file_name` values are prefixed with the split name (e.g. `train/img001.jpg`, `val/img002.jpg`) to avoid collisions.
 - **`--split <name>`:** only the named split is read. Image `file_name` values are still prefixed with the split name for provenance.
-- Class map: resolved from `data.yaml` `names:` when present, otherwise inferred across all selected label directories.
+- Class map: resolved from `data.yaml` `names:` when present, otherwise inferred from the selected label files.
 - `data.yaml` `path:` key (if present) is used as the base for resolving split-relative paths.
+- For image-list `.txt` splits, each non-empty non-comment row is an image path. Relative rows resolve relative to the list file's parent directory.
+- For image-list `.txt` splits, label paths are derived from each image path by replacing the rightmost `images` path component with `labels` and changing the extension to `.txt`; if that label file is absent, panlabel falls back to a same-directory `.txt` next to the image. A missing label file means the image has no annotations.
+- Image-list logical image names are deterministic. If two rows would produce the same split-prefixed logical name, panlabel errors instead of silently merging them.
 - Split provenance is stored in `Dataset.info.attributes`:
   - `yolo_layout_mode`: `"split_aware"` or `"flat"`
   - `yolo_splits_found`: comma-separated list of splits found (e.g. `"train,val,test"`)
@@ -336,6 +344,37 @@ Writer behavior:
 - does **not** copy image binaries
 - writes normalized floats with 6 decimal places
 - emits an optional 6th confidence token when `Annotation.confidence` is `Some`
+
+## YOLO Keras / YOLOv4 PyTorch TXT (`yolo-keras`, `yolov4-pytorch`)
+
+These two public formats share one adapter because their object-detection TXT
+shape is the same:
+
+```text
+<image_ref> [xmin,ymin,xmax,ymax,class_id ...]
+```
+
+Reader behavior:
+- accepts a single `.txt` annotation file, or a directory containing a canonical annotation file
+- canonical directory search for `yolo-keras`: `yolo_keras.txt`, `yolo-keras.txt`, `annotations.txt`, `train_annotations.txt`, then `train.txt`
+- canonical directory search for `yolov4-pytorch`: `yolov4_pytorch.txt`, `yolov4-pytorch.txt`, `yolov4_train.txt`, `train_annotation.txt`, `train_annotations.txt`, then `train.txt`
+- each box token is absolute pixel-space XYXY plus a zero-based class ID
+- a row with only `image_ref` is kept as an unannotated image
+- class names come from `classes.txt`, `class_names.txt`, `classes.names`, or `obj.names`; missing names fall back to `class_<id>`
+- image dimensions are probed from disk: relative refs are tried beside the annotation file/directory first, then under `images/`
+- malformed boxes include the annotation file and line number in the error
+
+Writer behavior:
+- writes deterministic rows ordered by image `file_name`, with boxes ordered by annotation ID
+- writes `classes.txt` ordered by category ID; class IDs in rows are zero-based positions in that order
+- writes image-only rows for unannotated images
+- creates only annotation/class files; image binaries are not copied
+
+Auto-detection note: the row grammar cannot distinguish YOLO Keras from YOLOv4
+PyTorch. A specifically named file such as `yolo_keras.txt` or
+`yolov4_pytorch.txt` can be auto-detected. Shared/generic names such as
+`train.txt` or `train_annotations.txt` that match this grammar are reported as
+ambiguous; use `--from yolo-keras` or `--from yolov4-pytorch`.
 
 ## Pascal VOC XML (`voc` / `pascal-voc` / `voc-xml`)
 
@@ -599,6 +638,58 @@ Writer behavior:
   - `dataset/ann/<image.file_name>.json`
   - `dataset/img/README.txt`
 - emits all annotations as `rectangle` objects
+- does **not** copy image binaries
+
+## Cityscapes JSON (`cityscapes` / `cityscapes-json`)
+
+- Path kind: JSON file or directory.
+- Supported source schema: Cityscapes polygon JSON with `imgWidth`, `imgHeight`, and `objects`.
+- Supported input layouts:
+  - single `*_gtFine_polygons.json` file
+  - directory containing matching polygon JSON files
+  - `gtFine/` root
+  - full dataset root containing `gtFine/<split>/<city>/*_gtFine_polygons.json`
+- Polygon coordinates are converted to the smallest axis-aligned bbox envelope; coordinates are not clipped.
+- Deleted objects and Cityscapes ignored/stuff labels are skipped.
+- Group labels such as `cargroup` / `persongroup` are mapped to their base instance label and marked with `cityscapes_is_group=true`.
+- Unknown labels are kept and marked with `cityscapes_label_status=unknown`.
+- Annotation attributes include `cityscapes_original_label` and `cityscapes_bbox_source=polygon_envelope`.
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order then object order
+- writer file order: by image `file_name` (lexicographic)
+
+Writer behavior:
+- single-image dataset + `.json` output path: writes one polygon JSON file
+- otherwise writes `gtFine/<split>/<city>/*_gtFine_polygons.json`; `cityscapes_split` / `cityscapes_city` image attributes are used when present, otherwise `train/panlabel` is used
+- emits every bbox as a four-point rectangle polygon
+- writes a placeholder `leftImg8bit/README.txt`
+- does **not** copy image binaries
+
+## Marmot XML (`marmot` / `marmot-xml`)
+
+- Path kind: XML file or directory.
+- Supported source schema: a root `<Page CropBox="...">` element with `<Composite>` children under `<Composites>` blocks.
+- The reader intentionally ignores `<Leaf>` elements and any `<Composite>` not directly under `<Composites>`.
+- `Page@CropBox` and `Composite@BBox` must each contain exactly four 16-hex-character big-endian f64 tokens.
+- Rectangle token order is `x_left y_top x_right y_bottom` in Marmot/PDF-like page coordinates.
+- The reader requires a same-stem companion image (`page.xml` + `page.bmp` / `page.png` / etc.) to get pixel dimensions; CropBox values alone are not treated as image dimensions.
+- Coordinates are scaled through the CropBox and converted to IR pixel-space XYXY with a top-left origin, including the Y-axis flip.
+- Category names come from `Composite@Label`, then parent `Composites@Label`, then `Composite`.
+
+Deterministic policy:
+- reader image IDs: by companion image `file_name` (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by XML/object order
+- writer file order: by image `file_name` (lexicographic)
+
+Writer behavior:
+- single-image dataset + `.xml` output path: writes one Marmot XML file
+- directory output writes one `.xml` file per image path with the image extension replaced by `.xml`
+- emits minimal `<Page>`, `<Composites>`, and `<Composite>` elements
+- encodes CropBox/BBox values as big-endian f64 hex tokens
 - does **not** copy image binaries
 
 ## CreateML JSON (`create-ml` / `createml` / `create-ml-json`)

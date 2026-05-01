@@ -12,9 +12,10 @@
 //! The canonical IR representation remains pixel-space XYXY boxes.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsString;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
 use walkdir::WalkDir;
@@ -90,41 +91,53 @@ pub fn read_yolo_dir_with_options(
         None => source.splits.iter().collect(),
     };
 
-    // Resolve class map
-    let labels_dirs: Vec<&Path> = selected_splits
-        .iter()
-        .map(|s| s.labels_dir.as_path())
-        .collect();
-    let class_map = resolve_class_map(&source.class_map_source, &labels_dirs)?;
-
-    // Phase 1: Collect all images across selected splits with logical names
-    let mut all_image_entries: Vec<(String, PathBuf)> = Vec::new();
-
-    for split in &selected_splits {
-        let mut image_files = collect_files_with_extensions(&split.images_dir, &IMAGE_EXTENSIONS)?;
-        image_files.sort_by_cached_key(|p| rel_string(&split.images_dir, p));
-
-        for image_path in image_files {
-            let rel = rel_string(&split.images_dir, &image_path);
-            let name = logical_name(source.is_split_aware, &split.split_name, rel);
-            all_image_entries.push((name, image_path));
-        }
+    // Phase 1: collect all images across selected splits with logical names.
+    let mut all_image_entries: Vec<YoloImageEntry> = Vec::new();
+    for (split_idx, split) in selected_splits.iter().enumerate() {
+        let mut entries = collect_split_image_entries(source.is_split_aware, split, split_idx)?;
+        all_image_entries.append(&mut entries);
     }
 
-    // Sort globally by logical name for deterministic IDs
-    all_image_entries.sort_by(|a, b| a.0.cmp(&b.0));
+    // Sort globally by logical name for deterministic image IDs.
+    all_image_entries.sort_by(|a, b| a.logical_name.cmp(&b.logical_name));
+    ensure_unique_logical_image_names(path, &all_image_entries)?;
 
-    // Build images and lookup
+    // Phase 2: collect label files before class-map inference.
+    // Directory splits scan labels/ directly so stray labels keep the existing
+    // "label image is missing" error. Image-list splits only read labels for
+    // listed images; a listed image with no label file simply has no annotations.
+    let mut all_label_entries =
+        collect_split_label_entries(source.is_split_aware, &selected_splits, &all_image_entries)?;
+    all_label_entries.sort_by(|a, b| {
+        a.logical_name
+            .cmp(&b.logical_name)
+            .then_with(|| a.label_path.cmp(&b.label_path))
+    });
+
+    // Resolve class map after labels are known. Inferred class names come from
+    // exactly the label files that this read will parse.
+    let label_paths: Vec<&Path> = all_label_entries
+        .iter()
+        .map(|entry| entry.label_path.as_path())
+        .collect();
+    let class_map = resolve_class_map(&source.class_map_source, &label_paths)?;
+
+    // Build images and lookup.
     let mut images = Vec::with_capacity(all_image_entries.len());
     let mut image_lookup: BTreeMap<String, ImageMeta> = BTreeMap::new();
 
-    for (index, (logical_name, image_path)) in all_image_entries.iter().enumerate() {
-        let (width, height) = read_image_dimensions(image_path)?;
+    for (index, entry) in all_image_entries.iter().enumerate() {
+        let (width, height) = read_image_dimensions(&entry.image_path)?;
         let image_id = ImageId::new((index + 1) as u64);
 
-        images.push(Image::new(image_id, logical_name.clone(), width, height));
+        images.push(Image::new(
+            image_id,
+            entry.logical_name.clone(),
+            width,
+            height,
+        ));
         image_lookup.insert(
-            logical_name.clone(),
+            entry.logical_name.clone(),
             ImageMeta {
                 id: image_id,
                 width,
@@ -133,7 +146,7 @@ pub fn read_yolo_dir_with_options(
         );
     }
 
-    // Build categories
+    // Build categories.
     let categories: Vec<Category> = class_map
         .names
         .iter()
@@ -141,70 +154,28 @@ pub fn read_yolo_dir_with_options(
         .map(|(i, name)| Category::new((i + 1) as u64, name.clone()))
         .collect();
 
-    // Phase 2: Collect all labels across selected splits
-    let mut all_label_entries: Vec<(String, PathBuf, usize)> = Vec::new();
-
-    for (split_idx, split) in selected_splits.iter().enumerate() {
-        let mut label_files = collect_files_with_extensions(&split.labels_dir, &[LABEL_EXTENSION])?;
-        label_files.sort_by_cached_key(|p| rel_string(&split.labels_dir, p));
-
-        for label_path in label_files {
-            let rel = rel_string(&split.labels_dir, &label_path);
-            let name = logical_name(source.is_split_aware, &split.split_name, rel);
-            all_label_entries.push((name, label_path, split_idx));
-        }
-    }
-
-    // Sort globally by logical label path for deterministic annotation IDs
-    all_label_entries.sort_by(|a, b| a.0.cmp(&b.0));
-
-    // Parse labels and create annotations
+    // Parse labels and create annotations.
     let mut annotations = Vec::new();
     let mut next_annotation_id: u64 = 1;
 
-    for (_, label_path, split_idx) in &all_label_entries {
-        let split = &selected_splits[*split_idx];
-
-        let label_rel = label_path.strip_prefix(&split.labels_dir).map_err(|_| {
-            PanlabelError::YoloLayoutInvalid {
-                path: label_path.clone(),
-                message: format!(
-                    "label path '{}' is outside labels dir '{}'",
-                    label_path.display(),
-                    split.labels_dir.display()
-                ),
-            }
-        })?;
-
-        // Find image in same split
-        let image_path = find_image_for_label(&split.images_dir, label_rel).ok_or_else(|| {
+    for label_entry in &all_label_entries {
+        let image_meta = image_lookup.get(&label_entry.logical_name).ok_or_else(|| {
             PanlabelError::YoloImageNotFound {
-                label_path: label_path.clone(),
-                expected_stem: rel_string(&split.labels_dir, &label_path.with_extension("")),
+                label_path: label_entry.label_path.clone(),
+                expected_stem: label_entry.logical_name.clone(),
             }
         })?;
 
-        // Compute logical image name (same key used in image_lookup)
-        let image_rel = rel_string(&split.images_dir, &image_path);
-        let logical_image_name = logical_name(source.is_split_aware, &split.split_name, image_rel);
-
-        let image_meta = image_lookup.get(&logical_image_name).ok_or_else(|| {
-            PanlabelError::YoloImageNotFound {
-                label_path: label_path.clone(),
-                expected_stem: rel_string(&split.labels_dir, &label_path.with_extension("")),
-            }
-        })?;
-
-        let content = fs::read_to_string(label_path).map_err(PanlabelError::Io)?;
+        let content = fs::read_to_string(&label_entry.label_path).map_err(PanlabelError::Io)?;
         for (line_idx, line) in content.lines().enumerate() {
             let line_num = line_idx + 1;
-            let Some(parsed) = parse_label_line(line, label_path, line_num)? else {
+            let Some(parsed) = parse_label_line(line, &label_entry.label_path, line_num)? else {
                 continue;
             };
 
             if parsed.class_id >= class_map.names.len() {
                 return Err(PanlabelError::YoloLabelParse {
-                    path: label_path.clone(),
+                    path: label_entry.label_path.clone(),
                     line: line_num,
                     message: format!(
                         "class_id {} is out of range for class map with {} class(es)",
@@ -232,7 +203,7 @@ pub fn read_yolo_dir_with_options(
         }
     }
 
-    // Build dataset info with provenance for split-aware mode
+    // Build dataset info with provenance for split-aware mode.
     let mut info = DatasetInfo::default();
     if source.is_split_aware {
         let all_split_names: Vec<&str> = source
@@ -383,13 +354,37 @@ struct YoloSource {
     class_map_source: YoloClassMapSource,
 }
 
-/// A single images+labels pair, optionally associated with a named split.
+/// A single YOLO split, optionally associated with a named split.
 #[derive(Clone, Debug)]
 struct YoloSplitLayout {
     /// Empty string for flat layouts, otherwise "train"/"val"/"test".
     split_name: String,
-    images_dir: PathBuf,
-    labels_dir: PathBuf,
+    image_source: YoloImageSource,
+}
+
+#[derive(Clone, Debug)]
+enum YoloImageSource {
+    Directory {
+        images_dir: PathBuf,
+        labels_dir: PathBuf,
+    },
+    ListFile {
+        list_file: PathBuf,
+    },
+}
+
+#[derive(Clone, Debug)]
+struct YoloImageEntry {
+    split_idx: usize,
+    logical_name: String,
+    image_path: PathBuf,
+    label_path: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+struct YoloLabelEntry {
+    logical_name: String,
+    label_path: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -559,8 +554,10 @@ fn discover_source(input: &Path) -> Result<YoloSource, PanlabelError> {
         is_split_aware: false,
         splits: vec![YoloSplitLayout {
             split_name: String::new(),
-            images_dir,
-            labels_dir,
+            image_source: YoloImageSource::Directory {
+                images_dir,
+                labels_dir,
+            },
         }],
         class_map_source,
     })
@@ -572,6 +569,7 @@ fn discover_source(input: &Path) -> Result<YoloSource, PanlabelError> {
 /// - Pattern A: `train: images/train` — swap `images` component to `labels`
 /// - Pattern B: `train: train/images` — swap `images` component to `labels`
 /// - Pattern C: `train: train` — expect `images/` + `labels/` inside
+/// - Pattern D: `train: train.txt` — read an image-list file
 fn resolve_split_layout(
     base_path: &Path,
     split_name: &str,
@@ -583,12 +581,25 @@ fn resolve_split_layout(
         base_path.join(raw_path)
     };
 
+    // Scaled-YOLOv4 commonly uses data.yaml split values that point to text
+    // files. Each non-empty row in that file names one image.
+    if resolved.is_file() && has_extension(&resolved, &[LABEL_EXTENSION]) {
+        return Ok(YoloSplitLayout {
+            split_name: split_name.to_string(),
+            image_source: YoloImageSource::ListFile {
+                list_file: resolved,
+            },
+        });
+    }
+
     // Pattern C: resolved is a split root containing images/ + labels/
     if resolved.join("images").is_dir() && resolved.join("labels").is_dir() {
         return Ok(YoloSplitLayout {
             split_name: split_name.to_string(),
-            images_dir: resolved.join("images"),
-            labels_dir: resolved.join("labels"),
+            image_source: YoloImageSource::Directory {
+                images_dir: resolved.join("images"),
+                labels_dir: resolved.join("labels"),
+            },
         });
     }
 
@@ -599,8 +610,10 @@ fn resolve_split_layout(
             if labels_dir.is_dir() {
                 return Ok(YoloSplitLayout {
                     split_name: split_name.to_string(),
-                    images_dir: resolved,
-                    labels_dir,
+                    image_source: YoloImageSource::Directory {
+                        images_dir: resolved,
+                        labels_dir,
+                    },
                 });
             }
         }
@@ -610,8 +623,9 @@ fn resolve_split_layout(
         path: resolved,
         message: format!(
             "split '{}' path '{}' could not be resolved to a valid YOLO layout. \
-             Expected: a directory with images/ + labels/ inside, or \
-             a path containing an 'images' component with a corresponding 'labels' sibling",
+             Expected: a directory with images/ + labels/ inside, \
+             a path containing an 'images' component with a corresponding 'labels' sibling, \
+             or a .txt image-list file",
             split_name, raw_path
         ),
     })
@@ -639,17 +653,17 @@ fn derive_labels_path(base_path: &Path, raw_path: &str) -> Option<PathBuf> {
 // Class map resolution
 // ---------------------------------------------------------------------------
 
-/// Resolve the class map from a source, scanning multiple labels dirs if inferred.
+/// Resolve the class map from a source, scanning parsed label files if inferred.
 fn resolve_class_map(
     class_map_source: &YoloClassMapSource,
-    labels_dirs: &[&Path],
+    label_paths: &[&Path],
 ) -> Result<YoloClassMap, PanlabelError> {
     match class_map_source {
         YoloClassMapSource::DataYaml(names) => Ok(YoloClassMap {
             names: names.clone(),
         }),
         YoloClassMapSource::ClassesTxt(path) => read_classes_txt(path),
-        YoloClassMapSource::Inferred => infer_class_map_from_dirs(labels_dirs),
+        YoloClassMapSource::Inferred => infer_class_map_from_files(label_paths),
     }
 }
 
@@ -720,22 +734,18 @@ fn read_classes_txt(path: &Path) -> Result<YoloClassMap, PanlabelError> {
     Ok(YoloClassMap { names })
 }
 
-/// Infer the class map by scanning multiple labels directories.
-fn infer_class_map_from_dirs(labels_dirs: &[&Path]) -> Result<YoloClassMap, PanlabelError> {
+/// Infer the class map by scanning the label files that will be parsed.
+fn infer_class_map_from_files(label_paths: &[&Path]) -> Result<YoloClassMap, PanlabelError> {
     let mut class_ids = BTreeSet::new();
 
-    for labels_dir in labels_dirs {
-        let label_files = collect_files_with_extensions(labels_dir, &[LABEL_EXTENSION])?;
-
-        for label_path in label_files {
-            let content = fs::read_to_string(&label_path).map_err(PanlabelError::Io)?;
-            for (line_idx, line) in content.lines().enumerate() {
-                let line_num = line_idx + 1;
-                let Some(parsed) = parse_label_line(line, &label_path, line_num)? else {
-                    continue;
-                };
-                class_ids.insert(parsed.class_id);
-            }
+    for label_path in label_paths {
+        let content = fs::read_to_string(label_path).map_err(PanlabelError::Io)?;
+        for (line_idx, line) in content.lines().enumerate() {
+            let line_num = line_idx + 1;
+            let Some(parsed) = parse_label_line(line, label_path, line_num)? else {
+                continue;
+            };
+            class_ids.insert(parsed.class_id);
         }
     }
 
@@ -746,6 +756,351 @@ fn infer_class_map_from_dirs(labels_dirs: &[&Path]) -> Result<YoloClassMap, Panl
     };
 
     Ok(YoloClassMap { names })
+}
+
+// ---------------------------------------------------------------------------
+// Split image/label collection
+// ---------------------------------------------------------------------------
+
+fn collect_split_image_entries(
+    is_split_aware: bool,
+    split: &YoloSplitLayout,
+    split_idx: usize,
+) -> Result<Vec<YoloImageEntry>, PanlabelError> {
+    match &split.image_source {
+        YoloImageSource::Directory {
+            images_dir,
+            labels_dir,
+        } => collect_directory_image_entries(
+            is_split_aware,
+            &split.split_name,
+            split_idx,
+            images_dir,
+            labels_dir,
+        ),
+        YoloImageSource::ListFile { list_file } => {
+            collect_list_image_entries(is_split_aware, &split.split_name, split_idx, list_file)
+        }
+    }
+}
+
+fn collect_directory_image_entries(
+    is_split_aware: bool,
+    split_name: &str,
+    split_idx: usize,
+    images_dir: &Path,
+    labels_dir: &Path,
+) -> Result<Vec<YoloImageEntry>, PanlabelError> {
+    let mut image_files = collect_files_with_extensions(images_dir, &IMAGE_EXTENSIONS)?;
+    image_files.sort_by_cached_key(|p| rel_string(images_dir, p));
+
+    Ok(image_files
+        .into_iter()
+        .map(|image_path| {
+            let rel = rel_string(images_dir, &image_path);
+            let label_path = labels_dir.join(Path::new(&rel).with_extension(LABEL_EXTENSION));
+            YoloImageEntry {
+                split_idx,
+                logical_name: logical_name(is_split_aware, split_name, rel),
+                image_path,
+                label_path,
+            }
+        })
+        .collect())
+}
+
+fn collect_list_image_entries(
+    is_split_aware: bool,
+    split_name: &str,
+    split_idx: usize,
+    list_file: &Path,
+) -> Result<Vec<YoloImageEntry>, PanlabelError> {
+    let content = fs::read_to_string(list_file).map_err(PanlabelError::Io)?;
+    let list_parent = list_file.parent().unwrap_or_else(|| Path::new("."));
+    let mut entries = Vec::new();
+
+    for (line_idx, line) in content.lines().enumerate() {
+        let raw = line.trim();
+        if raw.is_empty() || raw.starts_with('#') {
+            continue;
+        }
+
+        let raw_path = Path::new(raw);
+        let image_path = if raw_path.is_absolute() {
+            raw_path.to_path_buf()
+        } else {
+            list_parent.join(raw_path)
+        };
+
+        if !has_extension(&image_path, &IMAGE_EXTENSIONS) {
+            return Err(PanlabelError::YoloLayoutInvalid {
+                path: list_file.to_path_buf(),
+                message: format!(
+                    "image-list row {} points to '{}', which does not have a supported image extension ({})",
+                    line_idx + 1,
+                    raw,
+                    IMAGE_EXTENSIONS.join(", ")
+                ),
+            });
+        }
+
+        let rel = logical_rel_for_list_image(list_file, split_name, raw, &image_path);
+        let label_path = derive_label_path_for_image(&image_path);
+        entries.push(YoloImageEntry {
+            split_idx,
+            logical_name: logical_name(is_split_aware, split_name, rel),
+            image_path,
+            label_path,
+        });
+    }
+
+    Ok(entries)
+}
+
+fn collect_split_label_entries(
+    is_split_aware: bool,
+    selected_splits: &[&YoloSplitLayout],
+    image_entries: &[YoloImageEntry],
+) -> Result<Vec<YoloLabelEntry>, PanlabelError> {
+    let mut label_entries = Vec::new();
+
+    for (split_idx, split) in selected_splits.iter().enumerate() {
+        match &split.image_source {
+            YoloImageSource::Directory {
+                images_dir,
+                labels_dir,
+            } => {
+                let mut label_files =
+                    collect_files_with_extensions(labels_dir, &[LABEL_EXTENSION])?;
+                label_files.sort_by_cached_key(|p| rel_string(labels_dir, p));
+
+                for label_path in label_files {
+                    let label_rel = label_path.strip_prefix(labels_dir).map_err(|_| {
+                        PanlabelError::YoloLayoutInvalid {
+                            path: label_path.clone(),
+                            message: format!(
+                                "label path '{}' is outside labels dir '{}'",
+                                label_path.display(),
+                                labels_dir.display()
+                            ),
+                        }
+                    })?;
+
+                    let image_path =
+                        find_image_for_label(images_dir, label_rel).ok_or_else(|| {
+                            PanlabelError::YoloImageNotFound {
+                                label_path: label_path.clone(),
+                                expected_stem: rel_string(
+                                    labels_dir,
+                                    &label_path.with_extension(""),
+                                ),
+                            }
+                        })?;
+                    let image_rel = rel_string(images_dir, &image_path);
+                    let logical_name = logical_name(is_split_aware, &split.split_name, image_rel);
+
+                    label_entries.push(YoloLabelEntry {
+                        logical_name,
+                        label_path,
+                    });
+                }
+            }
+            YoloImageSource::ListFile { .. } => {
+                label_entries.extend(
+                    image_entries
+                        .iter()
+                        .filter(|entry| entry.split_idx == split_idx && entry.label_path.is_file())
+                        .map(|entry| YoloLabelEntry {
+                            logical_name: entry.logical_name.clone(),
+                            label_path: entry.label_path.clone(),
+                        }),
+                );
+            }
+        }
+    }
+
+    Ok(label_entries)
+}
+
+fn ensure_unique_logical_image_names(
+    input_path: &Path,
+    image_entries: &[YoloImageEntry],
+) -> Result<(), PanlabelError> {
+    let mut seen: BTreeMap<&str, &Path> = BTreeMap::new();
+    for entry in image_entries {
+        if let Some(existing) = seen.insert(entry.logical_name.as_str(), entry.image_path.as_path())
+        {
+            return Err(PanlabelError::YoloLayoutInvalid {
+                path: input_path.to_path_buf(),
+                message: format!(
+                    "duplicate logical image name '{}' from '{}' and '{}'. \
+                     Rename one image or use distinct list paths so image IDs are deterministic.",
+                    entry.logical_name,
+                    existing.display(),
+                    entry.image_path.display()
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn derive_label_path_for_image(image_path: &Path) -> PathBuf {
+    if let Some(swapped) = replace_rightmost_component(image_path, "images", "labels") {
+        let candidate = swapped.with_extension(LABEL_EXTENSION);
+        if candidate.is_file() {
+            return candidate;
+        }
+    }
+
+    image_path.with_extension(LABEL_EXTENSION)
+}
+
+fn replace_rightmost_component(path: &Path, from: &str, to: &str) -> Option<PathBuf> {
+    let mut parts: Vec<OsString> = path
+        .components()
+        .map(|component| component.as_os_str().to_os_string())
+        .collect();
+
+    for idx in (0..parts.len()).rev() {
+        if parts[idx]
+            .to_str()
+            .map(|value| value.eq_ignore_ascii_case(from))
+            .unwrap_or(false)
+        {
+            parts[idx] = OsString::from(to);
+            let mut rebuilt = PathBuf::new();
+            for part in parts {
+                rebuilt.push(part);
+            }
+            return Some(rebuilt);
+        }
+    }
+
+    None
+}
+
+fn logical_rel_for_list_image(
+    list_file: &Path,
+    split_name: &str,
+    raw_row: &str,
+    image_path: &Path,
+) -> String {
+    let raw_path = Path::new(raw_row);
+    let parts = if raw_path.is_absolute() {
+        path_components_for_logical_name(image_path)
+    } else {
+        path_components_for_logical_name(raw_path)
+    };
+
+    if let Some(rel) = rel_after_images_split(&parts, split_name) {
+        return rel;
+    }
+    if let Some(rel) = rel_after_rightmost_component(&parts, "images") {
+        return rel;
+    }
+    if let Some(rel) = rel_after_leading_split(&parts, split_name) {
+        return rel;
+    }
+
+    if raw_path.is_absolute() {
+        // Absolute rows outside an images/ tree have no stable dataset-relative
+        // anchor. Use the file name and let duplicate detection fail explicitly
+        // if two rows would collapse to the same logical image name.
+        return image_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_else(|| {
+                list_file
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("image")
+            })
+            .to_string();
+    }
+
+    join_logical_parts(&parts).unwrap_or_else(|| {
+        image_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("image")
+            .to_string()
+    })
+}
+
+fn path_components_for_logical_name(path: &Path) -> Vec<String> {
+    let mut parts = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(value) => parts.push(value.to_string_lossy().to_string()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if parts.last().map(|part| part != "..").unwrap_or(false) {
+                    parts.pop();
+                } else {
+                    parts.push("..".to_string());
+                }
+            }
+            Component::RootDir | Component::Prefix(_) => {}
+        }
+    }
+    parts
+}
+
+fn rel_after_images_split(parts: &[String], split_name: &str) -> Option<String> {
+    for idx in (0..parts.len()).rev() {
+        if !parts[idx].eq_ignore_ascii_case("images") {
+            continue;
+        }
+        let start = if parts
+            .get(idx + 1)
+            .map(|part| part.eq_ignore_ascii_case(split_name))
+            .unwrap_or(false)
+        {
+            idx + 2
+        } else {
+            idx + 1
+        };
+        if let Some(rel) = join_logical_parts(&parts[start..]) {
+            return Some(rel);
+        }
+    }
+    None
+}
+
+fn rel_after_rightmost_component(parts: &[String], component: &str) -> Option<String> {
+    for idx in (0..parts.len()).rev() {
+        if parts[idx].eq_ignore_ascii_case(component) {
+            if let Some(rel) = join_logical_parts(&parts[idx + 1..]) {
+                return Some(rel);
+            }
+        }
+    }
+    None
+}
+
+fn rel_after_leading_split(parts: &[String], split_name: &str) -> Option<String> {
+    if parts
+        .first()
+        .map(|part| part.eq_ignore_ascii_case(split_name))
+        .unwrap_or(false)
+    {
+        return join_logical_parts(&parts[1..]);
+    }
+    None
+}
+
+fn join_logical_parts(parts: &[String]) -> Option<String> {
+    let safe_parts: Vec<&str> = parts
+        .iter()
+        .map(String::as_str)
+        .filter(|part| !part.is_empty() && *part != "..")
+        .collect();
+    if safe_parts.is_empty() {
+        None
+    } else {
+        Some(safe_parts.join("/"))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -949,6 +1304,16 @@ fn rel_string(root: &Path, path: &Path) -> String {
 mod tests {
     use super::*;
 
+    fn split_dirs(split: &YoloSplitLayout) -> (&Path, &Path) {
+        match &split.image_source {
+            YoloImageSource::Directory {
+                images_dir,
+                labels_dir,
+            } => (images_dir.as_path(), labels_dir.as_path()),
+            YoloImageSource::ListFile { .. } => panic!("expected directory split"),
+        }
+    }
+
     fn bmp_bytes(width: u32, height: u32) -> Vec<u8> {
         let row_stride = (width * 3).div_ceil(4) * 4;
         let pixel_array_size = row_stride * height;
@@ -1053,20 +1418,16 @@ mod tests {
         let root_source = discover_source(temp.path()).expect("discover from root");
         assert!(!root_source.is_split_aware);
         assert_eq!(root_source.splits.len(), 1);
-        assert_eq!(root_source.splits[0].images_dir, temp.path().join("images"));
-        assert_eq!(root_source.splits[0].labels_dir, temp.path().join("labels"));
+        let (images_dir, labels_dir) = split_dirs(&root_source.splits[0]);
+        assert_eq!(images_dir, temp.path().join("images"));
+        assert_eq!(labels_dir, temp.path().join("labels"));
 
         let labels_source =
             discover_source(&temp.path().join("labels")).expect("discover from labels dir");
         assert!(!labels_source.is_split_aware);
-        assert_eq!(
-            labels_source.splits[0].images_dir,
-            temp.path().join("images")
-        );
-        assert_eq!(
-            labels_source.splits[0].labels_dir,
-            temp.path().join("labels")
-        );
+        let (images_dir, labels_dir) = split_dirs(&labels_source.splits[0]);
+        assert_eq!(images_dir, temp.path().join("images"));
+        assert_eq!(labels_dir, temp.path().join("labels"));
     }
 
     #[test]
@@ -1082,13 +1443,9 @@ mod tests {
         fs::write(temp.path().join("classes.txt"), "wrong\nvalues\n").expect("write classes");
 
         let source = discover_source(temp.path()).expect("discover source");
-        let labels_dirs: Vec<&Path> = source
-            .splits
-            .iter()
-            .map(|s| s.labels_dir.as_path())
-            .collect();
+        let label_paths: Vec<&Path> = Vec::new();
         let class_map =
-            resolve_class_map(&source.class_map_source, &labels_dirs).expect("read class map");
+            resolve_class_map(&source.class_map_source, &label_paths).expect("read class map");
         assert_eq!(class_map.names, vec!["person", "bicycle"]);
     }
 
@@ -1104,13 +1461,10 @@ mod tests {
         .expect("write label file");
 
         let source = discover_source(temp.path()).expect("discover source");
-        let labels_dirs: Vec<&Path> = source
-            .splits
-            .iter()
-            .map(|s| s.labels_dir.as_path())
-            .collect();
+        let label_path = temp.path().join("labels/train/example.txt");
+        let label_paths = vec![label_path.as_path()];
         let class_map =
-            resolve_class_map(&source.class_map_source, &labels_dirs).expect("read class map");
+            resolve_class_map(&source.class_map_source, &label_paths).expect("read class map");
         assert_eq!(class_map.names, vec!["class_0", "class_1", "class_2"]);
     }
 
@@ -1454,8 +1808,9 @@ mod tests {
 
         let source = discover_source(temp.path()).expect("discover with path key");
         assert!(source.is_split_aware);
-        assert_eq!(source.splits[0].images_dir, data_root.join("images/train"));
-        assert_eq!(source.splits[0].labels_dir, data_root.join("labels/train"));
+        let (images_dir, labels_dir) = split_dirs(&source.splits[0]);
+        assert_eq!(images_dir, data_root.join("images/train"));
+        assert_eq!(labels_dir, data_root.join("labels/train"));
     }
 
     #[test]

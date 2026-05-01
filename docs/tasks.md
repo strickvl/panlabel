@@ -38,17 +38,24 @@ within those boundaries.
 | `tfod` | yes | yes | normalized CSV format; lossy |
 | `vott-csv` | yes | yes | Microsoft VoTT headered CSV; absolute pixel XYXY coordinates; file based |
 | `vott-json` | yes | yes | Microsoft VoTT aggregate/per-asset JSON; rectangles direct, polygon-like point regions flattened to bbox envelopes; file or directory based |
-| `yolo` | yes | yes | directory-based; normalized center-format rows |
+| `yolo` | yes | yes | directory/list-split based; normalized center-format rows |
+| `yolo-keras` / `yolov4-pytorch` | yes | yes | shared single-file TXT grammar; absolute pixel XYXY boxes with zero-based class IDs |
 | `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
 | `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
 | `sagemaker` | yes | yes | AWS Ground Truth manifest JSONL (`.manifest` / `.jsonl`); dynamic label attribute + `<label>-metadata`; object-detection rows only |
 | `labelme` | yes | yes | per-image JSON; `rectangle` and `polygon` shapes (polygons flattened to bbox envelopes); file or directory based |
 | `superannotate` | yes | yes | per-image JSON (`metadata` + `instances`), file or directory based; polygon/rotated geometries flattened to bbox envelopes |
 | `supervisely` | yes | yes | per-image JSON (`size` + `objects`), dataset `ann/` or project (`meta.json` + dataset `ann/`); polygons flattened to bbox envelopes |
+| `cityscapes` | yes | yes | Cityscapes polygon JSON (`imgWidth` / `imgHeight` / `objects`), file or `gtFine/` dataset root; polygons flattened to bbox envelopes |
+| `marmot` | yes | yes | Marmot XML document-layout pages; `<Composite>` BBox hex doubles under `<Composites>` converted to pixel-space XYXY using companion image dimensions |
 | `create-ml` | yes | yes | Apple CreateML JSON array; center-based absolute pixel coordinates; file based |
 | `kitti` | yes | yes | directory-based; per-image `.txt` files with 15-field KITTI rows; absolute pixel coordinates |
 | `via` | yes | yes | VGG Image Annotator single-file JSON; rectangle regions; absolute pixel coordinates |
 | `retinanet` | yes | yes | keras-retinanet CSV; absolute pixel XYXY coordinates; file based |
+| `openimages` | yes | yes | Google OpenImages CSV; normalized XYXY coordinates plus confidence/source metadata |
+| `kaggle-wheat` | yes | yes | Kaggle Global Wheat Detection CSV; single-class bbox strings (`[xmin, ymin, width, height]`) |
+| `automl-vision` | yes | yes | Google Cloud AutoML Vision CSV; sparse GCS/local path rows with normalized bbox corners |
+| `udacity` | yes | yes | Udacity Self-Driving Car CSV; TFOD-like header with absolute pixel coordinates |
 
 For per-format details, see [formats.md](./formats.md).
 
@@ -82,6 +89,7 @@ format accepts and rejects:
 | `scale-ai` | `type: "box"` objects, plus `polygon`/rotated-box `vertices` flattened to bbox envelopes | Unsupported geometry types are rejected so users see exactly which shape cannot enter the bbox-only IR |
 | `unity-perception` | SOLO `BoundingBox2DAnnotation` / `BoundingBox2D` values with `x,y,width,height` or `origin` + `dimension` | Non-bbox annotation blocks are skipped with warnings; writer emits bbox-only directory output and rejects ambiguous `.json` file output |
 | `yolo` | 5-token bbox rows (`class cx cy w h`) and 6-token rows (`class cx cy w h confidence`) | Rows with 7+ tokens (segmentation, pose, OBB) are rejected with a clear error |
+| `yolo-keras` / `yolov4-pytorch` | Rows like `image xmin,ymin,xmax,ymax,class_id ...`; image-only rows for unannotated images | Malformed box tokens and non-XYXY boxes are rejected with file/line context |
 | `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
 | `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
 | `vott-csv` | Headered rows with `image,xmin,ymin,xmax,ymax,label` | Fixed schema; no non-bbox geometry |
@@ -91,11 +99,17 @@ format accepts and rejects:
 | `sagemaker` | Object-detection label block with `annotations` + `image_size`, plus `<label>-metadata` (`groundtruth/object-detection`) | Segmentation/classification Ground Truth task types are rejected; mixed/ambiguous label attributes are rejected |
 | `labelme` | `rectangle` shapes (2 points) and `polygon` shapes (3+ points, flattened to bbox envelope) | Other shape types (e.g. `circle`, `line`) are rejected with a clear error |
 | `superannotate` | `bbox`/`rectangle` plus polygon/rotated/oriented boxes (flattened to bbox envelopes) | Unsupported geometry types are rejected with a clear error |
-| `supervisely` | `rectangle` and `polygon` object geometries (`geometry.points.exterior`) | Unsupported `geometryType` values (e.g. bitmap/point/line) are rejected with a clear error |
+| `supervisely` | `rectangle` and `polygon` object geometries (`geometry.points.exterior`) | Unsupported `geometryType` values (e.g. bitmap/point/line) are rejected |
+| `cityscapes` | `objects[].polygon` arrays (flattened to bbox envelopes) | Deleted objects plus ignored/stuff labels are skipped; unknown kept labels are marked with attributes |
+| `marmot` | `<Composite BBox="...">` elements directly under `<Composites>` | `<Leaf>` elements and composites outside `<Composites>` are ignored; companion image dimensions are required |
 | `create-ml` | `coordinates` objects with center-based pixel bboxes (`x`, `y`, `width`, `height`) | Fixed bbox schema; no non-bbox geometry |
 | `kitti` | 15/16-field space-separated rows (type + bbox + 3D fields + optional score) | Fixed 15/16-field schema; no non-bbox geometry |
 | `via` | `rect` regions with `shape_attributes` (`x`, `y`, `width`, `height`) | Non-rect shape types (circle, polygon, etc.) are skipped with a warning |
 | `retinanet` | 6-column CSV rows (`path,x1,y1,x2,y2,class_name`) plus empty rows for unannotated images | Fixed 6-column schema; no non-bbox geometry |
+| `openimages` | OpenImages CSV rows with normalized `XMin/XMax/YMin/YMax`, label, confidence, and source columns | Fixed bbox schema; confidence is preserved, no non-bbox geometry |
+| `kaggle-wheat` | CSV rows with `image_id,width,height,bbox`, where `bbox` is `[xmin, ymin, width, height]` | Single-class format; multiple IR categories collapse to `wheat` on write |
+| `automl-vision` | Sparse AutoML CSV rows with ML-use split, image URI, label, and normalized bbox corner columns | Fixed bbox schema; no non-bbox geometry |
+| `udacity` | CSV rows with `frame,xmin,ymin,xmax,ymax,label` | Fixed bbox schema; no non-bbox geometry |
 
 ## Adding a new task in the future
 

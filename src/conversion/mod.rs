@@ -31,12 +31,16 @@ pub enum Format {
     VottCsv,
     VottJson,
     Yolo,
+    YoloKeras,
+    YoloV4Pytorch,
     Voc,
     HfImagefolder,
     SageMaker,
     LabelMe,
     SuperAnnotate,
     Supervisely,
+    Cityscapes,
+    Marmot,
     CreateMl,
     Kitti,
     Via,
@@ -74,12 +78,16 @@ impl Format {
             Format::VottCsv => "vott-csv",
             Format::VottJson => "vott-json",
             Format::Yolo => "yolo",
+            Format::YoloKeras => "yolo-keras",
+            Format::YoloV4Pytorch => "yolov4-pytorch",
             Format::Voc => "voc",
             Format::HfImagefolder => "hf",
             Format::SageMaker => "sagemaker",
             Format::LabelMe => "labelme",
             Format::SuperAnnotate => "superannotate",
             Format::Supervisely => "supervisely",
+            Format::Cityscapes => "cityscapes",
+            Format::Marmot => "marmot",
             Format::CreateMl => "create-ml",
             Format::Kitti => "kitti",
             Format::Via => "via",
@@ -113,12 +121,16 @@ impl Format {
             Format::VottCsv => IrLossiness::Lossy,
             Format::VottJson => IrLossiness::Lossy,
             Format::Yolo => IrLossiness::Lossy,
+            Format::YoloKeras => IrLossiness::Lossy,
+            Format::YoloV4Pytorch => IrLossiness::Lossy,
             Format::Voc => IrLossiness::Lossy,
             Format::HfImagefolder => IrLossiness::Lossy,
             Format::SageMaker => IrLossiness::Lossy,
             Format::LabelMe => IrLossiness::Lossy,
             Format::SuperAnnotate => IrLossiness::Lossy,
             Format::Supervisely => IrLossiness::Lossy,
+            Format::Cityscapes => IrLossiness::Lossy,
+            Format::Marmot => IrLossiness::Lossy,
             Format::CreateMl => IrLossiness::Lossy,
             Format::Kitti => IrLossiness::Lossy,
             Format::Via => IrLossiness::Lossy,
@@ -153,6 +165,9 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::VottCsv => analyze_to_vott_csv(dataset, &mut report),
         Format::VottJson => analyze_to_vott_json(dataset, &mut report),
         Format::Yolo => analyze_to_yolo(dataset, &mut report),
+        Format::YoloKeras | Format::YoloV4Pytorch => {
+            analyze_to_yolo_keras_txt(dataset, &mut report)
+        }
         Format::Voc => analyze_to_voc(dataset, &mut report),
         Format::LabelStudio => analyze_to_label_studio(dataset, &mut report),
         Format::Labelbox => analyze_to_labelbox(dataset, &mut report),
@@ -167,6 +182,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::LabelMe => analyze_to_labelme(dataset, &mut report),
         Format::SuperAnnotate => analyze_to_superannotate(dataset, &mut report),
         Format::Supervisely => analyze_to_supervisely(dataset, &mut report),
+        Format::Cityscapes => analyze_to_cityscapes(dataset, &mut report),
+        Format::Marmot => analyze_to_marmot(dataset, &mut report),
         Format::CreateMl => analyze_to_createml(dataset, &mut report),
         Format::Kitti => analyze_to_kitti(dataset, &mut report),
         Format::Via => analyze_to_via(dataset, &mut report),
@@ -183,6 +200,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::VottCsv => add_vott_csv_reader_policy(&mut report),
         Format::VottJson => add_vott_json_reader_policy(dataset, &mut report),
         Format::Yolo => add_yolo_reader_policy(dataset, &mut report),
+        Format::YoloKeras | Format::YoloV4Pytorch => add_yolo_keras_txt_reader_policy(&mut report),
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
         Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
         Format::Labelbox => add_labelbox_reader_policy(dataset, &mut report),
@@ -196,6 +214,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::LabelMe => add_labelme_reader_policy(dataset, &mut report),
         Format::SuperAnnotate => add_superannotate_reader_policy(dataset, &mut report),
         Format::Supervisely => add_supervisely_reader_policy(dataset, &mut report),
+        Format::Cityscapes => add_cityscapes_reader_policy(dataset, &mut report),
+        Format::Marmot => add_marmot_reader_policy(&mut report),
         Format::CreateMl => add_createml_reader_policy(&mut report),
         Format::Kitti => add_kitti_reader_policy(&mut report),
         Format::Via => add_via_reader_policy(&mut report),
@@ -213,6 +233,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::VottCsv => add_vott_csv_writer_policy(&mut report),
         Format::VottJson => add_vott_json_writer_policy(&mut report),
         Format::Yolo => add_yolo_writer_policy(&mut report),
+        Format::YoloKeras | Format::YoloV4Pytorch => add_yolo_keras_txt_writer_policy(&mut report),
         Format::Voc => add_voc_writer_policy(&mut report),
         Format::LabelStudio => add_label_studio_writer_policy(dataset, &mut report),
         Format::Labelbox => add_labelbox_writer_policy(&mut report),
@@ -226,6 +247,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::LabelMe => add_labelme_writer_policy(&mut report),
         Format::SuperAnnotate => add_superannotate_writer_policy(&mut report),
         Format::Supervisely => add_supervisely_writer_policy(&mut report),
+        Format::Cityscapes => add_cityscapes_writer_policy(&mut report),
+        Format::Marmot => add_marmot_writer_policy(&mut report),
         Format::CreateMl => add_createml_writer_policy(&mut report),
         Format::Kitti => add_kitti_writer_policy(&mut report),
         Format::Via => add_via_writer_policy(&mut report),
@@ -339,6 +362,13 @@ fn analyze_to_yolo(dataset: &Dataset, report: &mut ConversionReport) {
     }
 
     // YOLO keeps full counts (including images without annotations via empty label files).
+    report.output = report.input.clone();
+}
+
+fn analyze_to_yolo_keras_txt(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    // Shared YOLO Keras/YOLOv4 TXT preserves unannotated images as image-only rows.
     report.output = report.input.clone();
 }
 
@@ -901,6 +931,42 @@ fn add_yolo_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::YoloWriterDataYamlPolicy,
         "YOLO writer emits data.yaml with a names: mapping (sorted by class index); does not emit train/val paths or nc".to_string(),
+    ));
+}
+
+fn add_yolo_keras_txt_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::YoloKerasTxtReaderIdAssignment,
+        "YOLO Keras-style TXT reader assigns IDs deterministically: images by image_ref, categories by zero-based class_id, annotations by row order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::YoloKerasTxtReaderClassMapSource,
+        "YOLO Keras-style TXT reader resolves class names from classes.txt/class_names.txt/classes.names/obj.names, falling back to class_<id> names".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::YoloKerasTxtReaderImageResolution,
+        "YOLO Keras-style TXT reader resolves image dimensions from image_ref relative to the annotation directory, then images/image_ref".to_string(),
+    ));
+}
+
+fn add_yolo_keras_txt_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::YoloKerasTxtWriterClassOrder,
+        "YOLO Keras-style TXT writer assigns zero-based class IDs by CategoryId order".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::YoloKerasTxtWriterDeterministicOrder,
+        "YOLO Keras-style TXT writer orders rows by image file_name and boxes by annotation ID"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::YoloKerasTxtWriterEmptyRows,
+        "YOLO Keras-style TXT writer emits image-only rows for images without annotations"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::YoloKerasTxtWriterNoImageCopy,
+        "YOLO Keras-style TXT writer creates only annotation and class files; image binaries are not copied".to_string(),
     ));
 }
 
@@ -1578,6 +1644,97 @@ fn add_supervisely_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::SuperviselyWriterNoImageCopy,
         "Supervisely writer creates only annotation/meta files; images are not copied".to_string(),
+    ));
+}
+
+// ============================================================================
+// Cityscapes analysis and policy
+// ============================================================================
+
+fn analyze_to_cityscapes(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_image_attributes_drop_warning(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn analyze_to_marmot(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_image_attributes_drop_warning(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn add_cityscapes_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::CityscapesReaderIdAssignment,
+        "Cityscapes reader assigns image IDs by sorted file_name, category IDs by sorted label, and annotation IDs sequentially by image then object order"
+            .to_string(),
+    ));
+
+    let has_envelopes = dataset.annotations.iter().any(|ann| {
+        ann.attributes
+            .get("cityscapes_bbox_source")
+            .map(|value| value == "polygon_envelope")
+            .unwrap_or(false)
+    });
+    if has_envelopes {
+        report.add(ConversionIssue::reader_info(
+            ConversionIssueCode::CityscapesPolygonEnvelopeApplied,
+            "Cityscapes reader converted polygons to axis-aligned bounding box envelopes; original labels are stored as cityscapes_original_label"
+                .to_string(),
+        ));
+    }
+
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::CityscapesSkippedLabels,
+        "Cityscapes reader skips deleted objects plus ignored/stuff labels, and marks unknown kept labels with cityscapes_label_status=unknown"
+            .to_string(),
+    ));
+}
+
+fn add_cityscapes_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CityscapesWriterGtFineLayout,
+        "Cityscapes writer emits gtFine/<split>/<city>/*_gtFine_polygons.json files using image attributes when available"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CityscapesWriterRectanglePolygonPolicy,
+        "Cityscapes writer emits each bbox as a deterministic four-point rectangle polygon"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CityscapesWriterNoImageCopy,
+        "Cityscapes writer creates only annotation files and a leftImg8bit placeholder; images are not copied"
+            .to_string(),
+    ));
+}
+
+fn add_marmot_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::MarmotReaderIdAssignment,
+        "Marmot reader assigns image IDs by sorted companion image name, category IDs by sorted Composite label, and annotation IDs by XML/object order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::MarmotReaderHexCoordinateTransform,
+        "Marmot reader decodes Page@CropBox and Composite@BBox as four big-endian f64 hex tokens, scales through the CropBox, and flips the Y axis into pixel-space XYXY".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::MarmotReaderCompanionImageRequired,
+        "Marmot reader requires a same-stem companion image to get pixel dimensions; CropBox alone is not treated as image dimensions".to_string(),
+    ));
+}
+
+fn add_marmot_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::MarmotWriterMinimalXml,
+        "Marmot writer emits deterministic minimal Page/Composites/Composite XML with CropBox/BBox encoded as big-endian f64 hex tokens".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::MarmotWriterNoImageCopy,
+        "Marmot writer creates XML annotation files only; image binaries are not copied"
+            .to_string(),
     ));
 }
 

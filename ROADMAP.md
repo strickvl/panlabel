@@ -10,7 +10,7 @@ For current, implemented behavior, use:
 ## Current baseline
 
 - ✅ Detection task support (axis-aligned bboxes)
-- ✅ Formats: IR JSON, COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, SuperAnnotate JSON, Supervisely JSON, CreateML JSON, TFOD CSV, Ultralytics YOLO directory, Pascal VOC XML directory, Hugging Face ImageFolder metadata
+- ✅ Formats: broad object-detection coverage across JSON, XML, CSV, TXT, and directory layouts; see `docs/formats.md` for the exhaustive implemented list
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, stats, diff, sample, list-formats
 
@@ -70,12 +70,12 @@ format that panlabel already supports. Differences are in directory layout and
 - ✅ SageMaker Ground Truth Manifest — AWS JSON Lines object-detection output manifest (`.manifest` / `.jsonl`)
 - ✅ SuperAnnotate JSON — commercial annotation platform export; per-image JSON with `metadata` + `instances`; directory + single-file support
 - ✅ Supervisely JSON — annotation platform with nested project structure; per-image JSON in `ann/` with `size` + `objects`; dataset and project-root support
-- ⏳ Scale AI JSON — commercial data labeling export; JSON with `annotations` array, bbox as `{left, top, width, height}`
-- ⏳ LabelBox JSON — Labelbox platform export (NDJSON); nested structure with `objects` containing `bbox` and `schemaId`
+- ✅ Scale AI JSON — commercial data labeling export; task/response JSON with boxes, polygon envelopes, and rotated-box envelopes
+- ✅ LabelBox JSON — Labelbox platform export (JSON/NDJSON); nested rows with `data_row`, `media_attributes`, and project label objects
 - ✅ VGG Image Annotator (VIA) JSON — popular academic tool; single JSON file keyed by `filename+size` with `regions` containing `shape_attributes`
-- ⏳ VoTT JSON/CSV — Microsoft Video Object Tagging Tool (discontinued, but legacy datasets exist); per-asset JSON with `regions` array, or CSV export
-- ⏳ IBM Cloud Annotations JSON — IBM Watson Visual Recognition export; JSON with `annotations` per image
-- ⏳ Unity Perception JSON — Unity engine synthetic data output; per-frame JSON with `captures` containing 2D bbox annotations
+- ✅ VoTT JSON/CSV — Microsoft Video Object Tagging Tool legacy exports; aggregate/per-asset JSON with `regions`, or headered CSV
+- ✅ IBM Cloud Annotations JSON — IBM Watson Visual Recognition export; `_annotations.json` localization files/directories
+- ✅ Unity Perception JSON — Unity engine synthetic data output; SOLO frame/captures JSON with `BoundingBox2D` annotations
 
 #### Model-specific formats
 

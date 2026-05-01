@@ -29,9 +29,15 @@ within those boundaries.
 |---|---|---|---|
 | `ir-json` | yes | yes | canonical/lossless representation |
 | `coco` | yes | yes | bbox `[x,y,w,h]` mapped to/from IR XYXY |
+| `ibm-cloud-annotations` | yes | yes | IBM Cloud Annotations localization JSON; normalized `x,y,x2,y2`; file or directory based |
 | `cvat` | yes | yes | CVAT "for images" XML; `<box>` annotations only; absolute pixel coordinates |
 | `label-studio` | yes | yes | task-export JSON (`rectanglelabels`), percentage coordinates, lossy (rotations flattened to axis-aligned bbox envelopes) |
+| `labelbox` | yes | yes | current export rows (`.json`, `.jsonl`, `.ndjson`); boxes direct, polygons flattened to bbox envelopes, unsupported objects skipped with warnings |
+| `scale-ai` | yes | yes | Scale AI image annotation task/response JSON; boxes direct, polygons and rotated boxes with vertices flattened to bbox envelopes, unsupported geometry rejected clearly |
+| `unity-perception` | yes | yes | Unity Perception/SOLO frame and captures JSON; `BoundingBox2D` values direct, non-bbox annotations skipped with warnings |
 | `tfod` | yes | yes | normalized CSV format; lossy |
+| `vott-csv` | yes | yes | Microsoft VoTT headered CSV; absolute pixel XYXY coordinates; file based |
+| `vott-json` | yes | yes | Microsoft VoTT aggregate/per-asset JSON; rectangles direct, polygon-like point regions flattened to bbox envelopes; file or directory based |
 | `yolo` | yes | yes | directory-based; normalized center-format rows |
 | `voc` | yes | yes | directory-based Pascal VOC XML; pixel-space XYXY |
 | `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
@@ -58,6 +64,9 @@ Examples:
 - COCO segmentation payloads are accepted during read but not converted into IR (bbox-only).
 - Label Studio result types other than `rectanglelabels` are rejected in the current detection-only adapter.
 - Label Studio `rotation` does not add OBB support: geometry is flattened to axis-aligned envelopes (angle retained as metadata).
+- Labelbox polygons are flattened to bbox envelopes; points, masks, lines, and other non-detection object kinds are skipped with warnings while preserving the image row.
+- Scale AI polygons and rotated boxes with vertices are flattened to bbox envelopes; lines, points, cuboids, ellipses, and other unsupported geometry are rejected clearly.
+- Unity Perception imports `BoundingBox2D` values and skips segmentation/keypoint/other non-bbox annotation blocks with warnings while preserving captures/images.
 
 ## Detection boundaries by format
 
@@ -69,9 +78,15 @@ format accepts and rejects:
 | `coco` | bbox annotations (`annotations[].bbox`) | `segmentation` is accepted on read but ignored (not converted to IR); on write, emitted as `[]` |
 | `cvat` | `<box>` annotation elements only | `<polygon>`, `<points>`, `<polyline>`, and other annotation elements are hard parse errors |
 | `label-studio` | `rectanglelabels` results only | Other result types are rejected; `rotation` is flattened to an axis-aligned envelope (angle kept as `ls_rotation_deg` attribute) |
+| `labelbox` | `bounding_box` / `bbox` objects, plus `polygon` objects flattened to bbox envelopes | Points, masks, lines, and classification-style objects are skipped with warnings; image rows remain in the dataset |
+| `scale-ai` | `type: "box"` objects, plus `polygon`/rotated-box `vertices` flattened to bbox envelopes | Unsupported geometry types are rejected so users see exactly which shape cannot enter the bbox-only IR |
+| `unity-perception` | SOLO `BoundingBox2DAnnotation` / `BoundingBox2D` values with `x,y,width,height` or `origin` + `dimension` | Non-bbox annotation blocks are skipped with warnings; writer emits bbox-only directory output and rejects ambiguous `.json` file output |
 | `yolo` | 5-token bbox rows (`class cx cy w h`) and 6-token rows (`class cx cy w h confidence`) | Rows with 7+ tokens (segmentation, pose, OBB) are rejected with a clear error |
 | `voc` | `<object>` elements with `<bndbox>` | All `<object>` entries are read; no non-bbox geometry exists in VOC |
 | `tfod` | Rows with `filename,width,height,class,xmin,ymin,xmax,ymax` | Fixed schema; no non-bbox geometry |
+| `vott-csv` | Headered rows with `image,xmin,ymin,xmax,ymax,label` | Fixed schema; no non-bbox geometry |
+| `vott-json` | `RECTANGLE` regions with `boundingBox`, plus point-based polygon-like regions flattened to bbox envelopes | Unsupported tagged regions with no `boundingBox` or `points` are rejected |
+| `ibm-cloud-annotations` | Localization JSON objects with normalized `x,y,x2,y2,label` | Fixed localization schema; no non-bbox geometry |
 | `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |
 | `sagemaker` | Object-detection label block with `annotations` + `image_size`, plus `<label>-metadata` (`groundtruth/object-detection`) | Segmentation/classification Ground Truth task types are rejected; mixed/ambiguous label attributes are rejected |
 | `labelme` | `rectangle` shapes (2 points) and `polygon` shapes (3+ points, flattened to bbox envelope) | Other shape types (e.g. `circle`, `line`) are rejected with a clear error |

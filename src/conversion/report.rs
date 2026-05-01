@@ -303,6 +303,51 @@ pub enum ConversionIssueCode {
     LabelStudioReaderImageRefPolicy,
     /// Label Studio writer default from_name/to_name policy.
     LabelStudioWriterFromToDefaults,
+
+    // Labelbox policy (Info/Warning level)
+    /// Labelbox reader deterministic ID assignment policy.
+    LabelboxReaderIdAssignment,
+    /// Labelbox reader data_row/media_attributes policy.
+    LabelboxReaderImageMetadata,
+    /// Labelbox reader converted polygons to bbox envelopes.
+    LabelboxPolygonEnvelopeApplied,
+    /// Labelbox reader skipped unsupported non-detection objects.
+    LabelboxUnsupportedObjectsSkipped,
+    /// Labelbox writer JSON vs NDJSON output policy.
+    LabelboxWriterFormatPolicy,
+    /// Labelbox writer emits bbox-only object rows.
+    LabelboxWriterRectanglePolicy,
+    /// Labelbox writer does not copy images.
+    LabelboxWriterNoImageCopy,
+
+    // Scale AI policy (Info/Warning level)
+    /// Scale AI reader deterministic ID assignment policy.
+    ScaleAiReaderIdAssignment,
+    /// Scale AI reader image-reference/dimension policy.
+    ScaleAiReaderImageMetadata,
+    /// Scale AI reader converted polygon/rotated geometry to bbox envelopes.
+    ScaleAiGeometryEnvelopeApplied,
+    /// Scale AI writer deterministic ordering policy.
+    ScaleAiWriterDeterministicOrder,
+    /// Scale AI writer emits bbox-only response annotations.
+    ScaleAiWriterRectanglePolicy,
+    /// Scale AI writer does not copy images.
+    ScaleAiWriterNoImageCopy,
+
+    // Unity Perception policy (Info/Warning level)
+    /// Unity Perception reader deterministic ID assignment policy.
+    UnityPerceptionReaderIdAssignment,
+    /// Unity Perception reader image/capture metadata policy.
+    UnityPerceptionReaderImageMetadata,
+    /// Unity Perception reader skipped unsupported non-bbox annotations.
+    UnityPerceptionUnsupportedAnnotationsSkipped,
+    /// Unity Perception writer directory layout policy.
+    UnityPerceptionWriterDirectoryLayout,
+    /// Unity Perception writer bbox-only annotation policy.
+    UnityPerceptionWriterRectanglePolicy,
+    /// Unity Perception writer does not copy images.
+    UnityPerceptionWriterNoImageCopy,
+
     /// CVAT reader deterministic ID assignment policy.
     CvatReaderIdAssignment,
     /// CVAT reader coordinate + attribute mapping policy.
@@ -418,6 +463,40 @@ pub enum ConversionIssueCode {
     /// VIA writer does not copy images.
     ViaWriterNoImageCopy,
 
+    // VoTT CSV policy (Info level)
+    /// VoTT CSV reader deterministic ID assignment policy.
+    VottCsvReaderIdAssignment,
+    /// VoTT CSV reader resolves image dimensions from local files.
+    VottCsvReaderImageResolution,
+    /// VoTT CSV writer deterministic row ordering.
+    VottCsvWriterRowOrder,
+    /// VoTT CSV writer does not copy images.
+    VottCsvWriterNoImageCopy,
+
+    // VoTT JSON policy (Info level)
+    /// VoTT JSON reader deterministic ID assignment policy.
+    VottJsonReaderIdAssignment,
+    /// VoTT JSON reader converted point geometry to bbox envelopes.
+    VottJsonPolygonEnvelopeApplied,
+    /// VoTT JSON writer deterministic ordering policy.
+    VottJsonWriterDeterministicOrder,
+    /// VoTT JSON writer rectangle-region policy.
+    VottJsonWriterRectanglePolicy,
+    /// VoTT JSON writer does not copy images.
+    VottJsonWriterNoImageCopy,
+
+    // IBM Cloud Annotations policy (Info level)
+    /// IBM Cloud Annotations reader deterministic ID assignment policy.
+    CloudAnnotationsReaderIdAssignment,
+    /// IBM Cloud Annotations reader resolves image dimensions from local files.
+    CloudAnnotationsReaderImageResolution,
+    /// IBM Cloud Annotations writer deterministic ordering policy.
+    CloudAnnotationsWriterDeterministicOrder,
+    /// IBM Cloud Annotations writer normalized coordinate policy.
+    CloudAnnotationsWriterNormalizedCoordinates,
+    /// IBM Cloud Annotations writer does not copy images.
+    CloudAnnotationsWriterNoImageCopy,
+
     // RetinaNet policy (Info level)
     /// RetinaNet reader deterministic ID assignment policy.
     RetinanetReaderIdAssignment,
@@ -510,6 +589,25 @@ impl ConversionIssueCode {
         Self::LabelStudioReaderIdAssignment,
         Self::LabelStudioReaderImageRefPolicy,
         Self::LabelStudioWriterFromToDefaults,
+        Self::LabelboxReaderIdAssignment,
+        Self::LabelboxReaderImageMetadata,
+        Self::LabelboxPolygonEnvelopeApplied,
+        Self::LabelboxUnsupportedObjectsSkipped,
+        Self::LabelboxWriterFormatPolicy,
+        Self::LabelboxWriterRectanglePolicy,
+        Self::LabelboxWriterNoImageCopy,
+        Self::ScaleAiReaderIdAssignment,
+        Self::ScaleAiReaderImageMetadata,
+        Self::ScaleAiGeometryEnvelopeApplied,
+        Self::ScaleAiWriterDeterministicOrder,
+        Self::ScaleAiWriterRectanglePolicy,
+        Self::ScaleAiWriterNoImageCopy,
+        Self::UnityPerceptionReaderIdAssignment,
+        Self::UnityPerceptionReaderImageMetadata,
+        Self::UnityPerceptionUnsupportedAnnotationsSkipped,
+        Self::UnityPerceptionWriterDirectoryLayout,
+        Self::UnityPerceptionWriterRectanglePolicy,
+        Self::UnityPerceptionWriterNoImageCopy,
         Self::CvatReaderIdAssignment,
         Self::CvatReaderAttributePolicy,
         Self::CvatWriterMetaDefaults,
@@ -560,6 +658,20 @@ impl ConversionIssueCode {
         Self::ViaWriterDeterministicOrder,
         Self::ViaWriterLabelAttributeKey,
         Self::ViaWriterNoImageCopy,
+        Self::VottCsvReaderIdAssignment,
+        Self::VottCsvReaderImageResolution,
+        Self::VottCsvWriterRowOrder,
+        Self::VottCsvWriterNoImageCopy,
+        Self::VottJsonReaderIdAssignment,
+        Self::VottJsonPolygonEnvelopeApplied,
+        Self::VottJsonWriterDeterministicOrder,
+        Self::VottJsonWriterRectanglePolicy,
+        Self::VottJsonWriterNoImageCopy,
+        Self::CloudAnnotationsReaderIdAssignment,
+        Self::CloudAnnotationsReaderImageResolution,
+        Self::CloudAnnotationsWriterDeterministicOrder,
+        Self::CloudAnnotationsWriterNormalizedCoordinates,
+        Self::CloudAnnotationsWriterNoImageCopy,
         Self::RetinanetReaderIdAssignment,
         Self::RetinanetReaderImageResolution,
         Self::RetinanetReaderEmptyRowHandling,
@@ -624,6 +736,31 @@ impl ConversionIssueCode {
             Self::LabelStudioReaderIdAssignment => "label_studio_reader_id_assignment",
             Self::LabelStudioReaderImageRefPolicy => "label_studio_reader_image_ref_policy",
             Self::LabelStudioWriterFromToDefaults => "label_studio_writer_from_to_defaults",
+            Self::LabelboxReaderIdAssignment => "labelbox_reader_id_assignment",
+            Self::LabelboxReaderImageMetadata => "labelbox_reader_image_metadata",
+            Self::LabelboxPolygonEnvelopeApplied => "labelbox_polygon_envelope_applied",
+            Self::LabelboxUnsupportedObjectsSkipped => "labelbox_unsupported_objects_skipped",
+            Self::LabelboxWriterFormatPolicy => "labelbox_writer_format_policy",
+            Self::LabelboxWriterRectanglePolicy => "labelbox_writer_rectangle_policy",
+            Self::LabelboxWriterNoImageCopy => "labelbox_writer_no_image_copy",
+            Self::ScaleAiReaderIdAssignment => "scale_ai_reader_id_assignment",
+            Self::ScaleAiReaderImageMetadata => "scale_ai_reader_image_metadata",
+            Self::ScaleAiGeometryEnvelopeApplied => "scale_ai_geometry_envelope_applied",
+            Self::ScaleAiWriterDeterministicOrder => "scale_ai_writer_deterministic_order",
+            Self::ScaleAiWriterRectanglePolicy => "scale_ai_writer_rectangle_policy",
+            Self::ScaleAiWriterNoImageCopy => "scale_ai_writer_no_image_copy",
+            Self::UnityPerceptionReaderIdAssignment => "unity_perception_reader_id_assignment",
+            Self::UnityPerceptionReaderImageMetadata => "unity_perception_reader_image_metadata",
+            Self::UnityPerceptionUnsupportedAnnotationsSkipped => {
+                "unity_perception_unsupported_annotations_skipped"
+            }
+            Self::UnityPerceptionWriterDirectoryLayout => {
+                "unity_perception_writer_directory_layout"
+            }
+            Self::UnityPerceptionWriterRectanglePolicy => {
+                "unity_perception_writer_rectangle_policy"
+            }
+            Self::UnityPerceptionWriterNoImageCopy => "unity_perception_writer_no_image_copy",
             Self::CvatReaderIdAssignment => "cvat_reader_id_assignment",
             Self::CvatReaderAttributePolicy => "cvat_reader_attribute_policy",
             Self::CvatWriterMetaDefaults => "cvat_writer_meta_defaults",
@@ -676,6 +813,26 @@ impl ConversionIssueCode {
             Self::ViaWriterDeterministicOrder => "via_writer_deterministic_order",
             Self::ViaWriterLabelAttributeKey => "via_writer_label_attribute_key",
             Self::ViaWriterNoImageCopy => "via_writer_no_image_copy",
+            Self::VottCsvReaderIdAssignment => "vott_csv_reader_id_assignment",
+            Self::VottCsvReaderImageResolution => "vott_csv_reader_image_resolution",
+            Self::VottCsvWriterRowOrder => "vott_csv_writer_row_order",
+            Self::VottCsvWriterNoImageCopy => "vott_csv_writer_no_image_copy",
+            Self::VottJsonReaderIdAssignment => "vott_json_reader_id_assignment",
+            Self::VottJsonPolygonEnvelopeApplied => "vott_json_polygon_envelope_applied",
+            Self::VottJsonWriterDeterministicOrder => "vott_json_writer_deterministic_order",
+            Self::VottJsonWriterRectanglePolicy => "vott_json_writer_rectangle_policy",
+            Self::VottJsonWriterNoImageCopy => "vott_json_writer_no_image_copy",
+            Self::CloudAnnotationsReaderIdAssignment => "cloud_annotations_reader_id_assignment",
+            Self::CloudAnnotationsReaderImageResolution => {
+                "cloud_annotations_reader_image_resolution"
+            }
+            Self::CloudAnnotationsWriterDeterministicOrder => {
+                "cloud_annotations_writer_deterministic_order"
+            }
+            Self::CloudAnnotationsWriterNormalizedCoordinates => {
+                "cloud_annotations_writer_normalized_coordinates"
+            }
+            Self::CloudAnnotationsWriterNoImageCopy => "cloud_annotations_writer_no_image_copy",
             Self::RetinanetReaderIdAssignment => "retinanet_reader_id_assignment",
             Self::RetinanetReaderImageResolution => "retinanet_reader_image_resolution",
             Self::RetinanetReaderEmptyRowHandling => "retinanet_reader_empty_row_handling",

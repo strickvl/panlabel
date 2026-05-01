@@ -122,9 +122,15 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 |--------|--------------------|-------------|-----------|
 | `ir-json` | `.json` | Panlabel's own intermediate representation | Lossless |
 | `coco` | `.json` | COCO object detection format | Conditional |
+| `ibm-cloud-annotations` | `_annotations.json` file or directory | IBM Cloud Annotations localization JSON | Lossy |
 | `cvat` | `.xml` / `annotations.xml` export | CVAT for images XML annotation export | Lossy |
 | `label-studio` | `.json` | Label Studio task export JSON (`rectanglelabels`) | Lossy |
+| `labelbox` | `.json` / `.jsonl` / `.ndjson` | Labelbox current export rows (`data_row` / `projects.*.labels`) | Lossy |
+| `scale-ai` | `.json` file or directory (`annotations/`) | Scale AI image annotation task/response JSON | Lossy |
+| `unity-perception` | `.json` file or SOLO-like directory | Unity Perception / SOLO synthetic-data bbox JSON | Lossy |
 | `tfod` | `.csv` | TensorFlow Object Detection | Lossy |
+| `vott-csv` | `.csv` | Microsoft VoTT CSV export (`image,xmin,ymin,xmax,ymax,label`) | Lossy |
+| `vott-json` | `.json` file or `vott-json-export/` directory | Microsoft VoTT JSON export (`assets` / per-asset JSON with `regions`) | Lossy |
 | `yolo` | `images/ + labels/` directory | YOLO `.txt` labels (flat or split-aware, optional confidence) | Lossy |
 | `voc` | `Annotations/ + JPEGImages/` directory | Pascal VOC XML | Lossy |
 | `hf` | `metadata.jsonl` / `metadata.parquet` directory | Hugging Face ImageFolder metadata | Lossy |

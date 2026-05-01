@@ -21,9 +21,15 @@ use std::collections::HashSet;
 pub enum Format {
     IrJson,
     Coco,
+    IbmCloudAnnotations,
     Cvat,
     LabelStudio,
+    Labelbox,
+    ScaleAi,
+    UnityPerception,
     Tfod,
+    VottCsv,
+    VottJson,
     Yolo,
     Voc,
     HfImagefolder,
@@ -58,9 +64,15 @@ impl Format {
         match self {
             Format::IrJson => "ir-json",
             Format::Coco => "coco",
+            Format::IbmCloudAnnotations => "ibm-cloud-annotations",
             Format::Cvat => "cvat",
             Format::LabelStudio => "label-studio",
+            Format::Labelbox => "labelbox",
+            Format::ScaleAi => "scale-ai",
+            Format::UnityPerception => "unity-perception",
             Format::Tfod => "tfod",
+            Format::VottCsv => "vott-csv",
+            Format::VottJson => "vott-json",
             Format::Yolo => "yolo",
             Format::Voc => "voc",
             Format::HfImagefolder => "hf",
@@ -91,9 +103,15 @@ impl Format {
         match self {
             Format::IrJson => IrLossiness::Lossless,
             Format::Coco => IrLossiness::Conditional,
+            Format::IbmCloudAnnotations => IrLossiness::Lossy,
             Format::Cvat => IrLossiness::Lossy,
             Format::LabelStudio => IrLossiness::Lossy,
+            Format::Labelbox => IrLossiness::Lossy,
+            Format::ScaleAi => IrLossiness::Lossy,
+            Format::UnityPerception => IrLossiness::Lossy,
             Format::Tfod => IrLossiness::Lossy,
+            Format::VottCsv => IrLossiness::Lossy,
+            Format::VottJson => IrLossiness::Lossy,
             Format::Yolo => IrLossiness::Lossy,
             Format::Voc => IrLossiness::Lossy,
             Format::HfImagefolder => IrLossiness::Lossy,
@@ -132,10 +150,16 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Compute output counts and issues based on target format
     match to {
         Format::Tfod => analyze_to_tfod(dataset, &mut report),
+        Format::VottCsv => analyze_to_vott_csv(dataset, &mut report),
+        Format::VottJson => analyze_to_vott_json(dataset, &mut report),
         Format::Yolo => analyze_to_yolo(dataset, &mut report),
         Format::Voc => analyze_to_voc(dataset, &mut report),
         Format::LabelStudio => analyze_to_label_studio(dataset, &mut report),
+        Format::Labelbox => analyze_to_labelbox(dataset, &mut report),
+        Format::ScaleAi => analyze_to_scale_ai(dataset, &mut report),
+        Format::UnityPerception => analyze_to_unity_perception(dataset, &mut report),
         Format::Coco => analyze_to_coco(dataset, &mut report),
+        Format::IbmCloudAnnotations => analyze_to_cloud_annotations(dataset, &mut report),
         Format::Cvat => analyze_to_cvat(dataset, &mut report),
         Format::IrJson => analyze_to_ir_json(dataset, &mut report),
         Format::HfImagefolder => analyze_to_hf(dataset, &mut report),
@@ -156,11 +180,17 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Add policy notes based on source format
     match from {
         Format::Tfod => add_tfod_reader_policy(&mut report),
+        Format::VottCsv => add_vott_csv_reader_policy(&mut report),
+        Format::VottJson => add_vott_json_reader_policy(dataset, &mut report),
         Format::Yolo => add_yolo_reader_policy(dataset, &mut report),
         Format::Voc => add_voc_reader_policy(dataset, &mut report),
         Format::LabelStudio => add_label_studio_reader_policy(dataset, &mut report),
+        Format::Labelbox => add_labelbox_reader_policy(dataset, &mut report),
+        Format::ScaleAi => add_scale_ai_reader_policy(dataset, &mut report),
+        Format::UnityPerception => add_unity_perception_reader_policy(dataset, &mut report),
         Format::Cvat => add_cvat_reader_policy(dataset, &mut report),
         Format::Coco => add_coco_reader_policy(&mut report),
+        Format::IbmCloudAnnotations => add_cloud_annotations_reader_policy(&mut report),
         Format::HfImagefolder => add_hf_reader_policy(&mut report),
         Format::SageMaker => add_sagemaker_reader_policy(&mut report),
         Format::LabelMe => add_labelme_reader_policy(dataset, &mut report),
@@ -180,11 +210,17 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Add policy notes based on target format
     match to {
         Format::Tfod => add_tfod_writer_policy(&mut report),
+        Format::VottCsv => add_vott_csv_writer_policy(&mut report),
+        Format::VottJson => add_vott_json_writer_policy(&mut report),
         Format::Yolo => add_yolo_writer_policy(&mut report),
         Format::Voc => add_voc_writer_policy(&mut report),
         Format::LabelStudio => add_label_studio_writer_policy(dataset, &mut report),
+        Format::Labelbox => add_labelbox_writer_policy(&mut report),
+        Format::ScaleAi => add_scale_ai_writer_policy(&mut report),
+        Format::UnityPerception => add_unity_perception_writer_policy(&mut report),
         Format::Cvat => add_cvat_writer_policy(&mut report),
         Format::Coco => add_coco_writer_policy(&mut report),
+        Format::IbmCloudAnnotations => add_cloud_annotations_writer_policy(&mut report),
         Format::HfImagefolder => add_hf_writer_policy(&mut report),
         Format::SageMaker => add_sagemaker_writer_policy(&mut report),
         Format::LabelMe => add_labelme_writer_policy(&mut report),
@@ -208,6 +244,29 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
 fn analyze_to_tfod(dataset: &Dataset, report: &mut ConversionReport) {
     add_common_csv_lossiness_warnings(dataset, report);
     add_annotation_drop_warnings_and_output_counts(dataset, report);
+}
+
+/// Analyze conversion to VoTT CSV format.
+fn analyze_to_vott_csv(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings_and_output_counts(dataset, report);
+}
+
+/// Analyze conversion to VoTT JSON format.
+fn analyze_to_vott_json(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+/// Analyze conversion to IBM Cloud Annotations JSON format.
+fn analyze_to_cloud_annotations(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    report.output = ConversionCounts {
+        images: dataset.images.len(),
+        categories: dataset.categories.len(),
+        annotations: dataset.annotations.len(),
+    };
 }
 
 /// Analyze conversion to YOLO format.
@@ -943,6 +1002,239 @@ fn add_label_studio_writer_policy(dataset: &Dataset, report: &mut ConversionRepo
     }
 }
 
+fn analyze_to_labelbox(dataset: &Dataset, report: &mut ConversionReport) {
+    add_dataset_metadata_and_license_drop_warnings(dataset, report);
+    let images_with_unrepresentable_metadata = dataset
+        .images
+        .iter()
+        .filter(|image| {
+            image.license_id.is_some()
+                || image.date_captured.is_some()
+                || image.attributes.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        "labelbox_data_row_id" | "labelbox_row_data" | "labelbox_global_key"
+                    )
+                })
+        })
+        .count();
+    if images_with_unrepresentable_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata/attributes outside Labelbox's preserved data_row hints",
+                images_with_unrepresentable_metadata
+            ),
+        ));
+    }
+    add_category_supercategory_drop_warning(dataset, report);
+    add_annotation_confidence_drop_warning(dataset, report);
+    add_annotation_attributes_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn analyze_to_scale_ai(dataset: &Dataset, report: &mut ConversionReport) {
+    add_dataset_metadata_and_license_drop_warnings(dataset, report);
+    let images_with_unrepresentable_metadata = dataset
+        .images
+        .iter()
+        .filter(|image| {
+            image.license_id.is_some()
+                || image.date_captured.is_some()
+                || image
+                    .attributes
+                    .keys()
+                    .any(|key| !matches!(key.as_str(), "scale_ai_task_id" | "scale_ai_attachment"))
+        })
+        .count();
+    if images_with_unrepresentable_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata/attributes outside Scale AI's preserved task/attachment hints",
+                images_with_unrepresentable_metadata
+            ),
+        ));
+    }
+    add_category_supercategory_drop_warning(dataset, report);
+    add_annotation_confidence_drop_warning(dataset, report);
+    add_annotation_attributes_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn add_labelbox_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::LabelboxReaderIdAssignment,
+        "Labelbox reader assigns IDs deterministically: images by file_name, categories by label name, annotations by sorted image/project/label/object order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::LabelboxReaderImageMetadata,
+        "Labelbox reader derives Image.file_name from data_row.external_id, falling back to row_data basename or global_key; media_attributes provide dimensions".to_string(),
+    ));
+
+    if dataset
+        .info
+        .attributes
+        .get("labelbox_polygon_envelopes")
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(0)
+        > 0
+    {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::LabelboxPolygonEnvelopeApplied,
+            "Labelbox reader converted polygon objects to axis-aligned bounding box envelopes"
+                .to_string(),
+        ));
+    }
+
+    if let Some(skipped) = dataset.info.attributes.get("labelbox_skipped_objects") {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::LabelboxUnsupportedObjectsSkipped,
+            format!(
+                "Labelbox reader skipped {skipped} unsupported non-detection object(s) while preserving their image rows"
+            ),
+        ));
+    }
+}
+
+fn add_labelbox_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::LabelboxWriterFormatPolicy,
+        "Labelbox writer emits NDJSON for .ndjson/.jsonl outputs and a JSON array for other paths"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::LabelboxWriterRectanglePolicy,
+        "Labelbox writer emits all annotations as ImageBoundingBox objects with bounding_box geometry".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::LabelboxWriterNoImageCopy,
+        "Labelbox writer creates only annotation rows; image binaries are not copied".to_string(),
+    ));
+}
+
+fn add_scale_ai_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::ScaleAiReaderIdAssignment,
+        "Scale AI reader assigns IDs deterministically: images by derived file_name, categories by label name, annotations by sorted image/source annotation order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::ScaleAiReaderImageMetadata,
+        "Scale AI reader derives Image.file_name from metadata.file_name or attachment basename and resolves dimensions from metadata, local image files, or annotation extents".to_string(),
+    ));
+
+    let polygon_envelopes = dataset
+        .info
+        .attributes
+        .get("scale_ai_polygon_envelopes")
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(0);
+    let rotated_envelopes = dataset
+        .info
+        .attributes
+        .get("scale_ai_rotated_box_envelopes")
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(0);
+    if polygon_envelopes > 0 || rotated_envelopes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::ScaleAiGeometryEnvelopeApplied,
+            format!(
+                "Scale AI reader converted {polygon_envelopes} polygon annotation(s) and {rotated_envelopes} rotated box annotation(s) to axis-aligned bounding box envelopes"
+            ),
+        ));
+    }
+}
+
+fn add_scale_ai_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::ScaleAiWriterDeterministicOrder,
+        "Scale AI writer emits deterministic task objects ordered by image filename with annotations ordered by annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::ScaleAiWriterRectanglePolicy,
+        "Scale AI writer emits all IR annotations as type='box' response annotations using left/top/width/height".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::ScaleAiWriterNoImageCopy,
+        "Scale AI writer creates annotation JSON and an images/README.txt placeholder for directory outputs; image binaries are not copied".to_string(),
+    ));
+}
+
+fn analyze_to_unity_perception(dataset: &Dataset, report: &mut ConversionReport) {
+    add_dataset_metadata_and_license_drop_warnings(dataset, report);
+    let images_with_unrepresentable_metadata = dataset
+        .images
+        .iter()
+        .filter(|image| {
+            image.license_id.is_some()
+                || image.date_captured.is_some()
+                || image.attributes.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        "unity_perception_capture_id"
+                            | "unity_perception_sequence_id"
+                            | "unity_perception_sequence"
+                            | "unity_perception_step"
+                            | "unity_perception_frame"
+                            | "unity_perception_timestamp"
+                            | "unity_perception_sensor_id"
+                    )
+                })
+        })
+        .count();
+    if images_with_unrepresentable_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata/attributes outside Unity Perception's preserved capture hints",
+                images_with_unrepresentable_metadata
+            ),
+        ));
+    }
+    add_category_supercategory_drop_warning(dataset, report);
+    add_annotation_confidence_drop_warning(dataset, report);
+    add_annotation_attributes_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn add_unity_perception_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::UnityPerceptionReaderIdAssignment,
+        "Unity Perception reader assigns IDs deterministically: images by filename, categories by source label order plus label name, annotations by sorted image/frame annotation order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::UnityPerceptionReaderImageMetadata,
+        "Unity Perception reader preserves captures as images and resolves dimensions from capture dimension, local image files, or bbox extents".to_string(),
+    ));
+    if let Some(skipped) = dataset
+        .info
+        .attributes
+        .get("unity_perception_skipped_annotations")
+    {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::UnityPerceptionUnsupportedAnnotationsSkipped,
+            format!(
+                "Unity Perception reader skipped {skipped} unsupported non-bbox annotation block(s) while preserving their captures/images"
+            ),
+        ));
+    }
+}
+
+fn add_unity_perception_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::UnityPerceptionWriterDirectoryLayout,
+        "Unity Perception writer emits a minimal SOLO-like directory with annotation_definitions.json and sequence.0/step*.frame_data.json files".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::UnityPerceptionWriterRectanglePolicy,
+        "Unity Perception writer emits all IR annotations as BoundingBox2D values using x/y/width/height".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::UnityPerceptionWriterNoImageCopy,
+        "Unity Perception writer creates an images/README.txt placeholder; image binaries are not copied".to_string(),
+    ));
+}
+
 /// Add policy notes for CVAT reader behavior.
 fn add_cvat_reader_policy(_dataset: &Dataset, report: &mut ConversionReport) {
     report.add(ConversionIssue::reader_info(
@@ -1648,6 +1940,88 @@ fn add_retinanet_writer_policy(report: &mut ConversionReport) {
     ));
 }
 
+fn add_vott_csv_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::VottCsvReaderIdAssignment,
+        "VoTT CSV reader assigns image IDs by image path, category IDs by label, and annotation IDs by sorted row content".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::VottCsvReaderImageResolution,
+        "VoTT CSV reader resolves image dimensions from disk: <csv_dir>/<image> then <csv_dir>/images/<image>".to_string(),
+    ));
+}
+
+fn add_vott_csv_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::VottCsvWriterRowOrder,
+        "VoTT CSV writer emits the header image,xmin,ymin,xmax,ymax,label and orders rows by image filename then annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::VottCsvWriterNoImageCopy,
+        "VoTT CSV writer creates only the CSV file; images are not copied".to_string(),
+    ));
+}
+
+fn add_vott_json_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::VottJsonReaderIdAssignment,
+        "VoTT JSON reader assigns image IDs by filename, category IDs by project tag order plus extra labels, and annotation IDs by sorted image/region/tag order".to_string(),
+    ));
+    let has_enveloped_geometry = dataset.annotations.iter().any(|ann| {
+        ann.attributes
+            .get("vott_geometry_enveloped")
+            .map(|value| value == "true")
+            .unwrap_or(false)
+    });
+    if has_enveloped_geometry {
+        report.add(ConversionIssue::reader_info(
+            ConversionIssueCode::VottJsonPolygonEnvelopeApplied,
+            "VoTT JSON reader converted polygon-like point regions to axis-aligned bounding box envelopes".to_string(),
+        ));
+    }
+}
+
+fn add_vott_json_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::VottJsonWriterDeterministicOrder,
+        "VoTT JSON writer emits deterministic aggregate assets ordered by image filename with regions ordered by annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::VottJsonWriterRectanglePolicy,
+        "VoTT JSON writer emits all annotations as RECTANGLE regions with boundingBox and corner points".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::VottJsonWriterNoImageCopy,
+        "VoTT JSON writer creates annotation JSON and an images/README.txt placeholder for directory outputs; image binaries are not copied".to_string(),
+    ));
+}
+
+fn add_cloud_annotations_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::CloudAnnotationsReaderIdAssignment,
+        "IBM Cloud Annotations reader assigns image IDs by image key order, category IDs by labels array order plus extra labels, and annotation IDs by image/object order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::CloudAnnotationsReaderImageResolution,
+        "IBM Cloud Annotations reader resolves image dimensions from disk: <json_dir>/<image> then <json_dir>/images/<image>".to_string(),
+    ));
+}
+
+fn add_cloud_annotations_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CloudAnnotationsWriterDeterministicOrder,
+        "IBM Cloud Annotations writer orders labels by category ID, image keys by filename, and objects by annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CloudAnnotationsWriterNormalizedCoordinates,
+        "IBM Cloud Annotations writer converts pixel XYXY boxes to normalized x/y/x2/y2 coordinates".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::CloudAnnotationsWriterNoImageCopy,
+        "IBM Cloud Annotations writer creates _annotations.json and an images/README.txt placeholder for directory outputs; image binaries are not copied".to_string(),
+    ));
+}
+
 // ============================================================================
 // OpenImages CSV
 // ============================================================================
@@ -1785,6 +2159,58 @@ fn add_udacity_writer_policy(report: &mut ConversionReport) {
 // ============================================================================
 // Common CSV lossiness helpers
 // ============================================================================
+
+fn add_dataset_metadata_and_license_drop_warnings(
+    dataset: &Dataset,
+    report: &mut ConversionReport,
+) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+}
+
+fn add_category_supercategory_drop_warning(dataset: &Dataset, report: &mut ConversionReport) {
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|category| category.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+}
+
+fn add_annotation_confidence_drop_warning(dataset: &Dataset, report: &mut ConversionReport) {
+    let anns_with_confidence = dataset
+        .annotations
+        .iter()
+        .filter(|ann| ann.confidence.is_some())
+        .count();
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+}
 
 /// Adds common lossiness warnings shared by all simple row-based CSV formats:
 /// DropDatasetInfo, DropLicenses, DropImageMetadata, DropCategorySupercategory.

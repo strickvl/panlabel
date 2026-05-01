@@ -1,0 +1,67 @@
+{
+  "frame": 2,
+  "sequence": 0,
+  "step": 2,
+  "timestamp": 0.0498,
+  "captures": [
+    {
+      "@type": "type.unity.com/unity.solo.RGBCamera",
+      "id": "camera-main",
+      "description": "",
+      "position": [0.0, 1.0, -10.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "velocity": [0.0, 0.0, 0.0],
+      "acceleration": [0.0, 0.0, 0.0],
+      "filename": "img1.png",
+      "imageFormat": "PNG",
+      "dimension": [100, 80],
+      "annotations": [
+        {
+          "@type": "type.unity.com/unity.solo.BoundingBox2DAnnotation",
+          "id": "bbox-ann-1",
+          "sensorId": "camera-main",
+          "annotation_definition": "bbox-def",
+          "values": [
+            {
+              "label_id": 1,
+              "label_name": "person",
+              "instance_id": 10,
+              "x": 10.0,
+              "y": 20.0,
+              "width": 40.0,
+              "height": 30.0
+            }
+          ]
+        },
+        {
+          "@type": "type.unity.com/unity.solo.SemanticSegmentationAnnotation",
+          "id": "seg-ann-1",
+          "values": []
+        }
+      ]
+    },
+    {
+      "@type": "type.unity.com/unity.solo.RGBCamera",
+      "id": "camera-secondary",
+      "filename": "img2.png",
+      "imageFormat": "PNG",
+      "dimension": [120, 90],
+      "annotations": [
+        {
+          "@type": "type.unity.com/unity.solo.BoundingBox2DAnnotation",
+          "id": "bbox-ann-2",
+          "annotation_definition": "bbox-def",
+          "values": [
+            {
+              "labelId": 2,
+              "labelName": "crate",
+              "instanceId": "crate-1",
+              "origin": [5.0, 4.0],
+              "dimension": [25.0, 36.0]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

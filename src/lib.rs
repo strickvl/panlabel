@@ -66,15 +66,43 @@ enum ConvertFormat {
     /// COCO object detection format (JSON).
     #[value(name = "coco", alias = "coco-json")]
     Coco,
+    /// IBM Cloud Annotations localization JSON (`_annotations.json`).
+    #[value(
+        name = "ibm-cloud-annotations",
+        alias = "cloud-annotations",
+        alias = "cloud-annotations-json",
+        alias = "ibm-cloud-annotations-json"
+    )]
+    IbmCloudAnnotations,
     /// CVAT for images task export (XML).
     #[value(name = "cvat", alias = "cvat-xml")]
     Cvat,
     /// Label Studio task export (JSON).
     #[value(name = "label-studio", alias = "label-studio-json", alias = "ls")]
     LabelStudio,
+    /// Labelbox current export rows (JSON/NDJSON).
+    #[value(name = "labelbox", alias = "labelbox-json", alias = "labelbox-ndjson")]
+    Labelbox,
+    /// Scale AI image annotation task/response JSON.
+    #[value(name = "scale-ai", alias = "scale", alias = "scale-ai-json")]
+    ScaleAi,
+    /// Unity Perception / SOLO JSON dataset.
+    #[value(
+        name = "unity-perception",
+        alias = "unity",
+        alias = "unity-perception-json",
+        alias = "solo"
+    )]
+    UnityPerception,
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+    /// Microsoft VoTT CSV export.
+    #[value(name = "vott-csv", alias = "vott")]
+    VottCsv,
+    /// Microsoft VoTT JSON export.
+    #[value(name = "vott-json", alias = "vott-json-export")]
+    VottJson,
     /// Ultralytics-style YOLO object detection format (directory-based).
     #[value(
         name = "yolo",
@@ -144,9 +172,15 @@ impl ConvertFormat {
         match self {
             ConvertFormat::IrJson => conversion::Format::IrJson,
             ConvertFormat::Coco => conversion::Format::Coco,
+            ConvertFormat::IbmCloudAnnotations => conversion::Format::IbmCloudAnnotations,
             ConvertFormat::Cvat => conversion::Format::Cvat,
             ConvertFormat::LabelStudio => conversion::Format::LabelStudio,
+            ConvertFormat::Labelbox => conversion::Format::Labelbox,
+            ConvertFormat::ScaleAi => conversion::Format::ScaleAi,
+            ConvertFormat::UnityPerception => conversion::Format::UnityPerception,
             ConvertFormat::Tfod => conversion::Format::Tfod,
+            ConvertFormat::VottCsv => conversion::Format::VottCsv,
+            ConvertFormat::VottJson => conversion::Format::VottJson,
             ConvertFormat::Yolo => conversion::Format::Yolo,
             ConvertFormat::Voc => conversion::Format::Voc,
             ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
@@ -178,15 +212,43 @@ enum ConvertFromFormat {
     /// COCO object detection format (JSON).
     #[value(name = "coco", alias = "coco-json")]
     Coco,
+    /// IBM Cloud Annotations localization JSON (`_annotations.json`).
+    #[value(
+        name = "ibm-cloud-annotations",
+        alias = "cloud-annotations",
+        alias = "cloud-annotations-json",
+        alias = "ibm-cloud-annotations-json"
+    )]
+    IbmCloudAnnotations,
     /// CVAT for images task export (XML).
     #[value(name = "cvat", alias = "cvat-xml")]
     Cvat,
     /// Label Studio task export (JSON).
     #[value(name = "label-studio", alias = "label-studio-json", alias = "ls")]
     LabelStudio,
+    /// Labelbox current export rows (JSON/NDJSON).
+    #[value(name = "labelbox", alias = "labelbox-json", alias = "labelbox-ndjson")]
+    Labelbox,
+    /// Scale AI image annotation task/response JSON.
+    #[value(name = "scale-ai", alias = "scale", alias = "scale-ai-json")]
+    ScaleAi,
+    /// Unity Perception / SOLO JSON dataset.
+    #[value(
+        name = "unity-perception",
+        alias = "unity",
+        alias = "unity-perception-json",
+        alias = "solo"
+    )]
+    UnityPerception,
     /// TensorFlow Object Detection format (CSV).
     #[value(name = "tfod", alias = "tfod-csv")]
     Tfod,
+    /// Microsoft VoTT CSV export.
+    #[value(name = "vott-csv", alias = "vott")]
+    VottCsv,
+    /// Microsoft VoTT JSON export.
+    #[value(name = "vott-json", alias = "vott-json-export")]
+    VottJson,
     /// Ultralytics-style YOLO object detection format (directory-based).
     #[value(
         name = "yolo",
@@ -257,9 +319,15 @@ impl ConvertFromFormat {
             ConvertFromFormat::Auto => None,
             ConvertFromFormat::IrJson => Some(ConvertFormat::IrJson),
             ConvertFromFormat::Coco => Some(ConvertFormat::Coco),
+            ConvertFromFormat::IbmCloudAnnotations => Some(ConvertFormat::IbmCloudAnnotations),
             ConvertFromFormat::Cvat => Some(ConvertFormat::Cvat),
             ConvertFromFormat::LabelStudio => Some(ConvertFormat::LabelStudio),
+            ConvertFromFormat::Labelbox => Some(ConvertFormat::Labelbox),
+            ConvertFromFormat::ScaleAi => Some(ConvertFormat::ScaleAi),
+            ConvertFromFormat::UnityPerception => Some(ConvertFormat::UnityPerception),
             ConvertFromFormat::Tfod => Some(ConvertFormat::Tfod),
+            ConvertFromFormat::VottCsv => Some(ConvertFormat::VottCsv),
+            ConvertFromFormat::VottJson => Some(ConvertFormat::VottJson),
             ConvertFromFormat::Yolo => Some(ConvertFormat::Yolo),
             ConvertFromFormat::Voc => Some(ConvertFormat::Voc),
             ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
@@ -679,6 +747,17 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         directory_based: false,
     },
     FormatCatalogEntry {
+        format: ConvertFormat::IbmCloudAnnotations,
+        aliases: &[
+            "cloud-annotations",
+            "cloud-annotations-json",
+            "ibm-cloud-annotations-json",
+        ],
+        description: "IBM Cloud Annotations localization JSON",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
         format: ConvertFormat::Cvat,
         aliases: &["cvat-xml"],
         description: "CVAT for images XML annotation export",
@@ -693,11 +772,46 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         directory_based: false,
     },
     FormatCatalogEntry {
+        format: ConvertFormat::Labelbox,
+        aliases: &["labelbox-json", "labelbox-ndjson"],
+        description: "Labelbox current export rows (JSON/NDJSON)",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::ScaleAi,
+        aliases: &["scale", "scale-ai-json"],
+        description: "Scale AI image annotation task/response JSON",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::UnityPerception,
+        aliases: &["unity", "unity-perception-json", "solo"],
+        description: "Unity Perception / SOLO bbox JSON dataset",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
         format: ConvertFormat::Tfod,
         aliases: &["tfod-csv"],
         description: "TensorFlow Object Detection format (CSV)",
         file_based: true,
         directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::VottCsv,
+        aliases: &["vott"],
+        description: "Microsoft VoTT CSV export",
+        file_based: true,
+        directory_based: false,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::VottJson,
+        aliases: &["vott-json-export"],
+        description: "Microsoft VoTT JSON export",
+        file_based: true,
+        directory_based: true,
     },
     FormatCatalogEntry {
         format: ConvertFormat::Yolo,
@@ -1492,9 +1606,19 @@ fn read_dataset_with_options(
     match format {
         ConvertFormat::IrJson => ir::io_json::read_ir_json(path),
         ConvertFormat::Coco => ir::io_coco_json::read_coco_json(path),
+        ConvertFormat::IbmCloudAnnotations => {
+            ir::io_cloud_annotations_json::read_cloud_annotations_json(path)
+        }
         ConvertFormat::Cvat => ir::io_cvat_xml::read_cvat_xml(path),
         ConvertFormat::LabelStudio => ir::io_label_studio_json::read_label_studio_json(path),
+        ConvertFormat::Labelbox => ir::io_labelbox_json::read_labelbox_json(path),
+        ConvertFormat::ScaleAi => ir::io_scale_ai_json::read_scale_ai_json(path),
+        ConvertFormat::UnityPerception => {
+            ir::io_unity_perception_json::read_unity_perception_json(path)
+        }
         ConvertFormat::Tfod => ir::io_tfod_csv::read_tfod_csv(path),
+        ConvertFormat::VottCsv => ir::io_vott_csv::read_vott_csv(path),
+        ConvertFormat::VottJson => ir::io_vott_json::read_vott_json(path),
         ConvertFormat::Yolo => ir::io_yolo::read_yolo_dir_with_options(path, yolo_options),
         ConvertFormat::Voc => ir::io_voc_xml::read_voc_dir(path),
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
@@ -1536,11 +1660,21 @@ fn write_dataset_with_options(
     match format {
         ConvertFormat::IrJson => ir::io_json::write_ir_json(path, dataset),
         ConvertFormat::Coco => ir::io_coco_json::write_coco_json(path, dataset),
+        ConvertFormat::IbmCloudAnnotations => {
+            ir::io_cloud_annotations_json::write_cloud_annotations_json(path, dataset)
+        }
         ConvertFormat::Cvat => ir::io_cvat_xml::write_cvat_xml(path, dataset),
         ConvertFormat::LabelStudio => {
             ir::io_label_studio_json::write_label_studio_json(path, dataset)
         }
+        ConvertFormat::Labelbox => ir::io_labelbox_json::write_labelbox_json(path, dataset),
+        ConvertFormat::ScaleAi => ir::io_scale_ai_json::write_scale_ai_json(path, dataset),
+        ConvertFormat::UnityPerception => {
+            ir::io_unity_perception_json::write_unity_perception_json(path, dataset)
+        }
         ConvertFormat::Tfod => ir::io_tfod_csv::write_tfod_csv(path, dataset),
+        ConvertFormat::VottCsv => ir::io_vott_csv::write_vott_csv(path, dataset),
+        ConvertFormat::VottJson => ir::io_vott_json::write_vott_json(path, dataset),
         ConvertFormat::Yolo => ir::io_yolo::write_yolo_dir(path, dataset),
         ConvertFormat::Voc => ir::io_voc_xml::write_voc_dir(path, dataset),
         ConvertFormat::HfImagefolder => {
@@ -1712,9 +1846,15 @@ fn format_name(format: ConvertFormat) -> &'static str {
     match format {
         ConvertFormat::IrJson => "ir-json",
         ConvertFormat::Coco => "coco",
+        ConvertFormat::IbmCloudAnnotations => "ibm-cloud-annotations",
         ConvertFormat::Cvat => "cvat",
         ConvertFormat::LabelStudio => "label-studio",
+        ConvertFormat::Labelbox => "labelbox",
+        ConvertFormat::ScaleAi => "scale-ai",
+        ConvertFormat::UnityPerception => "unity-perception",
         ConvertFormat::Tfod => "tfod",
+        ConvertFormat::VottCsv => "vott-csv",
+        ConvertFormat::VottJson => "vott-json",
         ConvertFormat::Yolo => "yolo",
         ConvertFormat::Voc => "voc",
         ConvertFormat::HfImagefolder => "hf",
@@ -1824,7 +1964,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         match ext.to_lowercase().as_str() {
             "csv" => return detect_csv_format(path),
             "json" => return detect_json_format(path),
-            "jsonl" | "manifest" => return detect_jsonl_format(path),
+            "jsonl" | "ndjson" | "manifest" => return detect_jsonl_format(path),
             "xml" => return detect_xml_format(path),
             _ => {}
         }
@@ -1833,7 +1973,7 @@ fn detect_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
     // Keep message stable (existing CLI tests assert this substring).
     Err(PanlabelError::FormatDetectionFailed {
         path: path.to_path_buf(),
-        reason: "unrecognized file extension (expected .json, .jsonl, .manifest, .csv, or .xml). Use --from to specify format explicitly.".to_string(),
+        reason: "unrecognized file extension (expected .json, .jsonl, .ndjson, .manifest, .csv, or .xml). Use --from to specify format explicitly.".to_string(),
     })
 }
 
@@ -1922,6 +2062,10 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
                  - YOLO: labels/ with .txt files and sibling images/\n  \
                  - VOC: Annotations/ with .xml files\n  \
                  - CVAT: annotations.xml at directory root\n  \
+                 - IBM Cloud Annotations: _annotations.json at directory root\n  \
+                 - VoTT JSON: vott-json-export/panlabel-export.json at directory root\n  \
+                 - Scale AI: annotations/ with Scale AI .json files, or co-located .json files\n  \
+                 - Unity Perception: SOLO frame/captures .json files\n  \
                  - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n  \
                  - LabelMe: annotations/ with LabelMe .json files, or co-located .json files\n  \
                  - SuperAnnotate: annotations/ with SuperAnnotate .json files, or co-located .json files\n  \
@@ -1999,6 +2143,65 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
         cvat.found.push("annotations.xml at root".into());
     }
     probes.push(cvat);
+
+    // --- IBM Cloud Annotations ---
+    let mut cloud_annotations =
+        FormatProbe::new("IBM Cloud Annotations", ConvertFormat::IbmCloudAnnotations);
+    let cloud_annotations_path = path.join("_annotations.json");
+    if cloud_annotations_path.is_file() {
+        if let Ok(contents) = std::fs::read_to_string(&cloud_annotations_path) {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
+                if is_likely_cloud_annotations_file(&value) {
+                    cloud_annotations
+                        .found
+                        .push("_annotations.json localization file".into());
+                }
+            }
+        }
+    }
+    probes.push(cloud_annotations);
+
+    // --- VoTT JSON ---
+    let mut vott_json = FormatProbe::new("VoTT JSON", ConvertFormat::VottJson);
+    let vott_export_path = path.join("vott-json-export").join("panlabel-export.json");
+    let root_vott_export_path = path.join("panlabel-export.json");
+    for candidate in [&vott_export_path, &root_vott_export_path] {
+        if candidate.is_file() {
+            if let Ok(contents) = std::fs::read_to_string(candidate) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
+                    if is_likely_vott_json_file(&value) {
+                        vott_json.found.push(format!(
+                            "{} VoTT JSON export",
+                            candidate.strip_prefix(path).unwrap_or(candidate).display()
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    probes.push(vott_json);
+
+    // --- Scale AI ---
+    let mut scale_ai = FormatProbe::new("Scale AI", ConvertFormat::ScaleAi);
+    let scale_ann_dir = path.join("annotations");
+    if scale_ann_dir.is_dir() && dir_contains_scale_ai_json(&scale_ann_dir)? {
+        scale_ai
+            .found
+            .push("annotations/ with Scale AI .json files".into());
+    } else if dir_contains_top_level_scale_ai_json(path)? {
+        scale_ai
+            .found
+            .push("co-located Scale AI .json files".into());
+    }
+    probes.push(scale_ai);
+
+    // --- Unity Perception ---
+    let mut unity = FormatProbe::new("Unity Perception", ConvertFormat::UnityPerception);
+    if dir_contains_unity_perception_json(path)? {
+        unity.found.push("SOLO frame/captures .json files".into());
+    }
+    probes.push(unity);
 
     // --- HF ---
     let mut hf = FormatProbe::new("HF", ConvertFormat::HfImagefolder);
@@ -2313,6 +2516,21 @@ fn dir_contains_top_level_superannotate_json(dir: &Path) -> Result<bool, Panlabe
     dir_contains_top_level_json_matching(dir, is_likely_superannotate_file)
 }
 
+fn dir_contains_scale_ai_json(dir: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_json_matching(dir, ir::io_scale_ai_json::is_likely_scale_ai_file)
+}
+
+fn dir_contains_top_level_scale_ai_json(dir: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_top_level_json_matching(dir, ir::io_scale_ai_json::is_likely_scale_ai_file)
+}
+
+fn dir_contains_unity_perception_json(dir: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_json_matching(
+        dir,
+        ir::io_unity_perception_json::is_likely_unity_perception_file,
+    )
+}
+
 /// Check if a directory contains at least one Supervisely annotation JSON file.
 fn dir_contains_supervisely_json(dir: &Path) -> Result<bool, PanlabelError> {
     dir_contains_json_matching(dir, is_likely_supervisely_file)
@@ -2453,6 +2671,27 @@ fn detect_csv_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         }
     }
 
+    // VoTT CSV: exact 6-column header image,xmin,ymin,xmax,ymax,label.
+    if ncols == 6
+        && col0.eq_ignore_ascii_case("image")
+        && col1.eq_ignore_ascii_case("xmin")
+        && first
+            .get(2)
+            .map(|v| v.eq_ignore_ascii_case("ymin"))
+            .unwrap_or(false)
+        && col3.eq_ignore_ascii_case("xmax")
+        && first
+            .get(4)
+            .map(|v| v.eq_ignore_ascii_case("ymax"))
+            .unwrap_or(false)
+        && first
+            .get(5)
+            .map(|v| v.eq_ignore_ascii_case("label"))
+            .unwrap_or(false)
+    {
+        return Ok(ConvertFormat::VottCsv);
+    }
+
     // RetinaNet: 6 columns
     if ncols == 6 {
         return Ok(ConvertFormat::Retinanet);
@@ -2589,12 +2828,14 @@ fn detect_jsonl_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             ),
         })?;
 
-    if is_likely_sagemaker_manifest_row(&value) {
+    if ir::io_labelbox_json::is_likely_labelbox_row(&value) {
+        Ok(ConvertFormat::Labelbox)
+    } else if is_likely_sagemaker_manifest_row(&value) {
         Ok(ConvertFormat::SageMaker)
     } else {
         Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "JSON Lines file not recognized as a SageMaker Ground Truth object-detection manifest. Use --from to specify format explicitly."
+            reason: "JSON Lines file not recognized as Labelbox export rows or a SageMaker Ground Truth object-detection manifest. Use --from to specify format explicitly."
                 .to_string(),
         })
     }
@@ -2630,6 +2871,18 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
             });
         }
 
+        if ir::io_labelbox_json::is_likely_labelbox_row(&items[0]) {
+            return Ok(ConvertFormat::Labelbox);
+        }
+
+        if ir::io_scale_ai_json::is_likely_scale_ai_file(&items[0]) {
+            return Ok(ConvertFormat::ScaleAi);
+        }
+
+        if ir::io_unity_perception_json::is_likely_unity_perception_file(&items[0]) {
+            return Ok(ConvertFormat::UnityPerception);
+        }
+
         if is_likely_label_studio_task(&items[0]) {
             return Ok(ConvertFormat::LabelStudio);
         }
@@ -2640,13 +2893,38 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
 
         return Err(PanlabelError::FormatDetectionFailed {
             path: path.to_path_buf(),
-            reason: "array-root JSON not recognized (expected Label Studio task array or CreateML image array). Use --from to specify format explicitly.".to_string(),
+            reason: "array-root JSON not recognized (expected Labelbox export-row array, Scale AI task/response array, Unity Perception frame array, Label Studio task array, or CreateML image array). Use --from to specify format explicitly.".to_string(),
         });
+    }
+
+    // Object-root: check for Labelbox export row before COCO/IR heuristic.
+    if ir::io_labelbox_json::is_likely_labelbox_row(&value) {
+        return Ok(ConvertFormat::Labelbox);
+    }
+
+    // Object-root: check for Scale AI task/response JSON before COCO/IR heuristic.
+    if ir::io_scale_ai_json::is_likely_scale_ai_file(&value) {
+        return Ok(ConvertFormat::ScaleAi);
+    }
+
+    // Object-root: check for Unity Perception/SOLO frame or captures JSON.
+    if ir::io_unity_perception_json::is_likely_unity_perception_file(&value) {
+        return Ok(ConvertFormat::UnityPerception);
     }
 
     // Object-root: check for LabelMe (has "shapes" key) before COCO/IR heuristic
     if is_likely_labelme_file(&value) {
         return Ok(ConvertFormat::LabelMe);
+    }
+
+    // Object-root: check for IBM Cloud Annotations before COCO/IR heuristic.
+    if is_likely_cloud_annotations_file(&value) {
+        return Ok(ConvertFormat::IbmCloudAnnotations);
+    }
+
+    // Object-root: check for VoTT JSON before COCO/IR heuristic.
+    if is_likely_vott_json_file(&value) {
+        return Ok(ConvertFormat::VottJson);
     }
 
     // Object-root: check for new per-image JSON formats before COCO/IR heuristic.
@@ -2804,6 +3082,60 @@ fn is_likely_labelme_file(value: &serde_json::Value) -> bool {
     };
 
     obj.get("shapes").map(|v| v.is_array()).unwrap_or(false)
+}
+
+/// Detect whether a JSON object looks like an IBM Cloud Annotations localization file.
+///
+/// Heuristic: object with `type: "localization"`, `labels` array, and image-keyed
+/// `annotations` object.
+fn is_likely_cloud_annotations_file(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    obj.get("type").and_then(|v| v.as_str()) == Some("localization")
+        && obj.get("labels").map(|v| v.is_array()).unwrap_or(false)
+        && obj
+            .get("annotations")
+            .map(|v| v.is_object())
+            .unwrap_or(false)
+}
+
+/// Detect whether a JSON object looks like a Microsoft VoTT JSON export.
+///
+/// Heuristic:
+/// - aggregate project: top-level `assets` object/array whose first entry has
+///   `asset` and `regions`
+/// - per-asset file: top-level `asset` object and `regions` array
+fn is_likely_vott_json_file(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    if obj.get("asset").map(|v| v.is_object()).unwrap_or(false)
+        && obj.get("regions").map(|v| v.is_array()).unwrap_or(false)
+    {
+        return true;
+    }
+
+    let Some(assets) = obj.get("assets") else {
+        return false;
+    };
+
+    if let Some(asset_map) = assets.as_object() {
+        return asset_map.values().any(is_likely_vott_asset_entry);
+    }
+
+    if let Some(asset_array) = assets.as_array() {
+        return asset_array.iter().any(is_likely_vott_asset_entry);
+    }
+
+    false
+}
+
+fn is_likely_vott_asset_entry(value: &serde_json::Value) -> bool {
+    value.get("asset").map(|v| v.is_object()).unwrap_or(false)
+        && value.get("regions").map(|v| v.is_array()).unwrap_or(false)
 }
 
 /// Detect whether a JSON object looks like a SuperAnnotate annotation file.

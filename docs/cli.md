@@ -31,7 +31,7 @@ Validate a dataset path and print a validation report.
 
 - Positional: `input` (path; file or directory depending on format)
 - `--format <format>` (default: `ir-json`)
-  - supported values: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+  - supported values: `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
 - `--strict` (treat warnings as errors)
 - `--output-format <text|json>` (default: `text`)
 - `--output <text|json>` (backward-compatible alias)
@@ -44,8 +44,8 @@ Invalid `--format` and output mode values are rejected by clap at parse time.
 
 Convert annotations between formats using IR as the internal hub.
 
-- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
-- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `tfod`, `tfod-csv`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`
+- `--from`, `-f`: `auto`, `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
+- `--to`, `-t`: `ir-json`, `coco`, `coco-json`, `ibm-cloud-annotations`, `cloud-annotations`, `cloud-annotations-json`, `ibm-cloud-annotations-json`, `cvat`, `cvat-xml`, `label-studio`, `label-studio-json`, `ls`, `labelbox`, `labelbox-json`, `labelbox-ndjson`, `scale-ai`, `scale`, `scale-ai-json`, `unity-perception`, `unity`, `unity-perception-json`, `solo`, `tfod`, `tfod-csv`, `vott-csv`, `vott`, `vott-json`, `vott-json-export`, `yolo`, `ultralytics`, `yolov8`, `yolov5`, `voc`, `pascal-voc`, `voc-xml`, `hf`, `hf-imagefolder`, `huggingface`, `sagemaker`, `sagemaker-manifest`, `sagemaker-ground-truth`, `ground-truth`, `groundtruth`, `aws-sagemaker`, `labelme`, `labelme-json`, `superannotate`, `superannotate-json`, `sa`, `supervisely`, `supervisely-json`, `sly`, `create-ml`, `createml`, `create-ml-json`, `kitti`, `kitti-txt`, `via`, `via-json`, `vgg-via`, `retinanet`, `retinanet-csv`, `keras-retinanet`, `openimages`, `openimages-csv`, `open-images`, `kaggle-wheat`, `kaggle-wheat-csv`, `automl-vision`, `automl-vision-csv`, `google-cloud-automl`, `udacity`, `udacity-csv`, `self-driving-car`
 - `--input`, `-i`: input path (required for local inputs; optional with `--hf-repo` when `--from hf`)
 - `--output`, `-o`: output path
 - `--strict`
@@ -183,6 +183,9 @@ Show format capabilities and lossiness class.
    - YOLO marker: `labels/` with `.txt` labels AND sibling `images/` directory (or path itself is `labels/` with sibling `images/`). If `labels/` with `.txt` files exist but `images/` is missing, this is reported as an incomplete layout.
    - VOC marker: `Annotations/` with top-level `.xml` files (or path itself is `Annotations/`). `JPEGImages/` is optional, matching the reader's behavior.
    - CVAT marker: `annotations.xml` at directory root
+   - VoTT JSON marker: `vott-json-export/panlabel-export.json` or root `panlabel-export.json` with VoTT `assets`
+   - Scale AI marker: `annotations/` with Scale AI task/response JSON files, or root-level matching Scale AI JSON files
+   - Unity Perception marker: SOLO frame/captures `.json` files with a `captures` array containing filename + annotations
    - LabelMe marker: `annotations/` with LabelMe `.json` files (containing `shapes` key), or co-located LabelMe `.json` files
    - SuperAnnotate marker: root `annotations/` directory with SuperAnnotate JSON files (`metadata` object + `instances` array), or matching JSON files at root
    - Supervisely marker: root `ann/` directory with Supervisely JSON files (`size` object + `objects` array), or project root with `meta.json` and one or more dataset `ann/` directories
@@ -191,14 +194,18 @@ Show format capabilities and lossiness class.
    - if multiple markers match, detection fails with an ambiguity error listing the evidence for each format
    - if only partial matches exist (e.g. YOLO labels without images), the error explains what's missing
 2. If input path is a file:
-   - `.manifest` / `.jsonl`: first non-empty JSON object row with `source-ref` + one object-detection label block (`groundtruth/object-detection` metadata, or `annotations` + `image_size`) → `sagemaker`
+   - `.manifest` / `.jsonl` / `.ndjson`: first non-empty JSON object row with Labelbox `data_row` + `media_attributes` + `projects` → `labelbox`; otherwise `source-ref` + one object-detection label block (`groundtruth/object-detection` metadata, or `annotations` + `image_size`) → `sagemaker`
    - `.csv`: content-based detection — 8 columns → `tfod`, 6 columns → `retinanet`, or detected by header match
    - `.xml`:
      - root `<annotations>` -> `cvat`
    - `.json`:
      - empty array-root: ambiguous between Label Studio and CreateML (requires explicit `--from`)
-     - non-empty array-root: Label Studio task shape (`data.image` string) -> `label-studio`; CreateML shape (`image` string + `annotations` array) -> `create-ml`
+     - non-empty array-root: Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) -> `labelbox`; Scale AI task/response shape (`response.annotations`, root `annotations`, or `params.attachment`) -> `scale-ai`; Unity Perception frame/captures shape (`captures` with capture `filename` + `annotations`) -> `unity-perception`; Label Studio task shape -> `label-studio`; CreateML item shape -> `create-ml`
+     - object-root with Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) -> `labelbox`
+     - object-root with Scale AI task/response shape (`response.annotations`, root `annotations`, or `params.attachment`) -> `scale-ai`
+     - object-root with Unity Perception/SOLO `captures` array -> `unity-perception`
      - object-root with `shapes` array -> `labelme`
+     - object-root with VoTT `asset` + `regions`, or aggregate `assets` entries -> `vott-json`
      - object-root with `metadata` object + `instances` array -> `superannotate`
      - object-root with `size` object + `objects` array -> `supervisely`
      - object-root with entries containing `filename` + `regions` -> `via`

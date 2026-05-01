@@ -11,14 +11,20 @@ write these formats:
 
 - **IR JSON** (`ir-json`) — panlabel's own lossless intermediate representation
 - **COCO JSON** (`coco` / `coco-json`) — the widely-used COCO format
+- **IBM Cloud Annotations JSON** (`ibm-cloud-annotations` / `cloud-annotations`) — localization `_annotations.json` files/directories
 - **CVAT XML** (`cvat` / `cvat-xml`) — CVAT for Images annotation export
 - **Label Studio JSON** (`label-studio` / `label-studio-json` / `ls`) — task export JSON (`rectanglelabels`)
+- **Labelbox JSON/NDJSON** (`labelbox` / `labelbox-json` / `labelbox-ndjson`) — current export rows with `data_row` and nested project labels
+- **Scale AI JSON** (`scale-ai` / `scale` / `scale-ai-json`) — image annotation task/response JSON with boxes, polygon envelopes, and rotated-box envelopes
+- **Unity Perception JSON** (`unity-perception` / `unity` / `solo`) — Unity/SOLO synthetic-data frame/captures JSON with `BoundingBox2D` values
 - **LabelMe JSON** (`labelme` / `labelme-json`) — LabelMe per-image JSON (single file or directory)
 - **Apple CreateML JSON** (`create-ml` / `createml` / `create-ml-json`) — Apple CreateML annotation format
 - **VIA JSON** (`via` / `via-json` / `vgg-via`) — VGG Image Annotator JSON
 - **SuperAnnotate JSON** (`superannotate` / `superannotate-json` / `sa`) — SuperAnnotate JSON export (file or `annotations/` directory)
 - **Supervisely JSON** (`supervisely` / `supervisely-json` / `sly`) — Supervisely project / dataset JSON (file, `ann/` directory, or full project with `meta.json`)
 - **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
+- **VoTT CSV** (`vott-csv` / `vott`) — Microsoft VoTT headered `image,xmin,ymin,xmax,ymax,label` CSV
+- **VoTT JSON** (`vott-json` / `vott-json-export`) — Microsoft VoTT aggregate/per-asset JSON with `regions`
 - **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
 - **Pascal VOC XML** (`voc` / `pascal-voc` / `voc-xml`) — VOC-style XML directories
 - **KITTI** (`kitti` / `kitti-txt`) — KITTI object detection labels (`label_2/` + `image_2/`)
@@ -54,9 +60,15 @@ behavior lives:
 |---|---|
 | CLI commands, flags, auto-detection | `src/lib.rs` |
 | COCO format behavior | `src/ir/io_coco_json.rs` |
+| IBM Cloud Annotations behavior | `src/ir/io_cloud_annotations_json.rs` |
 | CVAT XML format behavior | `src/ir/io_cvat_xml.rs` |
 | TFOD format behavior | `src/ir/io_tfod_csv.rs` |
+| VoTT CSV format behavior | `src/ir/io_vott_csv.rs` |
+| VoTT JSON format behavior | `src/ir/io_vott_json.rs` |
 | Label Studio format behavior | `src/ir/io_label_studio_json.rs` |
+| Labelbox format behavior | `src/ir/io_labelbox_json.rs` |
+| Scale AI format behavior | `src/ir/io_scale_ai_json.rs` |
+| Unity Perception format behavior | `src/ir/io_unity_perception_json.rs` |
 | LabelMe format behavior | `src/ir/io_labelme_json.rs` |
 | Apple CreateML format behavior | `src/ir/io_createml_json.rs` |
 | VIA JSON format behavior | `src/ir/io_via_json.rs` |

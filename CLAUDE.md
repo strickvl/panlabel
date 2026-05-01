@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, LabelMe JSON, CreateML JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -119,8 +119,14 @@ src/
 │   ├── io_coco_json.rs # COCO JSON reader/writer
 │   ├── io_cvat_xml.rs  # CVAT XML reader/writer
 │   ├── io_label_studio_json.rs # Label Studio JSON reader/writer
+│   ├── io_labelbox_json.rs    # Labelbox JSON/NDJSON reader/writer
+│   ├── io_scale_ai_json.rs    # Scale AI task/response JSON reader/writer
+│   ├── io_unity_perception_json.rs # Unity Perception/SOLO JSON reader/writer
 │   ├── io_labelme_json.rs     # LabelMe JSON reader/writer (file + directory)
 │   ├── io_createml_json.rs    # Apple CreateML JSON reader/writer
+│   ├── io_cloud_annotations_json.rs # IBM Cloud Annotations JSON reader/writer
+│   ├── io_vott_csv.rs  # Microsoft VoTT CSV reader/writer
+│   ├── io_vott_json.rs # Microsoft VoTT JSON reader/writer
 │   ├── io_kitti.rs      # KITTI object detection reader/writer (directory-based)
 │   ├── io_via_json.rs   # VGG Image Annotator (VIA) JSON reader/writer
 │   ├── io_openimages_csv.rs  # OpenImages CSV reader/writer
@@ -159,6 +165,9 @@ tests/
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
 ├── cvat_roundtrip.rs      # CVAT XML format roundtrip tests
 ├── label_studio_roundtrip.rs # Label Studio format roundtrip tests
+├── labelbox_roundtrip.rs  # Labelbox format roundtrip tests
+├── scale_ai_roundtrip.rs  # Scale AI format roundtrip tests
+├── unity_perception_roundtrip.rs # Unity Perception format roundtrip tests
 ├── labelme_roundtrip.rs   # LabelMe format roundtrip tests
 ├── createml_roundtrip.rs  # CreateML format roundtrip tests
 ├── kitti_roundtrip.rs     # KITTI format roundtrip tests
@@ -202,7 +211,7 @@ docs/
   - CLI and auto-detection: `src/lib.rs`
   - Format adapters: `src/ir/io_*.rs`
   - Lossiness/report codes: `src/conversion/*`
-  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`
+  - User-visible behavior checks: `tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/scale_ai_roundtrip.rs`, `tests/unity_perception_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/cloud_annotations_roundtrip.rs`, `tests/vott_csv_roundtrip.rs`, `tests/vott_json_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`
 
 If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
 
@@ -238,9 +247,12 @@ When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), updat
 
 The `--from auto` flag detects format from file extension/content for files and layout markers for directories:
 - `.csv` → content-based: 8 columns → TFOD, 6 columns → RetinaNet (or detected by header match)
+- `.jsonl` / `.ndjson` / `.manifest`: Labelbox export-row shape is checked before SageMaker manifest rows
 - `.json`:
   - empty array-root JSON (`[]`) → ambiguous (Label Studio or CreateML); requires explicit `--from`
-  - non-empty array-root: Label Studio task shape (`data.image`) → Label Studio; CreateML shape (`image` + `annotations`) → CreateML
+  - non-empty array-root: Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) → Labelbox; Scale AI task/response shape (`response.annotations` or `params.attachment`) → Scale AI; Label Studio task shape (`data.image`) → Label Studio; CreateML shape (`image` + `annotations`) → CreateML
+  - object-root with Labelbox export-row shape (`data_row` + `media_attributes` + `projects`) → Labelbox
+  - object-root with Scale AI task/response shape (`response.annotations`, root `annotations`, or `params.attachment`) → Scale AI
   - object-root with `shapes` array → LabelMe
   - object-root with entries containing `filename` + `regions` → VIA
   - object-root: requires a non-empty `annotations` array, then peek at `annotations[0].bbox`: array = COCO, object = IR JSON (empty datasets cannot be auto-detected)

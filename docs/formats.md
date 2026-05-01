@@ -15,9 +15,15 @@ Current scope: **object detection** bounding boxes only.
 |---|---|---|---|---|
 | `ir-json` | file (`.json`) | yes | yes | lossless |
 | `coco` | file (`.json`) | yes | yes | conditional |
+| `ibm-cloud-annotations` | file (`_annotations.json`) or directory | yes | yes | lossy |
 | `cvat` | file (`.xml`) or directory (`annotations.xml`) | yes | yes | lossy |
 | `label-studio` | file (`.json`) | yes | yes | lossy |
+| `labelbox` | file (`.json`, `.jsonl`, `.ndjson`) | yes | yes | lossy |
+| `scale-ai` | file (`.json`) or directory (`annotations/` or co-located JSONs) | yes | yes | lossy |
+| `unity-perception` | file (`.json`) or SOLO-like directory | yes | yes (directory only) | lossy |
 | `tfod` | file (`.csv`) | yes | yes | lossy |
+| `vott-csv` | file (`.csv`) | yes | yes | lossy |
+| `vott-json` | file (`.json`) or directory (`vott-json-export/`) | yes | yes | lossy |
 | `yolo` | directory (`images/` + `labels/`) | yes | yes | lossy |
 | `voc` | directory (`Annotations/` + `JPEGImages/`) | yes | yes | lossy |
 | `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
@@ -90,6 +96,62 @@ Limitations:
 - rotation is flattened to axis-aligned geometry (angle retained as `ls_rotation_deg` only)
 - Label Studio-specific metadata outside this mapping is not preserved
 
+## Labelbox JSON/NDJSON (`labelbox` / `labelbox-json` / `labelbox-ndjson`)
+
+- Path kind: JSON/JSONL/NDJSON file.
+- Supported input shapes:
+  - `.jsonl` / `.ndjson` with one Labelbox export row per line
+  - single JSON export-row object
+  - JSON array of export-row objects
+- Supported row shape: `data_row`, `media_attributes`, and nested `projects.*.labels[].annotations.objects[]`.
+- Bounding boxes use Labelbox `bounding_box` / `bbox` (`left`, `top`, `width`, `height`) and map directly to IR pixel-space XYXY.
+- Polygons use the envelope of their point array and are marked with `labelbox_polygon_enveloped=true`.
+- Unsupported non-detection object kinds such as points, masks, and lines are skipped with warnings; the image row is still preserved.
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order, then project ID, label index, and object index
+- writer rows: ordered by image file_name
+- writer objects: ordered by annotation ID
+
+Writer behavior:
+- `.jsonl` and `.ndjson` outputs write newline-delimited Labelbox export rows
+- other outputs write a JSON array of rows
+- emits all IR boxes as `ImageBoundingBox` objects with `bounding_box` geometry
+- preserves images without annotations as rows with empty `objects`
+- does **not** copy image binaries
+
+Limitations:
+- no dataset-level metadata/licenses
+- no category supercategory
+- no annotation confidence in writer output
+- polygons are flattened to axis-aligned bbox envelopes on read
+- segmentation masks, points, lines, and classifications are not represented in IR detection output
+
+## IBM Cloud Annotations JSON (`ibm-cloud-annotations` / `cloud-annotations`)
+
+- Path kind: `_annotations.json` file or directory containing `_annotations.json`.
+- Supported type: `"localization"`.
+- Coordinates are normalized `x`, `y`, `x2`, `y2`; the reader converts them to IR pixel-space XYXY by probing image dimensions.
+- Image lookup tries `<json_dir>/<image>` and then `<json_dir>/images/<image>`.
+
+Deterministic policy:
+- reader image IDs: by image key (lexicographic)
+- reader category IDs: by the source `labels` array, with extra labels appended lexicographically if annotations mention labels absent from `labels`
+- writer labels: by IR category ID
+- writer image keys: by `Image.file_name`; objects by annotation ID
+
+Writer behavior:
+- writes a Cloud Annotations-style localization JSON object
+- file outputs write the requested JSON file; directory outputs write `_annotations.json` plus `images/README.txt`
+- does **not** copy image binaries
+
+Limitations:
+- no dataset-level metadata/licenses
+- no image-level license/date metadata
+- no annotation confidence/attributes
+
 ## TFOD CSV (`tfod` / `tfod-csv`)
 
 - Path kind: CSV file.
@@ -107,6 +169,123 @@ Limitations:
 - no image-level license/date metadata
 - no annotation confidence/attributes
 - images without annotations are not represented in TFOD output
+
+## VoTT CSV (`vott-csv` / `vott`)
+
+- Path kind: CSV file.
+- Columns: headered `image,xmin,ymin,xmax,ymax,label`.
+- Coordinates are absolute pixel-space XYXY values.
+- Image dimensions are not stored in the CSV; reader lookup tries `<csv_dir>/<image>` then `<csv_dir>/images/<image>`.
+
+Deterministic policy:
+- reader image IDs: by image path (lexicographic)
+- reader category IDs: by label (lexicographic)
+- reader annotation IDs: by sorted row content
+- writer row order: by image filename, then annotation ID
+
+Limitations:
+- no dataset-level metadata/licenses
+- no image-level license/date metadata
+- no annotation confidence/attributes
+- images without annotations are not represented in VoTT CSV output
+
+## Scale AI JSON (`scale-ai` / `scale` / `scale-ai-json`)
+
+- Path kind: JSON file or directory.
+- Supported input shapes:
+  - Scale task object with `params` and optional `response.annotations`
+  - callback/response object with `response.annotations` and optional nested `task`
+  - response object with root `annotations`
+  - JSON array of task/response objects
+  - directory with Scale JSON files under `annotations/`, or matching root-level JSON files
+- Plain boxes use Scale `left`, `top`, `width`, `height` and map directly to IR pixel-space XYXY.
+- Polygons use the envelope of their `vertices` array and are marked with `scale_ai_enveloped=true` and `scale_ai_geometry_type=polygon`.
+- Rotated boxes with `vertices` use the envelope of those vertices and preserve `rotation` as `scale_ai_rotation_rad`.
+- Unsupported geometry types such as lines, points, cuboids, and ellipses are rejected clearly instead of being silently skipped.
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order, then source annotation order
+- writer task objects: ordered by image file_name
+- writer annotations: ordered by annotation ID
+
+Writer behavior:
+- single-image file outputs write one Scale-like `imageannotation` task object
+- multi-image file outputs write a JSON array of task objects
+- directory outputs write `annotations/<image-stem>.json` plus `images/README.txt`
+- emits all IR boxes as `type: "box"` response annotations with `left`/`top`/`width`/`height`
+- preserves images without annotations as task objects with empty `response.annotations`
+- does **not** copy image binaries
+
+Limitations:
+- no dataset-level metadata/licenses
+- no category supercategory
+- annotation confidence is not represented
+- non-Scale annotation attributes are not represented unless they are already `scale_ai_attribute_*` attributes
+
+## Unity Perception JSON (`unity-perception` / `unity` / `solo`)
+
+- Path kind: SOLO frame JSON file, narrow legacy `captures` JSON file, or directory containing SOLO frame/captures JSON files.
+- Supported annotation type: Unity/SOLO `BoundingBox2D` only.
+- Bounding boxes import from `values` entries using either `x`, `y`, `width`, `height` or `origin` + `dimension`.
+- Non-bbox annotation blocks such as segmentation/keypoints are skipped with warnings; the capture/image row is still preserved.
+- Image dimensions come from capture `dimension`, then local image probing, then bbox extents as a last resort.
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by `annotation_definitions.json` label order when available, then extra label names lexicographically
+- reader annotation IDs: by image order, then frame annotation/value order
+- writer frames: ordered by image file_name
+- writer bbox values: ordered by annotation ID
+
+Writer behavior:
+- emits directory datasets only; `.json` file output is rejected as ambiguous
+- writes `annotation_definitions.json` plus `sequence.0/step*.frame_data.json`
+- emits all IR boxes as `BoundingBox2DAnnotation` values using `x`/`y`/`width`/`height`
+- preserves images without annotations as frame captures with empty bbox values
+- writes `images/README.txt` and does **not** copy image binaries
+
+Limitations:
+- no dataset-level metadata/licenses
+- no category supercategory
+- annotation confidence is not represented
+- non-bbox Unity annotations are not represented in the IR detection output
+
+## VoTT JSON (`vott-json` / `vott-json-export`)
+
+- Path kind: JSON file or directory.
+- Supported file shapes:
+  - aggregate project JSON with top-level `assets`
+  - per-asset JSON with top-level `asset` and `regions`
+- Supported directory shapes:
+  - `vott-json-export/panlabel-export.json`
+  - root `panlabel-export.json`
+  - top-level per-asset `.json` files when `--from vott-json` is used explicitly
+- Rectangle regions use VoTT `boundingBox` (`left`, `top`, `width`, `height`) and map to IR pixel-space XYXY.
+- Polygon-like regions without `boundingBox` use the envelope of their `points` array.
+- Regions with multiple `tags` expand to one IR annotation per tag.
+- Image dimensions come from `asset.size` when present; otherwise the reader probes `<json_dir>/<image>`, `<json_dir>/images/<image>`, and local `file:` asset paths.
+
+Deterministic policy:
+- reader image IDs: by image filename (lexicographic)
+- reader category IDs: by source project `tags` order, with extra region tags appended lexicographically
+- reader annotation IDs: by sorted image order, then source region order, then tag order
+- writer assets: ordered by image filename
+- writer regions: ordered by annotation ID
+
+Writer behavior:
+- file outputs write a deterministic aggregate VoTT JSON project to the requested `.json` path
+- directory outputs write `vott-json-export/panlabel-export.json` plus `vott-json-export/images/README.txt`
+- emits all IR boxes as `RECTANGLE` regions with `boundingBox` and corner `points`
+- preserves images without annotations as assets with empty `regions`
+- does **not** copy image binaries
+
+Limitations:
+- no dataset-level metadata/licenses beyond a simple project name
+- no image-level license/date metadata
+- no annotation confidence/attributes in writer output
+- polygon point geometry is flattened to an axis-aligned bbox envelope on read
 
 ## YOLO directory (`yolo` / `ultralytics` / `yolov8` / `yolov5`)
 

@@ -24,6 +24,7 @@ Format-level lossiness relative to IR:
 - `scale-ai`: lossy
 - `unity-perception`: lossy
 - `tfod`: lossy
+- `tfrecord`: lossy
 - `vott-csv`: lossy
 - `vott-json`: lossy
 - `yolo`: lossy
@@ -110,6 +111,10 @@ These codes are designed to be stable for programmatic use.
 | `coco_writer_empty_segmentation` | COCO writer emits empty segmentation arrays for detection-only output |
 | `tfod_reader_id_assignment` | TFOD reader deterministic ID policy |
 | `tfod_writer_row_order` | TFOD writer deterministic row order |
+| `tfrecord_reader_id_assignment` | TFRecord reader deterministic ID policy |
+| `tfrecord_reader_payload_policy` | TFRecord reader supported payload/mapping policy |
+| `tfrecord_writer_example_order` | TFRecord writer deterministic Example ordering policy |
+| `tfrecord_writer_payload_policy` | TFRecord writer supported payload/mapping policy |
 | `vott_csv_reader_id_assignment` | VoTT CSV reader deterministic ID policy |
 | `vott_csv_reader_image_resolution` | VoTT CSV reader image dimension resolution from disk |
 | `vott_csv_writer_row_order` | VoTT CSV writer deterministic row order |

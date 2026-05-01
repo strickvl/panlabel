@@ -28,6 +28,7 @@ pub enum Format {
     ScaleAi,
     UnityPerception,
     Tfod,
+    Tfrecord,
     VottCsv,
     VottJson,
     Yolo,
@@ -75,6 +76,7 @@ impl Format {
             Format::ScaleAi => "scale-ai",
             Format::UnityPerception => "unity-perception",
             Format::Tfod => "tfod",
+            Format::Tfrecord => "tfrecord",
             Format::VottCsv => "vott-csv",
             Format::VottJson => "vott-json",
             Format::Yolo => "yolo",
@@ -118,6 +120,7 @@ impl Format {
             Format::ScaleAi => IrLossiness::Lossy,
             Format::UnityPerception => IrLossiness::Lossy,
             Format::Tfod => IrLossiness::Lossy,
+            Format::Tfrecord => IrLossiness::Lossy,
             Format::VottCsv => IrLossiness::Lossy,
             Format::VottJson => IrLossiness::Lossy,
             Format::Yolo => IrLossiness::Lossy,
@@ -162,6 +165,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Compute output counts and issues based on target format
     match to {
         Format::Tfod => analyze_to_tfod(dataset, &mut report),
+        Format::Tfrecord => analyze_to_tfrecord(dataset, &mut report),
         Format::VottCsv => analyze_to_vott_csv(dataset, &mut report),
         Format::VottJson => analyze_to_vott_json(dataset, &mut report),
         Format::Yolo => analyze_to_yolo(dataset, &mut report),
@@ -197,6 +201,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Add policy notes based on source format
     match from {
         Format::Tfod => add_tfod_reader_policy(&mut report),
+        Format::Tfrecord => add_tfrecord_reader_policy(&mut report),
         Format::VottCsv => add_vott_csv_reader_policy(&mut report),
         Format::VottJson => add_vott_json_reader_policy(dataset, &mut report),
         Format::Yolo => add_yolo_reader_policy(dataset, &mut report),
@@ -230,6 +235,7 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
     // Add policy notes based on target format
     match to {
         Format::Tfod => add_tfod_writer_policy(&mut report),
+        Format::Tfrecord => add_tfrecord_writer_policy(&mut report),
         Format::VottCsv => add_vott_csv_writer_policy(&mut report),
         Format::VottJson => add_vott_json_writer_policy(&mut report),
         Format::Yolo => add_yolo_writer_policy(&mut report),
@@ -267,6 +273,167 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
 fn analyze_to_tfod(dataset: &Dataset, report: &mut ConversionReport) {
     add_common_csv_lossiness_warnings(dataset, report);
     add_annotation_drop_warnings_and_output_counts(dataset, report);
+}
+
+/// Analyze conversion to TFRecord TFOD-style Example format.
+fn analyze_to_tfrecord(dataset: &Dataset, report: &mut ConversionReport) {
+    if !dataset.info.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropDatasetInfo,
+            "dataset info/metadata will be dropped".to_string(),
+        ));
+    }
+
+    if !dataset.licenses.is_empty() {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropLicenses,
+            format!("{} license(s) will be dropped", dataset.licenses.len()),
+        ));
+    }
+
+    let images_with_unrepresentable_metadata = dataset
+        .images
+        .iter()
+        .filter(|img| {
+            img.license_id.is_some()
+                || img.date_captured.is_some()
+                || img.attributes.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        crate::ir::io_tfrecord::ATTR_SOURCE_ID
+                            | crate::ir::io_tfrecord::ATTR_KEY_SHA256
+                            | crate::ir::io_tfrecord::ATTR_FORMAT
+                            | crate::ir::io_tfrecord::ATTR_HAD_ENCODED_IMAGE
+                    )
+                })
+        })
+        .count();
+    if images_with_unrepresentable_metadata > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have metadata outside TFRecord's preserved image feature set",
+                images_with_unrepresentable_metadata
+            ),
+        ));
+    }
+
+    let cats_with_supercategory = dataset
+        .categories
+        .iter()
+        .filter(|cat| cat.supercategory.is_some())
+        .count();
+    if cats_with_supercategory > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropCategorySupercategory,
+            format!(
+                "{} category(s) have supercategory that will be dropped",
+                cats_with_supercategory
+            ),
+        ));
+    }
+
+    let preserved_sparse_attrs = [
+        crate::ir::io_tfrecord::ATTR_AREA,
+        crate::ir::io_tfrecord::ATTR_IS_CROWD,
+        crate::ir::io_tfrecord::ATTR_DIFFICULT,
+        crate::ir::io_tfrecord::ATTR_GROUP_OF,
+        crate::ir::io_tfrecord::ATTR_WEIGHT,
+    ];
+    let mut anns_with_confidence = 0usize;
+    let mut anns_with_unrepresentable_attrs = 0usize;
+    let mut used_category_ids = HashSet::new();
+    let mut sparse_attr_counts_by_image = std::collections::HashMap::new();
+
+    for ann in &dataset.annotations {
+        if ann.confidence.is_some() {
+            anns_with_confidence += 1;
+        }
+
+        if ann.attributes.keys().any(|key| {
+            !matches!(
+                key.as_str(),
+                crate::ir::io_tfrecord::ATTR_CLASS_LABEL
+                    | crate::ir::io_tfrecord::ATTR_AREA
+                    | crate::ir::io_tfrecord::ATTR_IS_CROWD
+                    | crate::ir::io_tfrecord::ATTR_DIFFICULT
+                    | crate::ir::io_tfrecord::ATTR_GROUP_OF
+                    | crate::ir::io_tfrecord::ATTR_WEIGHT
+            )
+        }) {
+            anns_with_unrepresentable_attrs += 1;
+        }
+
+        used_category_ids.insert(ann.category_id);
+        let (ann_count, attr_counts) = sparse_attr_counts_by_image
+            .entry(ann.image_id)
+            .or_insert((0usize, [0usize; 5]));
+        *ann_count += 1;
+        for (idx, attr) in preserved_sparse_attrs.iter().enumerate() {
+            if ann.attributes.contains_key(*attr) {
+                attr_counts[idx] += 1;
+            }
+        }
+    }
+
+    if anns_with_confidence > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationConfidence,
+            format!(
+                "{} annotation(s) have confidence scores that will be dropped",
+                anns_with_confidence
+            ),
+        ));
+    }
+
+    if anns_with_unrepresentable_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} annotation(s) have attributes outside TFRecord's preserved set (class label/area/iscrowd/difficult/group_of/weight)",
+                anns_with_unrepresentable_attrs
+            ),
+        ));
+    }
+
+    let image_groups_with_sparse_attrs = sparse_attr_counts_by_image
+        .values()
+        .filter(|(ann_count, attr_counts)| {
+            attr_counts
+                .iter()
+                .any(|&present| present > 0 && present < *ann_count)
+        })
+        .count();
+    if image_groups_with_sparse_attrs > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropAnnotationAttributes,
+            format!(
+                "{} image record(s) have sparse per-object TFRecord attributes; those partial attribute lists will be dropped to avoid misaligning object features",
+                image_groups_with_sparse_attrs
+            ),
+        ));
+    }
+
+    let unused_categories = dataset
+        .categories
+        .iter()
+        .filter(|cat| !used_category_ids.contains(&cat.id))
+        .count();
+    if unused_categories > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropUnusedCategories,
+            format!(
+                "{} category(s) not referenced by any annotation will be dropped",
+                unused_categories
+            ),
+        ));
+    }
+
+    report.output = ConversionCounts {
+        images: dataset.images.len(),
+        categories: used_category_ids.len(),
+        annotations: dataset.annotations.len(),
+    };
 }
 
 /// Analyze conversion to VoTT CSV format.
@@ -858,6 +1025,30 @@ fn add_tfod_writer_policy(report: &mut ConversionReport) {
     report.add(ConversionIssue::writer_info(
         ConversionIssueCode::TfodWriterRowOrder,
         "TFOD writer orders rows by annotation ID for deterministic output".to_string(),
+    ));
+}
+
+/// Add policy notes for TFRecord reader behavior.
+fn add_tfrecord_reader_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::TfrecordReaderIdAssignment,
+        "TFRecord reader assigns IDs deterministically: images by filename, categories by class name, annotations by record/object order".to_string(),
+    ));
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::TfrecordReaderPayloadPolicy,
+        "TFRecord reader supports uncompressed TFOD-style tf.train.Example records, maps normalized XYXY boxes to pixel XYXY, and records that image/encoded bytes were present without storing image bytes in IR".to_string(),
+    ));
+}
+
+/// Add policy notes for TFRecord writer behavior.
+fn add_tfrecord_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::TfrecordWriterExampleOrder,
+        "TFRecord writer emits one Example per image, ordered by filename then image ID; objects are ordered by annotation ID".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::TfrecordWriterPayloadPolicy,
+        "TFRecord writer emits uncompressed TFOD-style tf.train.Example records with normalized XYXY boxes, class text, numeric class labels, and no embedded image bytes".to_string(),
     ));
 }
 

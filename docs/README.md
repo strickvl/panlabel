@@ -25,6 +25,7 @@ write these formats:
 - **Cityscapes JSON** (`cityscapes` / `cityscapes-json`) — Cityscapes polygon JSON (file, `gtFine/`, or dataset root), flattened to bbox envelopes
 - **Marmot XML** (`marmot` / `marmot-xml`) — Marmot document-layout XML with hex-double CropBox/BBox composites
 - **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
+- **TFRecord** (`tfrecord` / `tfrecords` / `tf-record` / `tfod-tfrecord` / `tfod-tfrerecord`) — TensorFlow Object Detection API-style `tf.train.Example` records (single-file, uncompressed, bbox-only in v1)
 - **VoTT CSV** (`vott-csv` / `vott`) — Microsoft VoTT headered `image,xmin,ymin,xmax,ymax,label` CSV
 - **VoTT JSON** (`vott-json` / `vott-json-export`) — Microsoft VoTT aggregate/per-asset JSON with `regions`
 - **YOLO directory/list splits** (`yolo` / `ultralytics` / `yolov8` / `yolov5` / `scaled-yolov4` / `scaled-yolov4-txt`) — YOLO label directories, including `data.yaml` splits that point to image-list `.txt` files
@@ -67,6 +68,7 @@ behavior lives:
 | IBM Cloud Annotations behavior | `src/ir/io_cloud_annotations_json.rs` |
 | CVAT XML format behavior | `src/ir/io_cvat_xml.rs` |
 | TFOD format behavior | `src/ir/io_tfod_csv.rs` |
+| TFRecord format behavior | `src/ir/io_tfrecord.rs` |
 | VoTT CSV format behavior | `src/ir/io_vott_csv.rs` |
 | VoTT JSON format behavior | `src/ir/io_vott_json.rs` |
 | Label Studio format behavior | `src/ir/io_label_studio_json.rs` |

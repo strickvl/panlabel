@@ -63,6 +63,7 @@ mod io_super_json_common;
 pub mod io_superannotate_json;
 pub mod io_supervisely_json;
 pub mod io_tfod_csv;
+pub mod io_tfrecord;
 pub mod io_udacity_csv;
 pub mod io_unity_perception_json;
 pub mod io_via_json;

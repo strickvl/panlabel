@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records), YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -135,6 +135,7 @@ src/
 │   ├── io_udacity_csv.rs     # Udacity Self-Driving Car CSV reader/writer
 │   ├── io_retinanet_csv.rs # RetinaNet Keras CSV reader/writer
 │   ├── io_tfod_csv.rs  # TFOD CSV reader/writer
+│   ├── io_tfrecord.rs # TFRecord reader/writer (single-file uncompressed TFOD-style Example records)
 │   ├── io_yolo.rs      # Ultralytics YOLO reader/writer (directory-based)
 │   ├── io_yolo_keras_txt.rs # YOLO Keras / YOLOv4 PyTorch TXT reader/writer
 │   ├── io_voc_xml.rs   # Pascal VOC XML reader/writer (directory-based)
@@ -164,6 +165,7 @@ tests/
 ├── proptest_helpers/mod.rs # Shared proptest strategies + semantic assertions
 ├── proptest_*.rs       # Property tests per adapter + cross-format subset checks
 ├── tfod_csv_roundtrip.rs  # TFOD format roundtrip tests
+├── tfrecord_roundtrip.rs  # TFRecord format roundtrip tests
 ├── yolo_roundtrip.rs      # YOLO format roundtrip tests
 ├── yolo_keras_roundtrip.rs # YOLO Keras / YOLOv4 PyTorch TXT roundtrip tests
 ├── voc_roundtrip.rs       # VOC format roundtrip tests
@@ -253,6 +255,7 @@ When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), updat
 
 The `--from auto` flag detects format from file extension/content for files and layout markers for directories:
 - `.csv` → content-based: 8 columns → TFOD or Udacity by coordinate range/header, 6 columns → RetinaNet, or other recognized CSV headers
+- `.tfrecord` → TFRecord framing + first-record probe for TFOD-style `tf.train.Example` payloads (v1 scope)
 - `.txt` → specifically named YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT files can be detected; shared names such as `train.txt` and `train_annotations.txt` are ambiguous and require explicit `--from`
 - `.xml` → root `<annotations>` = CVAT; root `<Page CropBox="...">` = Marmot
 - `.jsonl` / `.ndjson` / `.manifest`: Labelbox export-row shape is checked before SageMaker manifest rows

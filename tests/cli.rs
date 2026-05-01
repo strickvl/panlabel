@@ -2830,7 +2830,7 @@ fn list_formats_json_output_has_expected_schema() {
     let (stdout, parsed) = stdout_json(&output);
     assert_compact_json(&stdout);
     let formats = parsed.as_array().expect("top-level array");
-    assert_eq!(formats.len(), 30);
+    assert_eq!(formats.len(), 31);
 
     let label_studio = formats
         .iter()
@@ -4388,4 +4388,99 @@ fn convert_auto_detect_ambiguity_shows_evidence() {
         // Evidence should be listed.
         .stderr(predicates::str::contains("labels/"))
         .stderr(predicates::str::contains("metadata"));
+}
+
+#[test]
+fn convert_ir_to_tfrecord_then_auto_detects_tfrecord() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let tfrecord_path = temp.path().join("sample.tfrecord");
+    let restored_path = temp.path().join("restored.ir.json");
+
+    let mut write_cmd = cargo_bin_cmd!("panlabel");
+    write_cmd.args([
+        "convert",
+        "--from",
+        "ir-json",
+        "--to",
+        "tf-record",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        tfrecord_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    write_cmd.assert().success().stdout(
+        predicates::str::contains("(ir-json)").and(predicates::str::contains("(tfrecord)")),
+    );
+
+    let mut read_cmd = cargo_bin_cmd!("panlabel");
+    read_cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        tfrecord_path.to_str().unwrap(),
+        "-o",
+        restored_path.to_str().unwrap(),
+    ]);
+    read_cmd
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("(tfrecord)"));
+}
+
+#[test]
+fn convert_tfrecord_typo_tolerant_alias_is_accepted() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let tfrecord_path = temp.path().join("sample.tfrecord");
+    let restored_path = temp.path().join("restored.ir.json");
+
+    let mut write_cmd = cargo_bin_cmd!("panlabel");
+    write_cmd.args([
+        "convert",
+        "--from",
+        "ir-json",
+        "--to",
+        "tfrecords",
+        "-i",
+        "tests/fixtures/sample_valid.ir.json",
+        "-o",
+        tfrecord_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    write_cmd.assert().success();
+
+    let mut read_cmd = cargo_bin_cmd!("panlabel");
+    read_cmd.args([
+        "convert",
+        "--from",
+        "tfod-tfrerecord",
+        "--to",
+        "ir-json",
+        "-i",
+        tfrecord_path.to_str().unwrap(),
+        "-o",
+        restored_path.to_str().unwrap(),
+    ]);
+    read_cmd.assert().success();
+}
+
+#[test]
+fn list_formats_json_mentions_tfrecord_aliases() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["list-formats", "--output-format", "json"]);
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+
+    let (_stdout, parsed) = stdout_json(&output);
+    let formats = parsed.as_array().expect("top-level array");
+    let tfrecord = formats
+        .iter()
+        .find(|entry| entry["name"] == "tfrecord")
+        .expect("tfrecord format entry");
+    let aliases = tfrecord["aliases"].as_array().expect("aliases array");
+    assert!(aliases.iter().any(|alias| alias == "tfod-tfrecord"));
+    assert!(aliases.iter().any(|alias| alias == "tfod-tfrerecord"));
 }

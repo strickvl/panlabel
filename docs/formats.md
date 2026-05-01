@@ -23,6 +23,8 @@ Current scope: **object detection** bounding boxes only.
 | `hf` | directory (`metadata.jsonl` / `metadata.parquet`) | yes | yes (`metadata.jsonl`) | lossy |
 | `sagemaker` | file (`.manifest` / `.jsonl`) | yes | yes | lossy |
 | `labelme` | file (`.json`) or directory (`annotations/`) | yes | yes | lossy |
+| `superannotate` | file (`.json`) or directory (`annotations/` or co-located JSONs) | yes | yes | lossy |
+| `supervisely` | file (`.json`) or directory (`ann/` dataset or `meta.json` project) | yes | yes | lossy |
 | `create-ml` | file (`.json`) | yes | yes | lossy |
 | `kitti` | directory (`label_2/` + `image_2/`) | yes | yes | lossy |
 | `via` | file (`.json`) | yes | yes | lossy |
@@ -341,6 +343,84 @@ Limitations:
 - polygon geometry is flattened to axis-aligned bbox envelope (shape type retained as attribute only)
 - `imageData` (embedded base64 image data) is not preserved
 - LabelMe flags and group_id are not preserved
+
+## SuperAnnotate JSON (`superannotate` / `superannotate-json` / `sa`)
+
+- Path kind: JSON file or directory.
+- Supported annotation schema: top-level `metadata` + `instances`.
+- Supported geometries:
+  - `bbox` / `bounding_box` / `rectangle` (direct bbox mapping)
+  - `polygon`, `rotated_bbox`, `rotated_box`, `oriented_bbox`, `oriented_box` (flattened to axis-aligned bbox envelope)
+- Unsupported geometries are rejected with a clear parse/layout error.
+
+Reader input modes:
+- **Single file**: one annotation JSON
+- **Directory**: scans `annotations/` recursively when present, otherwise scans root recursively for matching annotation JSON files
+- Optional class metadata: `classes/classes.json` and `classes.json` are read when present
+
+Reader behavior:
+- requires `metadata.width`, `metadata.height`, and `instances`
+- image name comes from `metadata.name` (fallback: file stem)
+- stores image name in `Image.attributes["superannotate_image_name"]`
+- stores geometry provenance in `Annotation.attributes["superannotate_geometry_type"]`
+- stores instance IDs when present in `Annotation.attributes["superannotate_instance_id"]`
+- preserves confidence from `probability`/`confidence` when finite
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by label name (lexicographic)
+- reader annotation IDs: by image order then instance order
+- writer file order: by image `file_name` (lexicographic)
+
+Writer behavior:
+- single-image dataset + `.json` output path: writes one annotation JSON
+- otherwise writes canonical directory layout:
+  - `annotations/<image-stem>.json`
+  - `classes/classes.json`
+  - `images/README.txt`
+- emits all annotations as `bbox` instances
+- preserves IR confidence as `probability`
+- does **not** copy image binaries
+
+## Supervisely JSON (`supervisely` / `supervisely-json` / `sly`)
+
+- Path kind: JSON file or directory.
+- Supported annotation schema: top-level `size` + `objects`.
+- Supported geometries:
+  - `rectangle` (direct rectangle envelope)
+  - `polygon` (flattened to axis-aligned bbox envelope)
+- Unsupported geometries are rejected with a clear parse/layout error.
+
+Reader input modes:
+- **Single file**: one annotation JSON
+- **Dataset directory**: `<root>/ann/*.json` (recursive)
+- **Project directory**: `<root>/meta.json` plus one or more `<dataset>/ann/*.json` trees
+
+Reader behavior:
+- requires `size.width`, `size.height`, and `objects`
+- derives `Image.file_name` from annotation path (`*.jpg.json` -> `*.jpg`)
+- for project roots, prefixes image names with dataset folder (e.g. `dataset_01/img.jpg`)
+- stores dataset name in `Image.attributes["supervisely_dataset"]` when available
+- stores relative annotation path in `Image.attributes["supervisely_ann_path"]`
+- stores geometry provenance in `Annotation.attributes["supervisely_geometry_type"]`
+- stores object IDs in `Annotation.attributes["supervisely_object_id"]` when present
+- reads optional object `confidence` / `score` when finite
+- writer does not emit confidence/score fields, so IR confidence is not preserved on Supervisely write
+
+Deterministic policy:
+- reader image IDs: by derived `file_name` (lexicographic)
+- reader category IDs: by class title/name (lexicographic)
+- reader annotation IDs: by image order then object order
+- writer file order: by image `file_name` (lexicographic)
+
+Writer behavior:
+- single-image dataset + `.json` output path: writes one annotation JSON
+- otherwise writes canonical project layout:
+  - `meta.json`
+  - `dataset/ann/<image.file_name>.json`
+  - `dataset/img/README.txt`
+- emits all annotations as `rectangle` objects
+- does **not** copy image binaries
 
 ## CreateML JSON (`create-ml` / `createml` / `create-ml-json`)
 

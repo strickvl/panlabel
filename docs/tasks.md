@@ -37,6 +37,8 @@ within those boundaries.
 | `hf` | yes | yes (`metadata.jsonl`) | HF ImageFolder metadata (`metadata.jsonl` / `metadata.parquet`), bbox mode via `--hf-bbox-format`; remote Hub import currently in `convert` |
 | `sagemaker` | yes | yes | AWS Ground Truth manifest JSONL (`.manifest` / `.jsonl`); dynamic label attribute + `<label>-metadata`; object-detection rows only |
 | `labelme` | yes | yes | per-image JSON; `rectangle` and `polygon` shapes (polygons flattened to bbox envelopes); file or directory based |
+| `superannotate` | yes | yes | per-image JSON (`metadata` + `instances`), file or directory based; polygon/rotated geometries flattened to bbox envelopes |
+| `supervisely` | yes | yes | per-image JSON (`size` + `objects`), dataset `ann/` or project (`meta.json` + dataset `ann/`); polygons flattened to bbox envelopes |
 | `create-ml` | yes | yes | Apple CreateML JSON array; center-based absolute pixel coordinates; file based |
 | `kitti` | yes | yes | directory-based; per-image `.txt` files with 15-field KITTI rows; absolute pixel coordinates |
 | `via` | yes | yes | VGG Image Annotator single-file JSON; rectangle regions; absolute pixel coordinates |
@@ -73,6 +75,8 @@ format accepts and rejects:
 | `hf` | Bbox arrays in the objects container (`objects.bbox`) | Fixed bbox schema; bbox interpretation depends on `--hf-bbox-format` |
 | `sagemaker` | Object-detection label block with `annotations` + `image_size`, plus `<label>-metadata` (`groundtruth/object-detection`) | Segmentation/classification Ground Truth task types are rejected; mixed/ambiguous label attributes are rejected |
 | `labelme` | `rectangle` shapes (2 points) and `polygon` shapes (3+ points, flattened to bbox envelope) | Other shape types (e.g. `circle`, `line`) are rejected with a clear error |
+| `superannotate` | `bbox`/`rectangle` plus polygon/rotated/oriented boxes (flattened to bbox envelopes) | Unsupported geometry types are rejected with a clear error |
+| `supervisely` | `rectangle` and `polygon` object geometries (`geometry.points.exterior`) | Unsupported `geometryType` values (e.g. bitmap/point/line) are rejected with a clear error |
 | `create-ml` | `coordinates` objects with center-based pixel bboxes (`x`, `y`, `width`, `height`) | Fixed bbox schema; no non-bbox geometry |
 | `kitti` | 15/16-field space-separated rows (type + bbox + 3D fields + optional score) | Fixed 15/16-field schema; no non-bbox geometry |
 | `via` | `rect` regions with `shape_attributes` (`x`, `y`, `width`, `height`) | Non-rect shape types (circle, polygon, etc.) are skipped with a warning |

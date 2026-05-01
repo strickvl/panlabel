@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "name": "sa_image.jpg",
+    "width": 640,
+    "height": 480
+  },
+  "instances": [
+    {
+      "id": 101,
+      "type": "bbox",
+      "className": "cat",
+      "probability": 0.91,
+      "points": {
+        "x1": 10.0,
+        "y1": 20.0,
+        "x2": 100.0,
+        "y2": 80.0
+      }
+    },
+    {
+      "id": "poly-1",
+      "type": "polygon",
+      "className": "dog",
+      "points": {
+        "x": [50.0, 200.0, 120.0],
+        "y": [60.0, 150.0, 210.0]
+      }
+    },
+    {
+      "id": "rot-1",
+      "type": "rotated_bbox",
+      "className": "car",
+      "points": [[300.0, 100.0], [360.0, 120.0], [340.0, 180.0], [280.0, 160.0]]
+    }
+  ]
+}

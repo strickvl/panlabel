@@ -55,6 +55,40 @@ pub enum PanlabelError {
     #[error("Invalid Label Studio JSON: {path}: {message}")]
     LabelStudioJsonInvalid { path: PathBuf, message: String },
 
+    #[error("Failed to parse SuperAnnotate JSON from {path}: {source}")]
+    SuperAnnotateJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write SuperAnnotate JSON to {path}: {source}")]
+    SuperAnnotateJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid SuperAnnotate dataset layout at {path}: {message}")]
+    SuperAnnotateLayoutInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse Supervisely JSON from {path}: {source}")]
+    SuperviselyJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write Supervisely JSON to {path}: {source}")]
+    SuperviselyJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid Supervisely dataset layout at {path}: {message}")]
+    SuperviselyLayoutInvalid { path: PathBuf, message: String },
+
     #[error("Failed to parse TFOD CSV from {path}: {source}")]
     TfodCsvParse {
         path: PathBuf,

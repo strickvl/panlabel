@@ -29,6 +29,8 @@ pub enum Format {
     HfImagefolder,
     SageMaker,
     LabelMe,
+    SuperAnnotate,
+    Supervisely,
     CreateMl,
     Kitti,
     Via,
@@ -64,6 +66,8 @@ impl Format {
             Format::HfImagefolder => "hf",
             Format::SageMaker => "sagemaker",
             Format::LabelMe => "labelme",
+            Format::SuperAnnotate => "superannotate",
+            Format::Supervisely => "supervisely",
             Format::CreateMl => "create-ml",
             Format::Kitti => "kitti",
             Format::Via => "via",
@@ -95,6 +99,8 @@ impl Format {
             Format::HfImagefolder => IrLossiness::Lossy,
             Format::SageMaker => IrLossiness::Lossy,
             Format::LabelMe => IrLossiness::Lossy,
+            Format::SuperAnnotate => IrLossiness::Lossy,
+            Format::Supervisely => IrLossiness::Lossy,
             Format::CreateMl => IrLossiness::Lossy,
             Format::Kitti => IrLossiness::Lossy,
             Format::Via => IrLossiness::Lossy,
@@ -135,6 +141,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::HfImagefolder => analyze_to_hf(dataset, &mut report),
         Format::SageMaker => analyze_to_sagemaker(dataset, &mut report),
         Format::LabelMe => analyze_to_labelme(dataset, &mut report),
+        Format::SuperAnnotate => analyze_to_superannotate(dataset, &mut report),
+        Format::Supervisely => analyze_to_supervisely(dataset, &mut report),
         Format::CreateMl => analyze_to_createml(dataset, &mut report),
         Format::Kitti => analyze_to_kitti(dataset, &mut report),
         Format::Via => analyze_to_via(dataset, &mut report),
@@ -156,6 +164,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::HfImagefolder => add_hf_reader_policy(&mut report),
         Format::SageMaker => add_sagemaker_reader_policy(&mut report),
         Format::LabelMe => add_labelme_reader_policy(dataset, &mut report),
+        Format::SuperAnnotate => add_superannotate_reader_policy(dataset, &mut report),
+        Format::Supervisely => add_supervisely_reader_policy(dataset, &mut report),
         Format::CreateMl => add_createml_reader_policy(&mut report),
         Format::Kitti => add_kitti_reader_policy(&mut report),
         Format::Via => add_via_reader_policy(&mut report),
@@ -178,6 +188,8 @@ pub fn build_conversion_report(dataset: &Dataset, from: Format, to: Format) -> C
         Format::HfImagefolder => add_hf_writer_policy(&mut report),
         Format::SageMaker => add_sagemaker_writer_policy(&mut report),
         Format::LabelMe => add_labelme_writer_policy(&mut report),
+        Format::SuperAnnotate => add_superannotate_writer_policy(&mut report),
+        Format::Supervisely => add_supervisely_writer_policy(&mut report),
         Format::CreateMl => add_createml_writer_policy(&mut report),
         Format::Kitti => add_kitti_writer_policy(&mut report),
         Format::Via => add_via_writer_policy(&mut report),
@@ -1183,6 +1195,101 @@ fn add_labelme_writer_policy(report: &mut ConversionReport) {
 }
 
 // ============================================================================
+// SuperAnnotate and Supervisely analysis and policy
+// ============================================================================
+
+fn analyze_to_superannotate(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_image_attributes_drop_warning(dataset, report);
+    add_annotation_attributes_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn analyze_to_supervisely(dataset: &Dataset, report: &mut ConversionReport) {
+    add_common_csv_lossiness_warnings(dataset, report);
+    add_image_attributes_drop_warning(dataset, report);
+    add_annotation_drop_warnings(dataset, report);
+    report.output = report.input.clone();
+}
+
+fn add_superannotate_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::SuperannotateReaderIdAssignment,
+        "SuperAnnotate reader assigns image IDs by sorted file_name, category IDs by sorted label, and annotation IDs sequentially by image then instance order"
+            .to_string(),
+    ));
+
+    let has_enveloped_geometry = dataset.annotations.iter().any(|ann| {
+        ann.attributes
+            .get("superannotate_geometry_type")
+            .map(|value| value != "bbox")
+            .unwrap_or(false)
+    });
+    if has_enveloped_geometry {
+        report.add(ConversionIssue::reader_info(
+            ConversionIssueCode::SuperannotatePolygonEnvelopeApplied,
+            "SuperAnnotate reader converted polygon/rotated geometries to axis-aligned bounding box envelopes; original geometry type is stored as superannotate_geometry_type"
+                .to_string(),
+        ));
+    }
+}
+
+fn add_superannotate_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SuperannotateWriterFileLayout,
+        "SuperAnnotate writer emits annotations/<stem>.json files plus classes/classes.json in a canonical directory layout"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SuperannotateWriterRectanglePolicy,
+        "SuperAnnotate writer emits all annotations as bbox instances".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SuperannotateWriterNoImageCopy,
+        "SuperAnnotate writer creates only annotation/class files; images are not copied"
+            .to_string(),
+    ));
+}
+
+fn add_supervisely_reader_policy(dataset: &Dataset, report: &mut ConversionReport) {
+    report.add(ConversionIssue::reader_info(
+        ConversionIssueCode::SuperviselyReaderIdAssignment,
+        "Supervisely reader assigns image IDs by sorted file_name, category IDs by sorted label, and annotation IDs sequentially by image then object order"
+            .to_string(),
+    ));
+
+    let has_polygons = dataset.annotations.iter().any(|ann| {
+        ann.attributes
+            .get("supervisely_geometry_type")
+            .map(|value| value == "polygon")
+            .unwrap_or(false)
+    });
+    if has_polygons {
+        report.add(ConversionIssue::reader_info(
+            ConversionIssueCode::SuperviselyPolygonEnvelopeApplied,
+            "Supervisely reader converted polygon geometries to axis-aligned bounding box envelopes; original geometry type is stored as supervisely_geometry_type"
+                .to_string(),
+        ));
+    }
+}
+
+fn add_supervisely_writer_policy(report: &mut ConversionReport) {
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SuperviselyWriterProjectLayout,
+        "Supervisely writer emits a canonical project layout with meta.json and dataset/ann/*.json"
+            .to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SuperviselyWriterRectanglePolicy,
+        "Supervisely writer emits all annotations as rectangle objects".to_string(),
+    ));
+    report.add(ConversionIssue::writer_info(
+        ConversionIssueCode::SuperviselyWriterNoImageCopy,
+        "Supervisely writer creates only annotation/meta files; images are not copied".to_string(),
+    ));
+}
+
+// ============================================================================
 // CreateML analysis and policy
 // ============================================================================
 
@@ -1741,6 +1848,11 @@ fn add_annotation_drop_warnings(dataset: &Dataset, report: &mut ConversionReport
             ),
         ));
     }
+    add_annotation_attributes_drop_warnings(dataset, report);
+}
+
+/// Adds DropAnnotationAttributes warnings only.
+fn add_annotation_attributes_drop_warnings(dataset: &Dataset, report: &mut ConversionReport) {
     let anns_with_attributes = dataset
         .annotations
         .iter()
@@ -1752,6 +1864,23 @@ fn add_annotation_drop_warnings(dataset: &Dataset, report: &mut ConversionReport
             format!(
                 "{} annotation(s) have attributes that will be dropped",
                 anns_with_attributes
+            ),
+        ));
+    }
+}
+
+fn add_image_attributes_drop_warning(dataset: &Dataset, report: &mut ConversionReport) {
+    let images_with_attributes = dataset
+        .images
+        .iter()
+        .filter(|img| !img.attributes.is_empty())
+        .count();
+    if images_with_attributes > 0 {
+        report.add(ConversionIssue::warning(
+            ConversionIssueCode::DropImageMetadata,
+            format!(
+                "{} image(s) have attributes that will be dropped",
+                images_with_attributes
             ),
         ));
     }
@@ -2163,5 +2292,39 @@ mod tests {
             .issues
             .iter()
             .any(|i| i.code == ConversionIssueCode::CvatWriterDropUnusedCategories));
+    }
+
+    #[test]
+    fn to_superannotate_warns_on_dropped_image_attributes() {
+        let mut dataset = Dataset::default();
+        let mut image = Image::new(1u64, "img.jpg", 100, 100);
+        image
+            .attributes
+            .insert("source".to_string(), "camera-a".to_string());
+        dataset.images.push(image);
+
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::SuperAnnotate);
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::DropImageMetadata));
+    }
+
+    #[test]
+    fn to_supervisely_warns_on_dropped_image_attributes() {
+        let mut dataset = Dataset::default();
+        let mut image = Image::new(1u64, "img.jpg", 100, 100);
+        image
+            .attributes
+            .insert("source".to_string(), "camera-a".to_string());
+        dataset.images.push(image);
+
+        let report = build_conversion_report(&dataset, Format::IrJson, Format::Supervisely);
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.code == ConversionIssueCode::DropImageMetadata));
     }
 }

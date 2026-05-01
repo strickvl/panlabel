@@ -102,6 +102,12 @@ enum ConvertFormat {
     /// LabelMe annotation format (per-image JSON, directory-based).
     #[value(name = "labelme", alias = "labelme-json")]
     LabelMe,
+    /// SuperAnnotate JSON annotation format.
+    #[value(name = "superannotate", alias = "superannotate-json", alias = "sa")]
+    SuperAnnotate,
+    /// Supervisely JSON annotation/project format.
+    #[value(name = "supervisely", alias = "supervisely-json", alias = "sly")]
+    Supervisely,
     /// Apple CreateML annotation format (JSON).
     #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
     CreateMl,
@@ -146,6 +152,8 @@ impl ConvertFormat {
             ConvertFormat::HfImagefolder => conversion::Format::HfImagefolder,
             ConvertFormat::SageMaker => conversion::Format::SageMaker,
             ConvertFormat::LabelMe => conversion::Format::LabelMe,
+            ConvertFormat::SuperAnnotate => conversion::Format::SuperAnnotate,
+            ConvertFormat::Supervisely => conversion::Format::Supervisely,
             ConvertFormat::CreateMl => conversion::Format::CreateMl,
             ConvertFormat::Kitti => conversion::Format::Kitti,
             ConvertFormat::Via => conversion::Format::Via,
@@ -206,6 +214,12 @@ enum ConvertFromFormat {
     /// LabelMe annotation format (per-image JSON, directory-based).
     #[value(name = "labelme", alias = "labelme-json")]
     LabelMe,
+    /// SuperAnnotate JSON annotation format.
+    #[value(name = "superannotate", alias = "superannotate-json", alias = "sa")]
+    SuperAnnotate,
+    /// Supervisely JSON annotation/project format.
+    #[value(name = "supervisely", alias = "supervisely-json", alias = "sly")]
+    Supervisely,
     /// Apple CreateML annotation format (JSON).
     #[value(name = "create-ml", alias = "createml", alias = "create-ml-json")]
     CreateMl,
@@ -251,6 +265,8 @@ impl ConvertFromFormat {
             ConvertFromFormat::HfImagefolder => Some(ConvertFormat::HfImagefolder),
             ConvertFromFormat::SageMaker => Some(ConvertFormat::SageMaker),
             ConvertFromFormat::LabelMe => Some(ConvertFormat::LabelMe),
+            ConvertFromFormat::SuperAnnotate => Some(ConvertFormat::SuperAnnotate),
+            ConvertFromFormat::Supervisely => Some(ConvertFormat::Supervisely),
             ConvertFromFormat::CreateMl => Some(ConvertFormat::CreateMl),
             ConvertFromFormat::Kitti => Some(ConvertFormat::Kitti),
             ConvertFromFormat::Via => Some(ConvertFormat::Via),
@@ -721,6 +737,20 @@ const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
         format: ConvertFormat::LabelMe,
         aliases: &["labelme-json"],
         description: "LabelMe per-image JSON annotation format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::SuperAnnotate,
+        aliases: &["superannotate-json", "sa"],
+        description: "SuperAnnotate JSON annotation format",
+        file_based: true,
+        directory_based: true,
+    },
+    FormatCatalogEntry {
+        format: ConvertFormat::Supervisely,
+        aliases: &["supervisely-json", "sly"],
+        description: "Supervisely JSON annotation/project format",
         file_based: true,
         directory_based: true,
     },
@@ -1470,6 +1500,8 @@ fn read_dataset_with_options(
         ConvertFormat::HfImagefolder => read_hf_dataset_with_options(path, hf_options),
         ConvertFormat::SageMaker => ir::io_sagemaker_manifest::read_sagemaker_manifest(path),
         ConvertFormat::LabelMe => ir::io_labelme_json::read_labelme_json(path),
+        ConvertFormat::SuperAnnotate => ir::io_superannotate_json::read_superannotate_json(path),
+        ConvertFormat::Supervisely => ir::io_supervisely_json::read_supervisely_json(path),
         ConvertFormat::CreateMl => ir::io_createml_json::read_createml_json(path),
         ConvertFormat::Kitti => ir::io_kitti::read_kitti_dir(path),
         ConvertFormat::Via => ir::io_via_json::read_via_json(path),
@@ -1518,6 +1550,12 @@ fn write_dataset_with_options(
             ir::io_sagemaker_manifest::write_sagemaker_manifest(path, dataset)
         }
         ConvertFormat::LabelMe => ir::io_labelme_json::write_labelme_json(path, dataset),
+        ConvertFormat::SuperAnnotate => {
+            ir::io_superannotate_json::write_superannotate_json(path, dataset)
+        }
+        ConvertFormat::Supervisely => {
+            ir::io_supervisely_json::write_supervisely_json(path, dataset)
+        }
         ConvertFormat::CreateMl => ir::io_createml_json::write_createml_json(path, dataset),
         ConvertFormat::Kitti => ir::io_kitti::write_kitti_dir(path, dataset),
         ConvertFormat::Via => ir::io_via_json::write_via_json(path, dataset),
@@ -1682,6 +1720,8 @@ fn format_name(format: ConvertFormat) -> &'static str {
         ConvertFormat::HfImagefolder => "hf",
         ConvertFormat::SageMaker => "sagemaker",
         ConvertFormat::LabelMe => "labelme",
+        ConvertFormat::SuperAnnotate => "superannotate",
+        ConvertFormat::Supervisely => "supervisely",
         ConvertFormat::CreateMl => "create-ml",
         ConvertFormat::Kitti => "kitti",
         ConvertFormat::Via => "via",
@@ -1884,6 +1924,8 @@ fn detect_dir_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
                  - CVAT: annotations.xml at directory root\n  \
                  - HF: metadata.jsonl, metadata.parquet, or parquet shard files\n  \
                  - LabelMe: annotations/ with LabelMe .json files, or co-located .json files\n  \
+                 - SuperAnnotate: annotations/ with SuperAnnotate .json files, or co-located .json files\n  \
+                 - Supervisely: ann/ with .json files, or project meta.json with dataset ann/ directories\n  \
                  - KITTI: label_2/ with .txt files and sibling image_2/\n\
                  Use --from to specify format explicitly."
             .to_string(),
@@ -2006,6 +2048,66 @@ fn probe_dir_formats(path: &Path) -> Result<Vec<FormatProbe>, PanlabelError> {
         labelme.found.push("co-located LabelMe .json files".into());
     }
     probes.push(labelme);
+
+    // --- SuperAnnotate ---
+    let mut superannotate = FormatProbe::new("SuperAnnotate", ConvertFormat::SuperAnnotate);
+    let superannotate_ann_dir = path.join("annotations");
+    if superannotate_ann_dir.is_dir() {
+        superannotate.found.push("annotations/ directory".into());
+        if dir_contains_superannotate_json(&superannotate_ann_dir)? {
+            superannotate.found.push("SuperAnnotate .json files".into());
+        } else {
+            superannotate
+                .missing
+                .push("SuperAnnotate .json files".into());
+        }
+    } else if dir_contains_top_level_superannotate_json(path)? {
+        superannotate
+            .found
+            .push("co-located SuperAnnotate .json files".into());
+    }
+    probes.push(superannotate);
+
+    // --- Supervisely ---
+    let mut supervisely = FormatProbe::new("Supervisely", ConvertFormat::Supervisely);
+    if path.join("ann").is_dir() {
+        supervisely.found.push("ann/ directory".into());
+        if dir_contains_supervisely_json(&path.join("ann"))? {
+            supervisely.found.push("Supervisely .json files".into());
+        } else {
+            supervisely.missing.push("Supervisely .json files".into());
+        }
+    } else if path.join("meta.json").is_file() {
+        supervisely.found.push("meta.json".into());
+        let mut dataset_ann_dirs = 0usize;
+        for entry in
+            std::fs::read_dir(path).map_err(|source| PanlabelError::FormatDetectionFailed {
+                path: path.to_path_buf(),
+                reason: format!("failed while inspecting directory: {source}"),
+            })?
+        {
+            let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+                path: path.to_path_buf(),
+                reason: format!("failed while inspecting directory: {source}"),
+            })?;
+            let ann_dir = entry.path().join("ann");
+            if entry.path().is_dir() && ann_dir.is_dir() && dir_contains_supervisely_json(&ann_dir)?
+            {
+                dataset_ann_dirs += 1;
+            }
+        }
+        if dataset_ann_dirs > 0 {
+            supervisely.found.push(format!(
+                "meta.json with {dataset_ann_dirs} dataset ann/ director{}",
+                if dataset_ann_dirs == 1 { "y" } else { "ies" }
+            ));
+        } else {
+            supervisely
+                .missing
+                .push("dataset ann/ directories with Supervisely .json files".into());
+        }
+    }
+    probes.push(supervisely);
 
     Ok(probes)
 }
@@ -2192,6 +2294,82 @@ fn dir_contains_labelme_json(dir: &Path) -> Result<bool, PanlabelError> {
             if let Ok(contents) = std::fs::read_to_string(&entry_path) {
                 if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
                     if is_likely_labelme_file(&value) {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// Check if a directory contains at least one SuperAnnotate annotation JSON file.
+fn dir_contains_superannotate_json(dir: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_json_matching(dir, is_likely_superannotate_file)
+}
+
+/// Check if a directory contains at least one top-level SuperAnnotate JSON file.
+fn dir_contains_top_level_superannotate_json(dir: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_top_level_json_matching(dir, is_likely_superannotate_file)
+}
+
+/// Check if a directory contains at least one Supervisely annotation JSON file.
+fn dir_contains_supervisely_json(dir: &Path) -> Result<bool, PanlabelError> {
+    dir_contains_json_matching(dir, is_likely_supervisely_file)
+}
+
+fn dir_contains_top_level_json_matching(
+    dir: &Path,
+    predicate: fn(&serde_json::Value) -> bool,
+) -> Result<bool, PanlabelError> {
+    for entry in std::fs::read_dir(dir).map_err(|source| PanlabelError::FormatDetectionFailed {
+        path: dir.to_path_buf(),
+        reason: format!("failed while inspecting directory: {source}"),
+    })? {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: dir.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if entry_path.is_file()
+            && entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("json"))
+                .unwrap_or(false)
+        {
+            if let Ok(contents) = std::fs::read_to_string(&entry_path) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
+                    if predicate(&value) {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
+fn dir_contains_json_matching(
+    dir: &Path,
+    predicate: fn(&serde_json::Value) -> bool,
+) -> Result<bool, PanlabelError> {
+    for entry in walkdir::WalkDir::new(dir).follow_links(true) {
+        let entry = entry.map_err(|source| PanlabelError::FormatDetectionFailed {
+            path: dir.to_path_buf(),
+            reason: format!("failed while inspecting directory: {source}"),
+        })?;
+        let entry_path = entry.path();
+        if entry.file_type().is_file()
+            && entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("json"))
+                .unwrap_or(false)
+        {
+            if let Ok(contents) = std::fs::read_to_string(entry_path) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) {
+                    if predicate(&value) {
                         return Ok(true);
                     }
                 }
@@ -2471,6 +2649,15 @@ fn detect_json_format(path: &Path) -> Result<ConvertFormat, PanlabelError> {
         return Ok(ConvertFormat::LabelMe);
     }
 
+    // Object-root: check for new per-image JSON formats before COCO/IR heuristic.
+    if is_likely_superannotate_file(&value) {
+        return Ok(ConvertFormat::SuperAnnotate);
+    }
+
+    if is_likely_supervisely_file(&value) {
+        return Ok(ConvertFormat::Supervisely);
+    }
+
     // Object-root: check for VIA project (entries with filename + regions)
     if is_likely_via_project(&value) {
         return Ok(ConvertFormat::Via);
@@ -2617,6 +2804,52 @@ fn is_likely_labelme_file(value: &serde_json::Value) -> bool {
     };
 
     obj.get("shapes").map(|v| v.is_array()).unwrap_or(false)
+}
+
+/// Detect whether a JSON object looks like a SuperAnnotate annotation file.
+///
+/// Heuristic: object with `metadata.width`, `metadata.height`, and an `instances` array.
+fn is_likely_superannotate_file(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    let has_instances = obj.get("instances").map(|v| v.is_array()).unwrap_or(false);
+    let has_dimensions = obj
+        .get("metadata")
+        .and_then(|metadata| metadata.as_object())
+        .map(|metadata| {
+            metadata
+                .get("width")
+                .is_some_and(serde_json::Value::is_number)
+                && metadata
+                    .get("height")
+                    .is_some_and(serde_json::Value::is_number)
+        })
+        .unwrap_or(false);
+
+    has_instances && has_dimensions
+}
+
+/// Detect whether a JSON object looks like a Supervisely annotation file.
+///
+/// Heuristic: object with `size.width`, `size.height`, and an `objects` array.
+fn is_likely_supervisely_file(value: &serde_json::Value) -> bool {
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+
+    let has_objects = obj.get("objects").map(|v| v.is_array()).unwrap_or(false);
+    let has_dimensions = obj
+        .get("size")
+        .and_then(|size| size.as_object())
+        .map(|size| {
+            size.get("width").is_some_and(serde_json::Value::is_number)
+                && size.get("height").is_some_and(serde_json::Value::is_number)
+        })
+        .unwrap_or(false);
+
+    has_objects && has_dimensions
 }
 
 fn is_likely_via_project(value: &serde_json::Value) -> bool {

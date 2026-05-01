@@ -1,0 +1,43 @@
+{
+  "description": "",
+  "tags": [],
+  "size": {
+    "width": 640,
+    "height": 480
+  },
+  "objects": [
+    {
+      "id": 201,
+      "classTitle": "cat",
+      "geometryType": "rectangle",
+      "geometry": {
+        "points": {
+          "exterior": [[10.0, 20.0], [100.0, 80.0]],
+          "interior": []
+        }
+      }
+    },
+    {
+      "id": "poly-1",
+      "classTitle": "dog",
+      "geometryType": "polygon",
+      "geometry": {
+        "points": {
+          "exterior": [[50.0, 60.0], [200.0, 150.0], [120.0, 210.0]],
+          "interior": []
+        }
+      }
+    },
+    {
+      "id": "poly-2",
+      "classTitle": "car",
+      "geometryType": "polygon",
+      "geometry": {
+        "points": {
+          "exterior": [[300.0, 100.0], [360.0, 120.0], [340.0, 180.0], [280.0, 160.0]],
+          "interior": []
+        }
+      }
+    }
+  ]
+}

@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records), YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, and IR JSON with lossiness tracking.
+Scope guardrail: panlabel currently covers mainstream/static-image 2D axis-aligned object-detection bbox conversion. It does not provide first-class segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels; richer source structures are skipped/reported or treated as lossy.
+
+**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, VIA CSV, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records), YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, Datumaro JSON, WIDER Face TXT, OIDv4 TXT, BDD100K/Scalabel JSON, V7 Darwin JSON, Edge Impulse `bounding_boxes.labels`, ASAM OpenLABEL JSON (2D bbox subset), and IR JSON with lossiness tracking.
 
 ## Common Commands
 
@@ -146,6 +148,14 @@ src/
 │   ├── io_supervisely_json.rs   # Supervisely JSON reader/writer
 │   ├── io_cityscapes_json.rs    # Cityscapes polygon JSON reader/writer
 │   ├── io_marmot_xml.rs         # Marmot XML reader/writer
+│   ├── io_datumaro_json.rs      # Datumaro JSON reader/writer
+│   ├── io_wider_face_txt.rs     # WIDER Face aggregate TXT reader/writer
+│   ├── io_oidv4_txt.rs          # OIDv4 Toolkit TXT reader/writer (`Label/` directories)
+│   ├── io_bdd100k_json.rs       # BDD100K / Scalabel JSON bbox-subset reader/writer
+│   ├── io_v7_darwin_json.rs     # V7 Darwin JSON bbox-subset reader/writer
+│   ├── io_edge_impulse_labels.rs # Edge Impulse bounding_boxes.labels reader/writer
+│   ├── io_openlabel_json.rs     # ASAM OpenLABEL JSON static-image 2D bbox-subset reader/writer
+│   ├── io_via_csv.rs            # VIA CSV reader/writer (separate from VIA JSON)
 │   ├── io_super_json_common.rs  # Shared helpers for SuperAnnotate/Supervisely adapters
 │   └── io_json.rs      # IR JSON format (canonical serialization)
 ├── validation/         # Dataset validation
@@ -185,6 +195,14 @@ tests/
 ├── supervisely_roundtrip.rs   # Supervisely JSON format roundtrip tests
 ├── cityscapes_roundtrip.rs    # Cityscapes JSON format roundtrip tests
 ├── marmot_roundtrip.rs        # Marmot XML format roundtrip tests
+├── datumaro_roundtrip.rs      # Datumaro JSON roundtrip tests
+├── wider_face_roundtrip.rs    # WIDER Face TXT roundtrip tests
+├── oidv4_roundtrip.rs         # OIDv4 TXT roundtrip tests
+├── bdd100k_roundtrip.rs       # BDD100K JSON roundtrip tests
+├── v7_darwin_roundtrip.rs     # V7 Darwin JSON roundtrip tests
+├── edge_impulse_roundtrip.rs  # Edge Impulse labels roundtrip tests
+├── openlabel_roundtrip.rs     # OpenLABEL JSON roundtrip tests
+├── via_csv_roundtrip.rs       # VIA CSV roundtrip tests
 └── fixtures/           # Test fixture files
 
 proptest-regressions/

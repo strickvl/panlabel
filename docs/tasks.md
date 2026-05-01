@@ -8,18 +8,19 @@ within those boundaries.
 
 | Task / use case | Status | Notes |
 |---|---|---|
-| Object detection (axis-aligned bbox) | ✅ supported | Canonical IR task today |
+| Object detection (static-image, 2D axis-aligned bbox) | ✅ supported | Canonical IR task today |
 | Instance segmentation | ❌ not supported | Polygon/mask structures are not represented in IR |
 | Classification-only labels | ❌ not supported | No classification-only schema/adapter yet |
 | Keypoints / pose | ❌ not supported | Keypoint fields are not modeled in IR |
 | Oriented bounding boxes (OBB) | ❌ not supported | Rotated-box schema not implemented |
 | Tracking / video IDs | ❌ not supported | Track identity schema not implemented |
+| 3D / multisensor labels | ❌ not supported | No 3D cuboid/multisensor schema in IR |
 
 ## Detection task (supported)
 
 ### Canonical representation in panlabel
 
-- Task: object detection
+- Task: mainstream/static-image 2D axis-aligned object detection
 - Geometry: axis-aligned bbox
 - Internal bbox representation: **pixel-space XYXY**
 
@@ -52,11 +53,19 @@ within those boundaries.
 | `create-ml` | yes | yes | Apple CreateML JSON array; center-based absolute pixel coordinates; file based |
 | `kitti` | yes | yes | directory-based; per-image `.txt` files with 15-field KITTI rows; absolute pixel coordinates |
 | `via` | yes | yes | VGG Image Annotator single-file JSON; rectangle regions; absolute pixel coordinates |
+| `via-csv` | yes | yes | VGG Image Annotator CSV (separate from VIA JSON); non-rect rows skipped and counted (`via_csv_non_rect_regions_skipped`) |
 | `retinanet` | yes | yes | keras-retinanet CSV; absolute pixel XYXY coordinates; file based |
 | `openimages` | yes | yes | Google OpenImages CSV; normalized XYXY coordinates plus confidence/source metadata |
 | `kaggle-wheat` | yes | yes | Kaggle Global Wheat Detection CSV; single-class bbox strings (`[xmin, ymin, width, height]`) |
 | `automl-vision` | yes | yes | Google Cloud AutoML Vision CSV; sparse GCS/local path rows with normalized bbox corners |
 | `udacity` | yes | yes | Udacity Self-Driving Car CSV; TFOD-like header with absolute pixel coordinates |
+| `datumaro` | yes | yes | Datumaro JSON bbox subset; unsupported annotations skipped/counted (`datumaro_unsupported_annotations_skipped`) |
+| `wider-face` | yes | yes | WIDER Face aggregate TXT; categories collapse to single `face` class on write |
+| `oidv4` | yes | yes | OIDv4 TXT with `Label/` directory detection (distinct from YOLO `labels/`) |
+| `bdd100k` | yes | yes | BDD100K/Scalabel JSON bbox subset; non-box labels skipped/counted (`bdd100k_unsupported_labels_skipped`) |
+| `v7-darwin` | yes | yes | V7 Darwin JSON bbox subset; non-bbox annotations skipped/counted (`darwin_unsupported_annotations_skipped`) |
+| `edge-impulse` | yes | yes | Edge Impulse `bounding_boxes.labels` bbox JSON |
+| `openlabel` | yes | yes | ASAM OpenLABEL static-image 2D bbox subset; unsupported object data skipped/counted (`openlabel_unsupported_data_skipped`) |
 
 For per-format details, see [formats.md](./formats.md).
 
@@ -75,6 +84,7 @@ Examples:
 - Labelbox polygons are flattened to bbox envelopes; points, masks, lines, and other non-detection object kinds are skipped with warnings while preserving the image row.
 - Scale AI polygons and rotated boxes with vertices are flattened to bbox envelopes; lines, points, cuboids, ellipses, and other unsupported geometry are rejected clearly.
 - Unity Perception imports `BoundingBox2D` values and skips segmentation/keypoint/other non-bbox annotation blocks with warnings while preserving captures/images.
+- Datumaro, BDD100K, V7 Darwin, OpenLABEL, and VIA CSV bbox adapters keep conversion focused on bbox subsets and skip/report richer structures with explicit counters.
 
 ## Detection boundaries by format
 

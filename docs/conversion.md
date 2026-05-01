@@ -5,6 +5,9 @@ formats, some fields may not have an equivalent in the target format — that's
 what panlabel calls "lossiness." Rather than silently dropping data, panlabel
 tells you exactly what would be lost and asks you to opt in with `--allow-lossy`.
 
+Scope reminder: panlabel focuses on mainstream/static-image 2D axis-aligned object-detection bbox conversion.
+Segmentation, keypoints/pose, oriented boxes, video tracking IDs, and 3D/multisensor labels are out of first-class scope; richer structures are skipped/reported or handled as lossy.
+
 Every `convert` command generates a report explaining what happened.
 
 ## Lossiness model
@@ -46,6 +49,14 @@ Format-level lossiness relative to IR:
 - `kaggle-wheat`: lossy
 - `automl-vision`: lossy
 - `udacity`: lossy
+- `datumaro`: lossy
+- `wider-face`: lossy
+- `oidv4`: lossy
+- `bdd100k`: lossy
+- `v7-darwin`: lossy
+- `edge-impulse`: lossy
+- `openlabel`: lossy
+- `via-csv`: lossy
 
 The format-level class is a general capability signal. Conversions are actually blocked only when the report contains one or more `warning` issues.
 
@@ -270,3 +281,31 @@ This lets you inspect exactly what would change before deciding to use
   which warnings triggered the block.
 - Use `--report json` for machine-readable output, even on blocked conversions.
 - Prefer explicit `--allow-lossy` only when you accept those specific losses.
+
+### Issue-code entries for the eight bbox-only adapters
+
+These stable codes are currently emitted by the static-image bbox-only adapters:
+
+- `datumaro_reader_id_assignment`
+- `datumaro_writer_deterministic_order`
+- `wider_face_reader_id_assignment`
+- `wider_face_writer_file_layout`
+- `oidv4_reader_id_assignment`
+- `oidv4_writer_file_layout`
+- `bdd100k_reader_id_assignment`
+- `bdd100k_writer_deterministic_order`
+- `v7_darwin_reader_id_assignment`
+- `v7_darwin_writer_deterministic_order`
+- `edge_impulse_reader_id_assignment`
+- `edge_impulse_writer_deterministic_order`
+- `openlabel_reader_id_assignment`
+- `openlabel_writer_frame_layout`
+- `via_csv_reader_id_assignment`
+- `via_csv_writer_deterministic_order`
+
+Related implementation counters in dataset metadata (set by readers when richer structures are skipped):
+- `datumaro_unsupported_annotations_skipped`
+- `bdd100k_unsupported_labels_skipped`
+- `darwin_unsupported_annotations_skipped`
+- `openlabel_unsupported_data_skipped`
+- `via_csv_non_rect_regions_skipped`

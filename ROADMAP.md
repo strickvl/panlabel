@@ -9,7 +9,7 @@ For current, implemented behavior, use:
 
 ## Current baseline
 
-- ✅ Detection task support (axis-aligned bboxes)
+- ✅ Detection task support (static-image, 2D axis-aligned bboxes)
 - ✅ Formats: broad object-detection coverage across JSON, XML, CSV, TXT, TFRecord, and directory layouts; see `docs/formats.md` for the exhaustive implemented list
 - ✅ Conversion lossiness analysis and report JSON output
 - ✅ CLI: convert, validate, stats, diff, sample, list-formats
@@ -25,6 +25,8 @@ Goal: comprehensive coverage of every object detection annotation format in
 active or legacy use, so that any dataset can be converted to any other format.
 
 Status note: object-detection format coverage is now feature-complete relative to this roadmap's currently planned detection-format list. This does **not** imply support for arbitrary TFRecord payloads; TFRecord support is intentionally limited to the v1 TFOD-style `tf.train.Example` bbox scope above.
+
+Scope guardrail: panlabel currently targets mainstream/static-image 2D axis-aligned object-detection bbox conversion. Segmentation, keypoints/pose, oriented boxes, video tracking IDs, and 3D/multisensor labels are still out of first-class scope; richer source structures are skipped/reported or handled as lossy.
 
 #### Already supported
 
@@ -44,6 +46,14 @@ Status note: object-detection format coverage is now feature-complete relative t
 - ✅ Google Cloud AutoML Vision CSV (GCP import/export format with sparse layout)
 - ✅ Udacity Self-Driving Car CSV (absolute pixel coordinate CSV)
 - ✅ TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records)
+- ✅ Datumaro JSON
+- ✅ WIDER Face TXT (single face class)
+- ✅ OIDv4 Toolkit TXT (`Label/` directory layout)
+- ✅ BDD100K / Scalabel JSON bbox subset
+- ✅ V7 Darwin JSON bbox subset
+- ✅ Edge Impulse `bounding_boxes.labels`
+- ✅ ASAM OpenLABEL JSON static-image 2D bbox subset
+- ✅ VIA CSV (separate from VIA JSON)
 
 #### YOLO variant improvements
 

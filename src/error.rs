@@ -55,6 +55,67 @@ pub enum PanlabelError {
     #[error("Invalid Label Studio JSON: {path}: {message}")]
     LabelStudioJsonInvalid { path: PathBuf, message: String },
 
+    #[error("Failed to parse Labelbox JSON from {path}: {source}")]
+    LabelboxJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to parse Labelbox JSONL at {path}, line {line}: {message}")]
+    LabelboxJsonlParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error("Failed to write Labelbox JSON to {path}: {source}")]
+    LabelboxJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid Labelbox JSON at {path}: {message}")]
+    LabelboxJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse Scale AI JSON from {path}: {source}")]
+    ScaleAiJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write Scale AI JSON to {path}: {source}")]
+    ScaleAiJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid Scale AI JSON at {path}: {message}")]
+    ScaleAiJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse Unity Perception JSON from {path}: {source}")]
+    UnityPerceptionJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write Unity Perception JSON to {path}: {source}")]
+    UnityPerceptionJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid Unity Perception JSON at {path}: {message}")]
+    UnityPerceptionJsonInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to write Unity Perception dataset at {path}: {message}")]
+    UnityPerceptionWriteError { path: PathBuf, message: String },
+
     #[error("Failed to parse SuperAnnotate JSON from {path}: {source}")]
     SuperAnnotateJsonParse {
         path: PathBuf,
@@ -307,6 +368,66 @@ pub enum PanlabelError {
 
     #[error("Invalid Udacity CSV: {path}: {message}")]
     UdacityCsvInvalid { path: PathBuf, message: String },
+
+    #[error("Failed to parse VoTT CSV from {path}: {source}")]
+    VottCsvParse {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Failed to write VoTT CSV to {path}: {source}")]
+    VottCsvWrite {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+
+    #[error("Invalid VoTT CSV: {path}: {message}")]
+    VottCsvInvalid { path: PathBuf, message: String },
+
+    #[error("VoTT CSV image not found: {image_ref} (searched from {path})")]
+    VottCsvImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to parse VoTT JSON from {path}: {source}")]
+    VottJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write VoTT JSON to {path}: {source}")]
+    VottJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid VoTT JSON at {path}: {message}")]
+    VottJsonInvalid { path: PathBuf, message: String },
+
+    #[error("VoTT JSON image not found: {image_ref} (searched from {path})")]
+    VottJsonImageNotFound { path: PathBuf, image_ref: String },
+
+    #[error("Failed to parse IBM Cloud Annotations JSON from {path}: {source}")]
+    CloudAnnotationsJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write IBM Cloud Annotations JSON to {path}: {source}")]
+    CloudAnnotationsJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Invalid IBM Cloud Annotations JSON at {path}: {message}")]
+    CloudAnnotationsJsonInvalid { path: PathBuf, message: String },
+
+    #[error("IBM Cloud Annotations image not found: {image_ref} (searched from {path})")]
+    CloudAnnotationsImageNotFound { path: PathBuf, image_ref: String },
 
     #[error("Invalid CVAT XML layout at {path}: {message}")]
     CvatLayoutInvalid { path: PathBuf, message: String },

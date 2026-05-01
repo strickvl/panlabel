@@ -1,0 +1,3 @@
+image,xmin,ymin,xmax,ymax,label
+img1.bmp,10,20,50,70,person
+img2.bmp,5,4,30,20,car

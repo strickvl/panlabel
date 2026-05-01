@@ -17,9 +17,15 @@ A conversion report issue has a severity:
 Format-level lossiness relative to IR:
 - `ir-json`: lossless
 - `coco`: conditional
+- `ibm-cloud-annotations`: lossy
 - `cvat`: lossy
 - `label-studio`: lossy
+- `labelbox`: lossy
+- `scale-ai`: lossy
+- `unity-perception`: lossy
 - `tfod`: lossy
+- `vott-csv`: lossy
+- `vott-json`: lossy
 - `yolo`: lossy
 - `voc`: lossy
 - `hf`: lossy
@@ -79,6 +85,10 @@ These codes are designed to be stable for programmatic use.
 | `drop_dataset_info_name` | `info.name` has no COCO equivalent |
 | `coco_attributes_may_not_be_preserved` | Some COCO-tool roundtrips may not preserve nonstandard attributes |
 | `label_studio_rotation_dropped` | Rotated Label Studio boxes are flattened to axis-aligned envelopes; angle is kept as `ls_rotation_deg` attribute |
+| `labelbox_polygon_envelope_applied` | Labelbox polygons are flattened to axis-aligned bbox envelopes |
+| `labelbox_unsupported_objects_skipped` | Labelbox non-detection objects were skipped while preserving image rows |
+| `scale_ai_geometry_envelope_applied` | Scale AI polygons or rotated boxes were flattened to axis-aligned bbox envelopes |
+| `unity_perception_unsupported_annotations_skipped` | Unity Perception non-bbox annotation blocks were skipped while preserving captures/images |
 | `hf_metadata_lost` | HF metadata cannot represent full IR dataset metadata/licenses/supercategory fields |
 | `hf_attributes_lost` | HF metadata drops image/annotation attributes outside its flat schema |
 | `hf_confidence_lost` | HF metadata does not preserve annotation confidence |
@@ -96,6 +106,20 @@ These codes are designed to be stable for programmatic use.
 | `coco_writer_empty_segmentation` | COCO writer emits empty segmentation arrays for detection-only output |
 | `tfod_reader_id_assignment` | TFOD reader deterministic ID policy |
 | `tfod_writer_row_order` | TFOD writer deterministic row order |
+| `vott_csv_reader_id_assignment` | VoTT CSV reader deterministic ID policy |
+| `vott_csv_reader_image_resolution` | VoTT CSV reader image dimension resolution from disk |
+| `vott_csv_writer_row_order` | VoTT CSV writer deterministic row order |
+| `vott_csv_writer_no_image_copy` | VoTT CSV writer does not copy image files |
+| `vott_json_reader_id_assignment` | VoTT JSON reader deterministic ID policy |
+| `vott_json_polygon_envelope_applied` | VoTT JSON reader flattened point/polygon-like geometry to bbox envelopes |
+| `vott_json_writer_deterministic_order` | VoTT JSON writer deterministic ordering policy |
+| `vott_json_writer_rectangle_policy` | VoTT JSON writer emits rectangle regions with `boundingBox` and corner points |
+| `vott_json_writer_no_image_copy` | VoTT JSON writer does not copy image files |
+| `cloud_annotations_reader_id_assignment` | IBM Cloud Annotations reader deterministic ID policy |
+| `cloud_annotations_reader_image_resolution` | IBM Cloud Annotations reader image dimension resolution from disk |
+| `cloud_annotations_writer_deterministic_order` | IBM Cloud Annotations writer deterministic ordering policy |
+| `cloud_annotations_writer_normalized_coordinates` | IBM Cloud Annotations writer normalized coordinate mapping |
+| `cloud_annotations_writer_no_image_copy` | IBM Cloud Annotations writer does not copy image files |
 | `yolo_reader_id_assignment` | YOLO reader deterministic ID policy |
 | `yolo_reader_class_map_source` | YOLO class map precedence/source note |
 | `yolo_writer_class_order` | YOLO writer class index assignment policy |
@@ -116,6 +140,21 @@ These codes are designed to be stable for programmatic use.
 | `label_studio_reader_image_ref_policy` | Label Studio reader image reference mapping policy |
 | `label_studio_writer_from_to_defaults` | Label Studio writer default `from_name` / `to_name` policy |
 | `label_studio_writer_confidence_routing` | Label Studio writer routes confident annotations to predictions block |
+| `labelbox_reader_id_assignment` | Labelbox reader deterministic ID assignment policy |
+| `labelbox_reader_image_metadata` | Labelbox reader `data_row` / `media_attributes` mapping policy |
+| `labelbox_writer_format_policy` | Labelbox writer chooses NDJSON for `.jsonl`/`.ndjson`, otherwise JSON array |
+| `labelbox_writer_rectangle_policy` | Labelbox writer emits bbox-only `ImageBoundingBox` objects |
+| `labelbox_writer_no_image_copy` | Labelbox writer does not copy image files |
+| `scale_ai_reader_id_assignment` | Scale AI reader deterministic ID assignment policy |
+| `scale_ai_reader_image_metadata` | Scale AI reader image reference and dimension resolution policy |
+| `scale_ai_writer_deterministic_order` | Scale AI writer deterministic ordering policy |
+| `scale_ai_writer_rectangle_policy` | Scale AI writer emits bbox-only `type: "box"` response annotations |
+| `scale_ai_writer_no_image_copy` | Scale AI writer does not copy image files |
+| `unity_perception_reader_id_assignment` | Unity Perception reader deterministic ID assignment policy |
+| `unity_perception_reader_image_metadata` | Unity Perception reader capture/image metadata and dimension-resolution policy |
+| `unity_perception_writer_directory_layout` | Unity Perception writer emits `annotation_definitions.json` plus `sequence.0/step*.frame_data.json` |
+| `unity_perception_writer_rectangle_policy` | Unity Perception writer emits bbox-only `BoundingBox2D` values |
+| `unity_perception_writer_no_image_copy` | Unity Perception writer does not copy image files |
 | `cvat_reader_id_assignment` | CVAT reader deterministic ID assignment policy |
 | `cvat_reader_attribute_policy` | CVAT reader coordinate + attribute mapping policy |
 | `cvat_writer_meta_defaults` | CVAT writer minimal `<meta>` block policy |

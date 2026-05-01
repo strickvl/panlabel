@@ -115,6 +115,92 @@ fn create_sample_cvat_export(root: &Path) {
     fs::write(root.join("annotations.xml"), xml).expect("write cvat annotations.xml");
 }
 
+fn create_sample_cloud_annotations_dataset(root: &Path) {
+    fs::create_dir_all(root).expect("create cloud annotations root");
+    write_bmp(&root.join("img1.bmp"), 100, 80);
+    fs::write(
+        root.join("_annotations.json"),
+        r#"{
+            "version": "1.0",
+            "type": "localization",
+            "labels": ["person"],
+            "annotations": {
+                "img1.bmp": [{"x": 0.1, "y": 0.25, "x2": 0.5, "y2": 0.875, "label": "person"}]
+            }
+        }"#,
+    )
+    .expect("write cloud annotations json");
+}
+
+fn create_sample_vott_json_dataset(root: &Path) {
+    fs::create_dir_all(root.join("vott-json-export")).expect("create vott export root");
+    fs::write(
+        root.join("vott-json-export/panlabel-export.json"),
+        r##"{
+            "name": "sample-vott-json",
+            "version": "2.2.0",
+            "tags": [{"name": "person", "color": "#e6194b"}],
+            "assets": {
+                "asset-img1": {
+                    "asset": {"id": "asset-img1", "name": "img1.bmp", "path": "file:img1.bmp", "size": {"width": 100, "height": 80}, "format": "bmp"},
+                    "regions": [{"id": "r1", "type": "RECTANGLE", "tags": ["person"], "boundingBox": {"left": 10, "top": 20, "width": 40, "height": 50}}],
+                    "version": "2.2.0"
+                }
+            }
+        }"##,
+    )
+    .expect("write vott json");
+}
+
+fn create_sample_labelbox_jsonl(path: &Path) {
+    fs::write(
+        path,
+        r#"{"data_row":{"id":"dr-1","external_id":"img1.jpg","row_data":"s3://bucket/img1.jpg"},"media_attributes":{"width":100,"height":80},"projects":{"project-a":{"labels":[{"annotations":{"objects":[{"feature_id":"bbox-1","name":"person","annotation_kind":"ImageBoundingBox","bounding_box":{"top":20,"left":10,"height":30,"width":40}}]}}]}}}
+"#,
+    )
+    .expect("write labelbox jsonl");
+}
+
+fn create_sample_scale_ai_dataset(root: &Path) {
+    fs::create_dir_all(root.join("annotations")).expect("create scale annotations dir");
+    fs::write(
+        root.join("annotations/img1.json"),
+        r#"{
+            "task_id": "task-img1",
+            "type": "imageannotation",
+            "params": {"attachment": "img1.jpg", "metadata": {"width": 100, "height": 80}},
+            "response": {"annotations": [
+                {"type": "box", "label": "person", "left": 10, "top": 20, "width": 40, "height": 50}
+            ]}
+        }"#,
+    )
+    .expect("write scale ai json");
+}
+
+fn create_sample_unity_perception_dataset(root: &Path) {
+    fs::create_dir_all(root.join("sequence.0")).expect("create unity sequence dir");
+    fs::write(
+        root.join("sequence.0/step0.frame_data.json"),
+        r#"{
+            "frame": 0,
+            "sequence": 0,
+            "step": 0,
+            "captures": [{
+                "@type": "type.unity.com/unity.solo.RGBCamera",
+                "id": "camera",
+                "filename": "img1.png",
+                "dimension": [100, 80],
+                "annotations": [{
+                    "@type": "type.unity.com/unity.solo.BoundingBox2DAnnotation",
+                    "id": "bbox-def",
+                    "values": [{"label_id": 1, "label_name": "person", "instance_id": 1, "x": 10, "y": 20, "width": 40, "height": 50}]
+                }]
+            }]
+        }"#,
+    )
+    .expect("write unity perception frame json");
+}
+
 fn create_sample_hf_dataset(root: &Path, xyxy: bool) {
     fs::create_dir_all(root).expect("create hf root");
     write_bmp(&root.join("img1.bmp"), 100, 80);
@@ -2584,9 +2670,15 @@ fn list_formats_shows_all_formats() {
         .success()
         .stdout(predicates::str::contains("ir-json"))
         .stdout(predicates::str::contains("coco"))
+        .stdout(predicates::str::contains("ibm-cloud-annotations"))
         .stdout(predicates::str::contains("cvat"))
         .stdout(predicates::str::contains("label-studio"))
+        .stdout(predicates::str::contains("labelbox"))
+        .stdout(predicates::str::contains("scale-ai"))
+        .stdout(predicates::str::contains("unity-perception"))
         .stdout(predicates::str::contains("tfod"))
+        .stdout(predicates::str::contains("vott-csv"))
+        .stdout(predicates::str::contains("vott-json"))
         .stdout(predicates::str::contains("yolo"))
         .stdout(predicates::str::contains("voc"))
         .stdout(predicates::str::contains("hf"))
@@ -2628,7 +2720,7 @@ fn list_formats_json_output_has_expected_schema() {
     let (stdout, parsed) = stdout_json(&output);
     assert_compact_json(&stdout);
     let formats = parsed.as_array().expect("top-level array");
-    assert_eq!(formats.len(), 20);
+    assert_eq!(formats.len(), 26);
 
     let label_studio = formats
         .iter()
@@ -2642,6 +2734,55 @@ fn list_formats_json_output_has_expected_schema() {
         .collect::<Vec<_>>();
     assert!(label_studio_aliases.contains(&"label-studio-json"));
     assert!(label_studio_aliases.contains(&"ls"));
+
+    let labelbox = formats
+        .iter()
+        .find(|entry| entry["name"] == "labelbox")
+        .expect("labelbox entry");
+    let labelbox_aliases = labelbox["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(labelbox_aliases.contains(&"labelbox-json"));
+    assert!(labelbox_aliases.contains(&"labelbox-ndjson"));
+    assert_eq!(labelbox["file_based"], true);
+    assert_eq!(labelbox["directory_based"], false);
+    assert_eq!(labelbox["lossiness"], "lossy");
+
+    let scale_ai = formats
+        .iter()
+        .find(|entry| entry["name"] == "scale-ai")
+        .expect("scale-ai entry");
+    let scale_ai_aliases = scale_ai["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(scale_ai_aliases.contains(&"scale"));
+    assert!(scale_ai_aliases.contains(&"scale-ai-json"));
+    assert_eq!(scale_ai["file_based"], true);
+    assert_eq!(scale_ai["directory_based"], true);
+    assert_eq!(scale_ai["lossiness"], "lossy");
+
+    let unity = formats
+        .iter()
+        .find(|entry| entry["name"] == "unity-perception")
+        .expect("unity-perception entry");
+    let unity_aliases = unity["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(unity_aliases.contains(&"unity"));
+    assert!(unity_aliases.contains(&"unity-perception-json"));
+    assert!(unity_aliases.contains(&"solo"));
+    assert_eq!(unity["file_based"], true);
+    assert_eq!(unity["directory_based"], true);
+    assert_eq!(unity["lossiness"], "lossy");
 
     let yolo = formats
         .iter()
@@ -2716,6 +2857,12 @@ fn list_formats_json_output_has_expected_schema() {
 
     for name in [
         "tfod",
+        "vott-csv",
+        "vott-json",
+        "ibm-cloud-annotations",
+        "labelbox",
+        "scale-ai",
+        "unity-perception",
         "yolo",
         "voc",
         "hf",
@@ -2794,6 +2941,128 @@ fn convert_auto_detects_tfod_format() {
 
     // Clean up
     let _ = std::fs::remove_file(&output_path);
+}
+
+#[test]
+fn convert_auto_detects_vott_csv_format() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    write_bmp(&temp.path().join("img1.bmp"), 100, 80);
+    let csv_path = temp.path().join("annotations.csv");
+    fs::write(
+        &csv_path,
+        "image,xmin,ymin,xmax,ymax,label\nimg1.bmp,10,20,50,70,person\n",
+    )
+    .expect("write vott csv");
+    let output_path = temp.path().join("auto_detect_vott.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        csv_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(vott-csv)"));
+}
+
+#[test]
+fn convert_auto_detects_vott_json_file() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    create_sample_vott_json_dataset(temp.path());
+    let json_path = temp.path().join("vott-json-export/panlabel-export.json");
+    let output_path = temp.path().join("auto_detect_vott_json_file.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        json_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(vott-json)"));
+}
+
+#[test]
+fn convert_auto_detects_vott_json_directory() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    create_sample_vott_json_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_vott_json_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(vott-json)"));
+}
+
+#[test]
+fn convert_auto_detects_cloud_annotations_file() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    create_sample_cloud_annotations_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_cloud_annotations.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().join("_annotations.json").to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(ibm-cloud-annotations)"));
+}
+
+#[test]
+fn convert_auto_detects_cloud_annotations_directory() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    create_sample_cloud_annotations_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_cloud_annotations_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(ibm-cloud-annotations)"));
 }
 
 #[test]
@@ -2940,6 +3209,220 @@ fn convert_auto_detects_sagemaker_jsonl_format() {
     cmd.assert()
         .success()
         .stdout(predicates::str::contains("(sagemaker)"));
+}
+
+#[test]
+fn convert_auto_detects_labelbox_jsonl_before_sagemaker() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let jsonl_path = temp.path().join("sample.jsonl");
+    create_sample_labelbox_jsonl(&jsonl_path);
+    let output_path = temp.path().join("auto_detect_labelbox_jsonl.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        jsonl_path.to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(labelbox)"));
+}
+
+#[test]
+fn convert_auto_detects_scale_ai_json_file() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("auto_detect_scale_ai_file.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.scale_ai.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(scale-ai)"));
+}
+
+#[test]
+fn convert_auto_detects_scale_ai_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_scale_ai_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_scale_ai_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(scale-ai)"));
+}
+
+#[test]
+fn convert_to_scale_ai_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_scale_ai.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "scale-ai",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--output-format",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    assert!(parsed["issues"].as_array().unwrap().iter().any(|issue| {
+        issue["code"] == "scale_ai_writer_deterministic_order"
+            || issue["code"] == "scale_ai_writer_rectangle_policy"
+    }));
+    assert!(output_path.is_file());
+}
+
+#[test]
+fn convert_auto_detects_unity_perception_json_file() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("auto_detect_unity_file.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        "tests/fixtures/sample_valid.unity_perception.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(unity-perception)"));
+}
+
+#[test]
+fn convert_auto_detects_unity_perception_directory() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    create_sample_unity_perception_dataset(temp.path());
+    let output_path = temp.path().join("auto_detect_unity_dir.json");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "--from",
+        "auto",
+        "--to",
+        "ir-json",
+        "-i",
+        temp.path().to_str().unwrap(),
+        "-o",
+        output_path.to_str().unwrap(),
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("(unity-perception)"));
+}
+
+#[test]
+fn convert_to_unity_perception_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_unity_perception");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "unity-perception",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--output-format",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    assert!(parsed["issues"].as_array().unwrap().iter().any(|issue| {
+        issue["code"] == "unity_perception_writer_directory_layout"
+            || issue["code"] == "unity_perception_writer_rectangle_policy"
+    }));
+    assert!(output_path
+        .join("sequence.0/step0.frame_data.json")
+        .is_file());
+}
+
+#[test]
+fn convert_to_labelbox_report_includes_policy_notes() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let output_path = temp.path().join("report_labelbox.ndjson");
+
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args([
+        "convert",
+        "-f",
+        "coco",
+        "-t",
+        "labelbox",
+        "-i",
+        "tests/fixtures/sample_valid.coco.json",
+        "-o",
+        output_path.to_str().unwrap(),
+        "--allow-lossy",
+        "--output-format",
+        "json",
+    ]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    assert!(parsed["issues"].as_array().unwrap().iter().any(|issue| {
+        issue["code"] == "labelbox_writer_format_policy"
+            || issue["code"] == "labelbox_writer_rectangle_policy"
+    }));
+    assert!(output_path.is_file());
 }
 
 #[test]

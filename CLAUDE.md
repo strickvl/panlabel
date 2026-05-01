@@ -213,7 +213,8 @@ When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), updat
 - `README.md` — add a row to the **Supported formats** table. Only add a Quick-start example if the format is a name-recognizable platform (e.g. SuperAnnotate, Supervisely, SageMaker) or has a meaningfully different invocation. Don't add a Quick-start line for every format.
 - `CLAUDE.md` — append the format to the project-status `Supports …` line, the `src/ir/` tree comment, the `tests/` tree comment (new roundtrip test), and the auto-detection rules under "Convert with Auto-Detection" if applicable.
 - `AGENTS.md` — append the new `io_*.rs` to the `src/ir/` description line, and any new `tests/*_roundtrip.rs` to the test list line.
-- `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md` — these are the source-of-truth docs. The README is the storefront and goes stale fastest, which is why it's listed first.
+- `docs/README.md` — both the **What does panlabel support today?** list and the **source of truth map** must include the new format.
+- `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md` — these are the source-of-truth docs. The repo-root README is the storefront and goes stale fastest, which is why it's listed first.
 
 ## CLI Commands
 

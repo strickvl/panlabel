@@ -11,10 +11,22 @@ write these formats:
 
 - **IR JSON** (`ir-json`) — panlabel's own lossless intermediate representation
 - **COCO JSON** (`coco` / `coco-json`) — the widely-used COCO format
+- **CVAT XML** (`cvat` / `cvat-xml`) — CVAT for Images annotation export
 - **Label Studio JSON** (`label-studio` / `label-studio-json` / `ls`) — task export JSON (`rectanglelabels`)
+- **LabelMe JSON** (`labelme` / `labelme-json`) — LabelMe per-image JSON (single file or directory)
+- **Apple CreateML JSON** (`create-ml` / `createml` / `create-ml-json`) — Apple CreateML annotation format
+- **VIA JSON** (`via` / `via-json` / `vgg-via`) — VGG Image Annotator JSON
+- **SuperAnnotate JSON** (`superannotate` / `superannotate-json` / `sa`) — SuperAnnotate JSON export (file or `annotations/` directory)
+- **Supervisely JSON** (`supervisely` / `supervisely-json` / `sly`) — Supervisely project / dataset JSON (file, `ann/` directory, or full project with `meta.json`)
 - **TFOD CSV** (`tfod` / `tfod-csv`) — TensorFlow Object Detection CSV
 - **YOLO directory** (`yolo` / `ultralytics` / `yolov8` / `yolov5`) — Ultralytics-style label directories
 - **Pascal VOC XML** (`voc` / `pascal-voc` / `voc-xml`) — VOC-style XML directories
+- **KITTI** (`kitti` / `kitti-txt`) — KITTI object detection labels (`label_2/` + `image_2/`)
+- **RetinaNet Keras CSV** (`retinanet` / `retinanet-csv` / `keras-retinanet`) — keras-retinanet CSV format
+- **OpenImages CSV** (`openimages` / `openimages-csv` / `open-images`) — Google OpenImages CSV annotation format
+- **Kaggle Global Wheat CSV** (`kaggle-wheat` / `kaggle-wheat-csv`) — Kaggle Global Wheat Detection CSV
+- **Google Cloud AutoML Vision CSV** (`automl-vision` / `automl-vision-csv` / `google-cloud-automl`) — Google Cloud AutoML Vision CSV
+- **Udacity Self-Driving Car CSV** (`udacity` / `udacity-csv` / `self-driving-car`) — Udacity Self-Driving Car Dataset CSV
 - **Hugging Face ImageFolder metadata** (`hf` / `hf-imagefolder` / `huggingface`) — `metadata.jsonl` / `metadata.parquet` directories (remote Hub import is supported in `convert`)
 - **SageMaker Ground Truth Manifest** (`sagemaker` / `sagemaker-manifest` / `sagemaker-ground-truth` / `ground-truth` / `groundtruth` / `aws-sagemaker`) — `.manifest` / `.jsonl` object-detection JSON Lines
 
@@ -42,10 +54,22 @@ behavior lives:
 |---|---|
 | CLI commands, flags, auto-detection | `src/lib.rs` |
 | COCO format behavior | `src/ir/io_coco_json.rs` |
+| CVAT XML format behavior | `src/ir/io_cvat_xml.rs` |
 | TFOD format behavior | `src/ir/io_tfod_csv.rs` |
 | Label Studio format behavior | `src/ir/io_label_studio_json.rs` |
+| LabelMe format behavior | `src/ir/io_labelme_json.rs` |
+| Apple CreateML format behavior | `src/ir/io_createml_json.rs` |
+| VIA JSON format behavior | `src/ir/io_via_json.rs` |
+| SuperAnnotate format behavior | `src/ir/io_superannotate_json.rs` (+ `src/ir/io_super_json_common.rs`) |
+| Supervisely format behavior | `src/ir/io_supervisely_json.rs` (+ `src/ir/io_super_json_common.rs`) |
 | YOLO format behavior | `src/ir/io_yolo.rs` |
 | Pascal VOC format behavior | `src/ir/io_voc_xml.rs` |
+| KITTI format behavior | `src/ir/io_kitti.rs` |
+| RetinaNet Keras CSV format behavior | `src/ir/io_retinanet_csv.rs` |
+| OpenImages CSV format behavior | `src/ir/io_openimages_csv.rs` |
+| Kaggle Wheat CSV format behavior | `src/ir/io_kaggle_wheat_csv.rs` |
+| AutoML Vision CSV format behavior | `src/ir/io_automl_vision_csv.rs` |
+| Udacity CSV format behavior | `src/ir/io_udacity_csv.rs` |
 | HF ImageFolder format behavior | `src/ir/io_hf_imagefolder.rs` (+ `src/ir/io_hf_parquet.rs` with `hf-parquet`) |
 | SageMaker Ground Truth Manifest behavior | `src/ir/io_sagemaker_manifest.rs` |
 | HF remote resolve/preflight/acquire | `src/hf/` (`hf-remote` feature) |

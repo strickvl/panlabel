@@ -10,6 +10,20 @@ Scope guardrail: panlabel currently covers mainstream/static-image 2D axis-align
 
 **Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, VIA CSV, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records), YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, Datumaro JSON, WIDER Face TXT, OIDv4 TXT, BDD100K/Scalabel JSON, V7 Darwin JSON, Edge Impulse `bounding_boxes.labels`, ASAM OpenLABEL JSON (2D bbox subset), and IR JSON with lossiness tracking.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `strickvl/panlabel`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use a multi-context domain-doc layout: root `CONTEXT-MAP.md` points to per-context `CONTEXT.md` files, with ADRs under `docs/adr/` and/or context-local `docs/adr/`. See `docs/agents/domain.md`.
+
 ## Common Commands
 
 ### Build & Run

@@ -36,6 +36,9 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use super::io_writer_dataset_view::{
+    AnnotationValidationOrder, MissingDatasetReference, WriterDatasetView,
+};
 use super::model::{Annotation, Category, Dataset, DatasetInfo, Image};
 use super::{AnnotationId, BBoxXYXY, CategoryId, ImageId, Normalized};
 use crate::error::PanlabelError;
@@ -302,67 +305,76 @@ fn tfod_to_ir(rows: Vec<TfodRow>, path: &Path) -> Result<Dataset, PanlabelError>
 ///
 /// Rows are sorted by annotation ID for deterministic output.
 fn ir_to_tfod(dataset: &Dataset, path: &Path) -> Result<Vec<TfodRow>, PanlabelError> {
-    // Build lookup maps
-    let image_lookup: BTreeMap<ImageId, &Image> =
-        dataset.images.iter().map(|img| (img.id, img)).collect();
+    let view = WriterDatasetView::new(dataset);
+    view.validate_references(AnnotationValidationOrder::DatasetOrder)
+        .map_err(|err| tfod_missing_ref_error(path, err))?;
 
-    let category_lookup: BTreeMap<CategoryId, &Category> =
-        dataset.categories.iter().map(|cat| (cat.id, cat)).collect();
+    let mut rows = Vec::with_capacity(dataset.annotations.len());
 
-    // Convert annotations to rows
-    let mut rows: Vec<(AnnotationId, TfodRow)> = Vec::with_capacity(dataset.annotations.len());
+    for ann in view.annotations_sorted_by_id() {
+        let image = view.image(ann.image_id).ok_or_else(|| {
+            tfod_missing_ref_error(
+                path,
+                MissingDatasetReference::Image {
+                    annotation_id: ann.id,
+                    image_id: ann.image_id,
+                },
+            )
+        })?;
+        let category_name = view.category_name(ann.category_id).ok_or_else(|| {
+            tfod_missing_ref_error(
+                path,
+                MissingDatasetReference::Category {
+                    annotation_id: ann.id,
+                    category_id: ann.category_id,
+                },
+            )
+        })?;
 
-    for ann in &dataset.annotations {
-        // Look up image
-        let image =
-            image_lookup
-                .get(&ann.image_id)
-                .ok_or_else(|| PanlabelError::TfodCsvInvalid {
-                    path: path.to_path_buf(),
-                    message: format!(
-                        "Annotation {} references non-existent image {}",
-                        ann.id.as_u64(),
-                        ann.image_id.as_u64()
-                    ),
-                })?;
-
-        // Look up category
-        let category =
-            category_lookup
-                .get(&ann.category_id)
-                .ok_or_else(|| PanlabelError::TfodCsvInvalid {
-                    path: path.to_path_buf(),
-                    message: format!(
-                        "Annotation {} references non-existent category {}",
-                        ann.id.as_u64(),
-                        ann.category_id.as_u64()
-                    ),
-                })?;
-
-        // Convert pixel bbox to normalized coordinates
         let bbox_norm = ann
             .bbox
             .to_normalized(image.width as f64, image.height as f64);
 
-        rows.push((
-            ann.id,
-            TfodRow {
-                filename: image.file_name.clone(),
-                width: image.width,
-                height: image.height,
-                class_name: category.name.clone(),
-                xmin: bbox_norm.xmin(),
-                ymin: bbox_norm.ymin(),
-                xmax: bbox_norm.xmax(),
-                ymax: bbox_norm.ymax(),
-            },
-        ));
+        rows.push(TfodRow {
+            filename: image.file_name.clone(),
+            width: image.width,
+            height: image.height,
+            class_name: category_name.to_string(),
+            xmin: bbox_norm.xmin(),
+            ymin: bbox_norm.ymin(),
+            xmax: bbox_norm.xmax(),
+            ymax: bbox_norm.ymax(),
+        });
     }
 
-    // Sort by annotation ID for deterministic output
-    rows.sort_by_key(|(id, _)| *id);
+    Ok(rows)
+}
 
-    Ok(rows.into_iter().map(|(_, row)| row).collect())
+fn tfod_missing_ref_error(path: &Path, err: MissingDatasetReference) -> PanlabelError {
+    match err {
+        MissingDatasetReference::Image {
+            annotation_id,
+            image_id,
+        } => PanlabelError::TfodCsvInvalid {
+            path: path.to_path_buf(),
+            message: format!(
+                "Annotation {} references non-existent image {}",
+                annotation_id.as_u64(),
+                image_id.as_u64()
+            ),
+        },
+        MissingDatasetReference::Category {
+            annotation_id,
+            category_id,
+        } => PanlabelError::TfodCsvInvalid {
+            path: path.to_path_buf(),
+            message: format!(
+                "Annotation {} references non-existent category {}",
+                annotation_id.as_u64(),
+                category_id.as_u64()
+            ),
+        },
+    }
 }
 
 // ============================================================================
@@ -541,7 +553,12 @@ mod tests {
         };
 
         let result = to_tfod_csv_string(&dataset);
-        assert!(result.is_err());
+        match result.expect_err("expected missing image error") {
+            PanlabelError::TfodCsvInvalid { message, .. } => {
+                assert_eq!(message, "Annotation 1 references non-existent image 1")
+            }
+            other => panic!("unexpected error: {other}"),
+        }
     }
 
     #[test]
@@ -559,6 +576,11 @@ mod tests {
         };
 
         let result = to_tfod_csv_string(&dataset);
-        assert!(result.is_err());
+        match result.expect_err("expected missing category error") {
+            PanlabelError::TfodCsvInvalid { message, .. } => {
+                assert_eq!(message, "Annotation 1 references non-existent category 1")
+            }
+            other => panic!("unexpected error: {other}"),
+        }
     }
 }

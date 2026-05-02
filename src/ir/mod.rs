@@ -79,6 +79,7 @@ pub mod io_voc_xml;
 pub mod io_vott_csv;
 pub mod io_vott_json;
 pub mod io_wider_face_txt;
+mod io_writer_dataset_view;
 pub mod io_yolo;
 pub mod io_yolo_keras_txt;
 mod model;

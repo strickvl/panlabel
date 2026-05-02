@@ -11,6 +11,9 @@ use std::path::{Path, PathBuf};
 use roxmltree::Node;
 use walkdir::WalkDir;
 
+use super::io_writer_dataset_view::{
+    AnnotationValidationOrder, MissingDatasetReference, WriterDatasetView,
+};
 use super::model::{Annotation, Category, Dataset, DatasetInfo, Image};
 use super::{AnnotationId, BBoxXYXY, CategoryId, ImageId, Pixel};
 use crate::error::PanlabelError;
@@ -149,48 +152,12 @@ pub fn write_voc_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError
     fs::create_dir_all(&jpeg_images_dir).map_err(PanlabelError::Io)?;
     fs::write(jpeg_images_dir.join("README.txt"), JPEG_IMAGES_README).map_err(PanlabelError::Io)?;
 
-    let image_by_id: BTreeMap<ImageId, &Image> =
-        dataset.images.iter().map(|img| (img.id, img)).collect();
-    let category_name_by_id: BTreeMap<CategoryId, String> = dataset
-        .categories
-        .iter()
-        .map(|category| (category.id, category.name.clone()))
-        .collect();
+    let view = WriterDatasetView::new(dataset);
+    view.validate_references(AnnotationValidationOrder::DatasetOrder)
+        .map_err(|err| voc_missing_ref_error(path, err))?;
 
-    let mut annotations_by_image: BTreeMap<ImageId, Vec<&Annotation>> = BTreeMap::new();
-    for annotation in &dataset.annotations {
-        if !image_by_id.contains_key(&annotation.image_id) {
-            return Err(PanlabelError::VocWriteError {
-                path: path.to_path_buf(),
-                message: format!(
-                    "annotation {} references missing image {}",
-                    annotation.id.as_u64(),
-                    annotation.image_id.as_u64()
-                ),
-            });
-        }
-
-        if !category_name_by_id.contains_key(&annotation.category_id) {
-            return Err(PanlabelError::VocWriteError {
-                path: path.to_path_buf(),
-                message: format!(
-                    "annotation {} references missing category {}",
-                    annotation.id.as_u64(),
-                    annotation.category_id.as_u64()
-                ),
-            });
-        }
-
-        annotations_by_image
-            .entry(annotation.image_id)
-            .or_default()
-            .push(annotation);
-    }
-
-    let mut images_sorted: Vec<&Image> = dataset.images.iter().collect();
-    images_sorted.sort_by(|left, right| left.file_name.cmp(&right.file_name));
-
-    for image in images_sorted {
+    let mut seen_image_ids = BTreeSet::new();
+    for image in view.images_sorted_by_file_name() {
         let xml_rel_path = Path::new(&image.file_name).with_extension(VOC_XML_EXTENSION);
         let xml_path = annotations_dir.join(&xml_rel_path);
 
@@ -198,19 +165,43 @@ pub fn write_voc_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError
             fs::create_dir_all(parent).map_err(PanlabelError::Io)?;
         }
 
-        let mut image_annotations = annotations_by_image.remove(&image.id).unwrap_or_default();
-        image_annotations.sort_by_key(|annotation| annotation.id);
+        let image_annotations: Vec<&Annotation> = if seen_image_ids.insert(image.id) {
+            view.annotations_for_image_sorted_by_id(image.id).collect()
+        } else {
+            Vec::new()
+        };
 
-        write_voc_xml(
-            &xml_path,
-            image,
-            &image_annotations,
-            &category_name_by_id,
-            path,
-        )?;
+        write_voc_xml(&xml_path, image, &image_annotations, &view, path)?;
     }
 
     Ok(())
+}
+
+fn voc_missing_ref_error(path: &Path, err: MissingDatasetReference) -> PanlabelError {
+    match err {
+        MissingDatasetReference::Image {
+            annotation_id,
+            image_id,
+        } => PanlabelError::VocWriteError {
+            path: path.to_path_buf(),
+            message: format!(
+                "annotation {} references missing image {}",
+                annotation_id.as_u64(),
+                image_id.as_u64()
+            ),
+        },
+        MissingDatasetReference::Category {
+            annotation_id,
+            category_id,
+        } => PanlabelError::VocWriteError {
+            path: path.to_path_buf(),
+            message: format!(
+                "annotation {} references missing category {}",
+                annotation_id.as_u64(),
+                category_id.as_u64()
+            ),
+        },
+    }
 }
 
 /// Parse VOC XML from a UTF-8 string.
@@ -481,7 +472,7 @@ fn write_voc_xml(
     xml_path: &Path,
     image: &Image,
     annotations: &[&Annotation],
-    category_name_by_id: &BTreeMap<CategoryId, String>,
+    view: &WriterDatasetView<'_>,
     output_root: &Path,
 ) -> Result<(), PanlabelError> {
     let mut xml = String::new();
@@ -508,16 +499,15 @@ fn write_voc_xml(
     writeln!(xml, "  </size>").expect("write to string");
 
     for annotation in annotations {
-        let category_name = category_name_by_id
-            .get(&annotation.category_id)
-            .ok_or_else(|| PanlabelError::VocWriteError {
-                path: output_root.to_path_buf(),
-                message: format!(
-                    "annotation {} references missing category {}",
-                    annotation.id.as_u64(),
-                    annotation.category_id.as_u64()
-                ),
-            })?;
+        let category_name = view.category_name(annotation.category_id).ok_or_else(|| {
+            voc_missing_ref_error(
+                output_root,
+                MissingDatasetReference::Category {
+                    annotation_id: annotation.id,
+                    category_id: annotation.category_id,
+                },
+            )
+        })?;
 
         writeln!(xml, "  <object>").expect("write to string");
         writeln!(xml, "    <name>{}</name>", xml_escape(category_name)).expect("write to string");

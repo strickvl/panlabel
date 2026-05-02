@@ -15,6 +15,7 @@
 pub mod conversion;
 pub mod diff;
 pub mod error;
+pub mod format_catalog;
 #[cfg(feature = "hf-remote")]
 pub mod hf;
 pub mod ir;
@@ -891,14 +892,6 @@ struct ListFormatsArgs {
     output_format: ReportFormat,
 }
 
-struct FormatCatalogEntry {
-    format: ConvertFormat,
-    aliases: &'static [&'static str],
-    description: &'static str,
-    file_based: bool,
-    directory_based: bool,
-}
-
 #[derive(serde::Serialize)]
 struct ListFormatEntry {
     name: &'static str,
@@ -910,302 +903,6 @@ struct ListFormatEntry {
     file_based: bool,
     directory_based: bool,
 }
-
-const FORMAT_CATALOG: &[FormatCatalogEntry] = &[
-    FormatCatalogEntry {
-        format: ConvertFormat::IrJson,
-        aliases: &[],
-        description: "Panlabel's intermediate representation (JSON)",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Coco,
-        aliases: &["coco-json"],
-        description: "COCO object detection format (JSON)",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::IbmCloudAnnotations,
-        aliases: &[
-            "cloud-annotations",
-            "cloud-annotations-json",
-            "ibm-cloud-annotations-json",
-        ],
-        description: "IBM Cloud Annotations localization JSON",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Cvat,
-        aliases: &["cvat-xml"],
-        description: "CVAT for images XML annotation export",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::LabelStudio,
-        aliases: &["label-studio-json", "ls"],
-        description: "Label Studio task export (JSON)",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Labelbox,
-        aliases: &["labelbox-json", "labelbox-ndjson"],
-        description: "Labelbox current export rows (JSON/NDJSON)",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::ScaleAi,
-        aliases: &["scale", "scale-ai-json"],
-        description: "Scale AI image annotation task/response JSON",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::UnityPerception,
-        aliases: &["unity", "unity-perception-json", "solo"],
-        description: "Unity Perception / SOLO bbox JSON dataset",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Tfod,
-        aliases: &["tfod-csv"],
-        description: "TensorFlow Object Detection format (CSV)",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Tfrecord,
-        aliases: &["tfrecords", "tf-record", "tfod-tfrecord", "tfod-tfrerecord"],
-        description: "TensorFlow Object Detection API TFRecord Examples",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::VottCsv,
-        aliases: &["vott"],
-        description: "Microsoft VoTT CSV export",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::VottJson,
-        aliases: &["vott-json-export"],
-        description: "Microsoft VoTT JSON export",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Yolo,
-        aliases: &[
-            "ultralytics",
-            "yolov8",
-            "yolov5",
-            "scaled-yolov4",
-            "scaled-yolov4-txt",
-        ],
-        description: "YOLO .txt labels (directory/list-file based)",
-        file_based: false,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::YoloKeras,
-        aliases: &["yolo-keras-txt", "keras-yolo"],
-        description: "YOLO Keras absolute-coordinate TXT annotations",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::YoloV4Pytorch,
-        aliases: &["yolov4-pytorch-txt", "pytorch-yolov4"],
-        description: "YOLOv4 PyTorch absolute-coordinate TXT annotations",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Voc,
-        aliases: &["pascal-voc", "voc-xml"],
-        description: "Pascal VOC XML (directory-based)",
-        file_based: false,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::HfImagefolder,
-        aliases: &["hf-imagefolder", "huggingface"],
-        description: "Hugging Face ImageFolder metadata (metadata.jsonl/parquet)",
-        file_based: false,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::SageMaker,
-        aliases: &[
-            "sagemaker-manifest",
-            "sagemaker-ground-truth",
-            "ground-truth",
-            "groundtruth",
-            "aws-sagemaker",
-        ],
-        description: "AWS SageMaker Ground Truth object-detection manifest",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::LabelMe,
-        aliases: &["labelme-json"],
-        description: "LabelMe per-image JSON annotation format",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::SuperAnnotate,
-        aliases: &["superannotate-json", "sa"],
-        description: "SuperAnnotate JSON annotation format",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Supervisely,
-        aliases: &["supervisely-json", "sly"],
-        description: "Supervisely JSON annotation/project format",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Cityscapes,
-        aliases: &["cityscapes-json"],
-        description: "Cityscapes polygon JSON annotation format",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Marmot,
-        aliases: &["marmot-xml"],
-        description: "Marmot XML document-layout annotations",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::CreateMl,
-        aliases: &["createml", "create-ml-json"],
-        description: "Apple CreateML annotation format (JSON)",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Kitti,
-        aliases: &["kitti-txt"],
-        description: "KITTI object detection label files (directory-based)",
-        file_based: false,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Via,
-        aliases: &["via-json", "vgg-via"],
-        description: "VGG Image Annotator (VIA) JSON format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Retinanet,
-        aliases: &["retinanet-csv", "keras-retinanet"],
-        description: "keras-retinanet CSV format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::OpenImages,
-        aliases: &["openimages-csv", "open-images"],
-        description: "Google OpenImages CSV annotation format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Datumaro,
-        aliases: &["datumaro-json", "datumaro-dataset"],
-        description: "Datumaro JSON annotation format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::WiderFace,
-        aliases: &["widerface", "wider-face-txt"],
-        description: "WIDER Face aggregate TXT annotation format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Oidv4,
-        aliases: &["oidv4-txt", "openimages-v4-txt", "oid"],
-        description: "OIDv4 Toolkit TXT label format",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Bdd100k,
-        aliases: &["bdd100k-json", "scalabel", "scalabel-json"],
-        description: "BDD100K / Scalabel JSON detection format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::V7Darwin,
-        aliases: &["darwin", "darwin-json", "v7"],
-        description: "V7 Darwin JSON annotation format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::EdgeImpulse,
-        aliases: &[
-            "edge-impulse-labels",
-            "edge-impulse-bounding-boxes",
-            "bounding-boxes-labels",
-        ],
-        description: "Edge Impulse bounding_boxes.labels format",
-        file_based: true,
-        directory_based: true,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::OpenLabel,
-        aliases: &["asam-openlabel", "openlabel-json", "asam-openlabel-json"],
-        description: "ASAM OpenLABEL JSON 2D bbox subset",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::ViaCsv,
-        aliases: &["vgg-via-csv"],
-        description: "VGG Image Annotator CSV format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::KaggleWheat,
-        aliases: &["kaggle-wheat-csv"],
-        description: "Kaggle Global Wheat Detection CSV format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::AutoMlVision,
-        aliases: &["automl-vision-csv", "google-cloud-automl"],
-        description: "Google Cloud AutoML Vision CSV format",
-        file_based: true,
-        directory_based: false,
-    },
-    FormatCatalogEntry {
-        format: ConvertFormat::Udacity,
-        aliases: &["udacity-csv", "self-driving-car"],
-        description: "Udacity Self-Driving Car Dataset CSV format",
-        file_based: true,
-        directory_based: false,
-    },
-];
 
 /// Run the panlabel CLI.
 ///
@@ -2154,71 +1851,18 @@ fn normalize_split_hint(value: &str) -> String {
 
 /// Get a human-readable name for a format.
 fn format_name(format: ConvertFormat) -> &'static str {
-    match format {
-        ConvertFormat::IrJson => "ir-json",
-        ConvertFormat::Coco => "coco",
-        ConvertFormat::IbmCloudAnnotations => "ibm-cloud-annotations",
-        ConvertFormat::Cvat => "cvat",
-        ConvertFormat::LabelStudio => "label-studio",
-        ConvertFormat::Labelbox => "labelbox",
-        ConvertFormat::ScaleAi => "scale-ai",
-        ConvertFormat::UnityPerception => "unity-perception",
-        ConvertFormat::Tfod => "tfod",
-        ConvertFormat::Tfrecord => "tfrecord",
-        ConvertFormat::VottCsv => "vott-csv",
-        ConvertFormat::VottJson => "vott-json",
-        ConvertFormat::Yolo => "yolo",
-        ConvertFormat::YoloKeras => "yolo-keras",
-        ConvertFormat::YoloV4Pytorch => "yolov4-pytorch",
-        ConvertFormat::Voc => "voc",
-        ConvertFormat::HfImagefolder => "hf",
-        ConvertFormat::SageMaker => "sagemaker",
-        ConvertFormat::LabelMe => "labelme",
-        ConvertFormat::SuperAnnotate => "superannotate",
-        ConvertFormat::Supervisely => "supervisely",
-        ConvertFormat::Cityscapes => "cityscapes",
-        ConvertFormat::Marmot => "marmot",
-        ConvertFormat::CreateMl => "create-ml",
-        ConvertFormat::Kitti => "kitti",
-        ConvertFormat::Via => "via",
-        ConvertFormat::Retinanet => "retinanet",
-        ConvertFormat::OpenImages => "openimages",
-        ConvertFormat::Datumaro => "datumaro",
-        ConvertFormat::WiderFace => "wider-face",
-        ConvertFormat::Oidv4 => "oidv4",
-        ConvertFormat::Bdd100k => "bdd100k",
-        ConvertFormat::V7Darwin => "v7-darwin",
-        ConvertFormat::EdgeImpulse => "edge-impulse",
-        ConvertFormat::OpenLabel => "openlabel",
-        ConvertFormat::ViaCsv => "via-csv",
-        ConvertFormat::KaggleWheat => "kaggle-wheat",
-        ConvertFormat::AutoMlVision => "automl-vision",
-        ConvertFormat::Udacity => "udacity",
-    }
-}
-
-fn lossiness_name(lossiness: conversion::IrLossiness) -> &'static str {
-    match lossiness {
-        conversion::IrLossiness::Lossless => "lossless",
-        conversion::IrLossiness::Conditional => "conditional",
-        conversion::IrLossiness::Lossy => "lossy",
-    }
+    format.to_conversion_format().name()
 }
 
 fn list_format_entries() -> Vec<ListFormatEntry> {
-    FORMAT_CATALOG
+    format_catalog::FORMAT_CATALOG
         .iter()
         .map(|entry| ListFormatEntry {
-            name: format_name(entry.format),
+            name: entry.format.name(),
             aliases: entry.aliases,
             read: true,
             write: true,
-            lossiness: lossiness_name(
-                entry
-                    .format
-                    .to_conversion_format()
-                    .lossiness_relative_to_ir(),
-            ),
+            lossiness: format_catalog::lossiness_name(entry.format.lossiness_relative_to_ir()),
             description: entry.description,
             file_based: entry.file_based,
             directory_based: entry.directory_based,

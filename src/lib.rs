@@ -12,6 +12,8 @@
 //! - [`conversion`]: Conversion reporting and lossiness tracking
 //! - [`error`]: Error types for panlabel operations
 
+mod commands;
+
 pub mod conversion;
 pub mod diff;
 pub mod error;
@@ -563,7 +565,7 @@ enum JsonStyle {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct OutputContext {
+pub(crate) struct OutputContext {
     stdout_is_terminal: bool,
 }
 
@@ -650,7 +652,7 @@ impl HfBboxFormatArg {
 
 /// Arguments for the validate subcommand.
 #[derive(clap::Args)]
-struct ValidateArgs {
+pub(crate) struct ValidateArgs {
     /// Input path to validate.
     input: PathBuf,
 
@@ -674,7 +676,7 @@ struct ValidateArgs {
 
 /// Arguments for the stats subcommand.
 #[derive(clap::Args)]
-struct StatsArgs {
+pub(crate) struct StatsArgs {
     /// Input path to analyze.
     input: PathBuf,
 
@@ -705,7 +707,7 @@ struct StatsArgs {
 
 /// Arguments for the diff subcommand.
 #[derive(clap::Args)]
-struct DiffArgs {
+pub(crate) struct DiffArgs {
     /// First dataset path.
     input_a: PathBuf,
 
@@ -744,7 +746,7 @@ struct DiffArgs {
 
 /// Arguments for the sample subcommand.
 #[derive(clap::Args)]
-struct SampleArgs {
+pub(crate) struct SampleArgs {
     /// Input path.
     #[arg(short = 'i', long = "input")]
     input: PathBuf,
@@ -805,7 +807,7 @@ struct SampleArgs {
 
 /// Arguments for the convert subcommand.
 #[derive(clap::Args)]
-struct ConvertArgs {
+pub(crate) struct ConvertArgs {
     /// Source format (use 'auto' for automatic detection).
     #[arg(short = 'f', long = "from", value_enum)]
     from: ConvertFromFormat,
@@ -882,7 +884,7 @@ struct ConvertArgs {
 
 /// Arguments for the list-formats subcommand.
 #[derive(clap::Args)]
-struct ListFormatsArgs {
+pub(crate) struct ListFormatsArgs {
     /// Output format for the format catalog.
     #[arg(
         long = "output-format",
@@ -913,12 +915,12 @@ pub fn run() -> Result<(), PanlabelError> {
     let output = OutputContext::detect();
 
     match cli.command {
-        Some(Commands::Validate(args)) => run_validate(args, output),
-        Some(Commands::Convert(args)) => run_convert(args, output),
-        Some(Commands::Stats(args)) => run_stats(args, output),
-        Some(Commands::Diff(args)) => run_diff(args, output),
-        Some(Commands::Sample(args)) => run_sample(args, output),
-        Some(Commands::ListFormats(args)) => run_list_formats(args, output),
+        Some(Commands::Validate(args)) => commands::validate::run(args, output),
+        Some(Commands::Convert(args)) => commands::convert::run(args, output),
+        Some(Commands::Stats(args)) => commands::stats::run(args, output),
+        Some(Commands::Diff(args)) => commands::diff::run(args, output),
+        Some(Commands::Sample(args)) => commands::sample::run(args, output),
+        Some(Commands::ListFormats(args)) => commands::list_formats::run(args, output),
         None => {
             // No subcommand: just print help hint and exit successfully
             // This keeps backward compatibility with the existing test
@@ -948,83 +950,6 @@ fn write_json_stdout<T: serde::Serialize>(
     Ok(())
 }
 
-/// Execute the stats subcommand.
-fn run_stats(args: StatsArgs, output: OutputContext) -> Result<(), PanlabelError> {
-    let format = resolve_stats_format(args.format, &args.input)?;
-    let dataset = read_dataset(format, &args.input)?;
-
-    let opts = stats::StatsOptions {
-        top_labels: args.top,
-        top_pairs: args.top,
-        oob_tolerance_px: args.tolerance,
-        bar_width: 20,
-    };
-
-    let report = stats::stats_dataset(&dataset, &opts);
-
-    match args.output_format {
-        StatsOutputFormat::Text => print!("{}", report.display(output.stats_text_style())),
-        StatsOutputFormat::Json => write_json_stdout(&report, output)?,
-        StatsOutputFormat::Html => {
-            let html = stats::html::render_html(&report)?;
-            print!("{html}");
-        }
-    }
-
-    Ok(())
-}
-
-/// Execute the diff subcommand.
-fn run_diff(args: DiffArgs, output: OutputContext) -> Result<(), PanlabelError> {
-    if matches!(args.match_by, DiffMatchBy::Iou)
-        && !(0.0 < args.iou_threshold && args.iou_threshold <= 1.0)
-    {
-        return Err(PanlabelError::DiffFailed {
-            message: "--iou-threshold must be in the interval (0.0, 1.0] when --match-by iou"
-                .to_string(),
-        });
-    }
-
-    let format_a = resolve_from_format(args.format_a, &args.input_a)?;
-    let format_b = resolve_from_format(args.format_b, &args.input_b)?;
-
-    let dataset_a = read_dataset(format_a, &args.input_a)?;
-    let dataset_b = read_dataset(format_b, &args.input_b)?;
-
-    ensure_unique_image_file_names(&dataset_a, "A")?;
-    ensure_unique_image_file_names(&dataset_b, "B")?;
-
-    let match_by = match args.match_by {
-        DiffMatchBy::Id => diff::MatchBy::Id,
-        DiffMatchBy::Iou => diff::MatchBy::Iou,
-    };
-
-    let opts = diff::DiffOptions {
-        match_by,
-        iou_threshold: args.iou_threshold,
-        detail: args.detail,
-        max_items: 20,
-        bbox_eps: 1e-6,
-    };
-
-    let report = diff::diff_datasets(&dataset_a, &dataset_b, &opts);
-
-    match args.output_format {
-        ReportFormat::Text => {
-            println!(
-                "Dataset Diff: {} vs {}",
-                args.input_a.display(),
-                args.input_b.display()
-            );
-            println!();
-            print!("{}", report);
-        }
-        ReportFormat::Json => write_json_stdout(&report, output)?,
-    }
-
-    Ok(())
-}
-
 /// Emit a conversion report to stdout in the requested format, then flush.
 ///
 /// Used by both `convert` and `sample` to emit reports on both success and
@@ -1044,335 +969,6 @@ fn emit_conversion_report(
         }
         ReportFormat::Json => write_json_stdout(report, output)?,
     }
-    Ok(())
-}
-
-/// Execute the sample subcommand.
-fn run_sample(args: SampleArgs, output: OutputContext) -> Result<(), PanlabelError> {
-    let from_format = resolve_from_format(args.from, &args.input)?;
-    let to_format = match args.to {
-        Some(target) => target,
-        None => args.from.as_concrete().unwrap_or(ConvertFormat::IrJson),
-    };
-
-    let dataset = read_dataset(from_format, &args.input)?;
-
-    let strategy = match args.strategy {
-        SampleStrategyArg::Random => sample::SampleStrategy::Random,
-        SampleStrategyArg::Stratified => sample::SampleStrategy::Stratified,
-    };
-    let category_mode = match args.category_mode {
-        CategoryModeArg::Images => sample::CategoryMode::Images,
-        CategoryModeArg::Annotations => sample::CategoryMode::Annotations,
-    };
-
-    let sample_opts = sample::SampleOptions {
-        n: args.n,
-        fraction: args.fraction,
-        seed: args.seed,
-        strategy,
-        categories: parse_categories_arg(args.categories),
-        category_mode,
-    };
-
-    let sampled_dataset = sample::sample_dataset(&dataset, &sample_opts)?;
-
-    let conv_report = conversion::build_conversion_report(
-        &sampled_dataset,
-        from_format.to_conversion_format(),
-        to_format.to_conversion_format(),
-    );
-
-    if conv_report.is_lossy() && !args.allow_lossy {
-        emit_conversion_report(&conv_report, args.output_format, output)?;
-        return Err(PanlabelError::LossyConversionBlocked {
-            from: format_name(from_format).to_string(),
-            to: format_name(to_format).to_string(),
-            report: Box::new(conv_report),
-        });
-    }
-
-    if !args.dry_run {
-        write_dataset(to_format, &args.output, &sampled_dataset)?;
-    }
-
-    match args.output_format {
-        ReportFormat::Text => {
-            println!(
-                "{} {} images -> {} images: {} ({}) -> {} ({})",
-                if args.dry_run {
-                    "Dry run: would sample"
-                } else {
-                    "Sampled"
-                },
-                dataset.images.len(),
-                sampled_dataset.images.len(),
-                args.input.display(),
-                format_name(from_format),
-                args.output.display(),
-                format_name(to_format)
-            );
-            emit_conversion_report(&conv_report, ReportFormat::Text, output)?;
-        }
-        ReportFormat::Json => {
-            emit_conversion_report(&conv_report, ReportFormat::Json, output)?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Execute the validate subcommand.
-fn run_validate(args: ValidateArgs, output: OutputContext) -> Result<(), PanlabelError> {
-    let dataset = read_dataset(args.format, &args.input)?;
-
-    // Validate
-    let opts = validation::ValidateOptions {
-        strict: args.strict,
-    };
-    let report = validation::validate_dataset(&dataset, &opts);
-
-    // Output results
-    match args.output_format {
-        ReportFormat::Json => write_json_stdout(&report.as_json(), output)?,
-        ReportFormat::Text => print!("{}", report),
-    }
-
-    // Determine exit status
-    let has_errors = report.error_count() > 0;
-    let has_warnings = report.warning_count() > 0;
-
-    if has_errors || (args.strict && has_warnings) {
-        Err(PanlabelError::ValidationFailed {
-            error_count: report.error_count(),
-            warning_count: report.warning_count(),
-            report,
-        })
-    } else {
-        Ok(())
-    }
-}
-
-/// Execute the convert subcommand.
-fn run_convert(args: ConvertArgs, output: OutputContext) -> Result<(), PanlabelError> {
-    let from_format = match args.from.as_concrete() {
-        Some(format) => format,
-        None => {
-            let input = args.input.as_ref().ok_or_else(|| {
-                PanlabelError::UnsupportedFormat("--from auto requires --input <path>".to_string())
-            })?;
-            format_detection::detect_format(input)?
-        }
-    };
-
-    validate_hf_flag_usage(&args, from_format)?;
-
-    #[allow(unused_mut)]
-    let mut hf_read_options = ir::io_hf_imagefolder::HfReadOptions {
-        bbox_format: args.hf_bbox_format.to_hf_bbox_format(),
-        objects_column: args.hf_objects_column.clone(),
-        split: args.split.clone(),
-        category_map: load_hf_category_map(args.hf_category_map.as_deref())?,
-        provenance: Default::default(),
-    };
-    let hf_write_options = ir::io_hf_imagefolder::HfWriteOptions {
-        bbox_format: args.hf_bbox_format.to_hf_bbox_format(),
-    };
-    #[cfg(feature = "hf-remote")]
-    let mut remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
-    #[cfg(not(feature = "hf-remote"))]
-    let remote_hf_provenance: Option<std::collections::BTreeMap<String, String>> = None;
-
-    let (effective_input, source_display, effective_from_format) =
-        if from_format == ConvertFormat::HfImagefolder && args.hf_repo.is_some() {
-            #[cfg(feature = "hf-remote")]
-            {
-                let repo_input = args.hf_repo.as_deref().expect("checked is_some");
-                let repo_ref = hf::resolve::parse_hf_input(
-                    repo_input,
-                    args.revision.as_deref(),
-                    args.config.as_deref(),
-                    args.split.as_deref(),
-                )?;
-
-                let preflight = hf::preflight::run_preflight(&repo_ref, args.token.as_deref());
-                if preflight.is_none() {
-                    eprintln!("Note: HF viewer API unavailable; proceeding with direct download.");
-                }
-
-                if let Some(preflight_data) = preflight.as_ref() {
-                    if hf_read_options.objects_column.is_none() {
-                        hf_read_options.objects_column =
-                            preflight_data.detected_objects_column.clone();
-                    }
-
-                    if hf_read_options.category_map.is_empty() {
-                        if let Some(labels) = preflight_data.category_labels.as_ref() {
-                            for (idx, label) in labels.iter().enumerate() {
-                                hf_read_options
-                                    .category_map
-                                    .insert(idx as i64, label.clone());
-                            }
-                        }
-                    }
-
-                    if let Some(license) = preflight_data.license.as_ref() {
-                        hf_read_options
-                            .provenance
-                            .insert("hf_license".to_string(), license.clone());
-                    }
-                    if let Some(description) = preflight_data.description.as_ref() {
-                        hf_read_options
-                            .provenance
-                            .insert("hf_description".to_string(), description.clone());
-                    }
-
-                    if hf_read_options.split.is_none() {
-                        hf_read_options.split = preflight_data.selected_split.clone();
-                    }
-                }
-
-                let acquired =
-                    hf::acquire::acquire(&repo_ref, preflight.as_ref(), args.token.as_deref())?;
-                let revision = repo_ref
-                    .revision
-                    .clone()
-                    .unwrap_or_else(|| "main".to_string());
-                hf_read_options
-                    .provenance
-                    .insert("hf_repo_id".to_string(), repo_ref.repo_id.clone());
-                hf_read_options
-                    .provenance
-                    .insert("hf_revision".to_string(), revision);
-                hf_read_options.provenance.insert(
-                    "hf_bbox_format".to_string(),
-                    args.hf_bbox_format.to_hf_bbox_format().as_str().to_string(),
-                );
-                if let Some(split_name) = acquired
-                    .split_name
-                    .clone()
-                    .or_else(|| repo_ref.split.clone())
-                {
-                    hf_read_options
-                        .provenance
-                        .insert("hf_split".to_string(), split_name);
-                }
-                remote_hf_provenance = Some(hf_read_options.provenance.clone());
-
-                if acquired.payload_format == hf::acquire::HfAcquirePayloadFormat::HfImagefolder
-                    && hf_read_options.split.is_some()
-                    && (acquired.payload_path.join("metadata.jsonl").is_file()
-                        || acquired.payload_path.join("metadata.parquet").is_file())
-                {
-                    hf_read_options.split = None;
-                }
-
-                (
-                    acquired.payload_path,
-                    args.hf_repo.clone().expect("checked is_some"),
-                    remote_payload_to_convert_format(acquired.payload_format),
-                )
-            }
-            #[cfg(not(feature = "hf-remote"))]
-            {
-                return Err(PanlabelError::UnsupportedFormat(
-                    "remote HF import requires the 'hf-remote' feature".to_string(),
-                ));
-            }
-        } else {
-            let input = args.input.clone().ok_or_else(|| {
-                PanlabelError::UnsupportedFormat("missing required --input <path>".to_string())
-            })?;
-            let display = input.display().to_string();
-            (input, display, from_format)
-        };
-
-    // Step 1: Read the dataset
-    let yolo_read_options = ir::io_yolo::YoloReadOptions {
-        split: args.split.clone(),
-    };
-    let mut dataset = if effective_from_format == ConvertFormat::HfImagefolder
-        || effective_from_format == ConvertFormat::Yolo
-    {
-        read_dataset_with_options(
-            effective_from_format,
-            &effective_input,
-            &hf_read_options,
-            &yolo_read_options,
-        )?
-    } else {
-        read_dataset(effective_from_format, &effective_input)?
-    };
-    if let Some(provenance) = remote_hf_provenance {
-        dataset.info.attributes.extend(provenance);
-    }
-
-    // Step 2: Optionally validate the input
-    if !args.no_validate {
-        let opts = validation::ValidateOptions {
-            strict: args.strict,
-        };
-        let validation_report = validation::validate_dataset(&dataset, &opts);
-
-        let has_errors = validation_report.error_count() > 0;
-        let has_warnings = validation_report.warning_count() > 0;
-
-        if has_errors || has_warnings {
-            eprintln!("{}", validation_report);
-        }
-
-        if has_errors || (args.strict && has_warnings) {
-            return Err(PanlabelError::ValidationFailed {
-                error_count: validation_report.error_count(),
-                warning_count: validation_report.warning_count(),
-                report: validation_report,
-            });
-        }
-    }
-
-    // Step 3: Build conversion report and check for lossiness
-    let conv_report = conversion::build_conversion_report(
-        &dataset,
-        effective_from_format.to_conversion_format(),
-        args.to.to_conversion_format(),
-    );
-
-    if conv_report.is_lossy() && !args.allow_lossy {
-        emit_conversion_report(&conv_report, args.output_format, output)?;
-        return Err(PanlabelError::LossyConversionBlocked {
-            from: format_name(effective_from_format).to_string(),
-            to: format_name(args.to).to_string(),
-            report: Box::new(conv_report),
-        });
-    }
-
-    // Step 4: Write the dataset
-    if !args.dry_run {
-        write_dataset_with_options(args.to, &args.output, &dataset, &hf_write_options)?;
-    }
-
-    // Step 5: Output the report
-    match args.output_format {
-        ReportFormat::Text => {
-            println!(
-                "{} {} ({}) -> {} ({})",
-                if args.dry_run {
-                    "Dry run: would convert"
-                } else {
-                    "Converted"
-                },
-                source_display,
-                format_name(effective_from_format),
-                args.output.display(),
-                format_name(args.to)
-            );
-            emit_conversion_report(&conv_report, ReportFormat::Text, output)?;
-        }
-        ReportFormat::Json => {
-            emit_conversion_report(&conv_report, ReportFormat::Json, output)?;
-        }
-    }
-
     Ok(())
 }
 
@@ -1869,45 +1465,4 @@ fn list_format_entries() -> Vec<ListFormatEntry> {
             directory_based: entry.directory_based,
         })
         .collect()
-}
-
-/// Execute the list-formats subcommand.
-fn run_list_formats(args: ListFormatsArgs, output: OutputContext) -> Result<(), PanlabelError> {
-    let entries = list_format_entries();
-
-    match args.output_format {
-        ReportFormat::Text => {
-            println!("Supported formats:");
-            println!();
-            println!(
-                "  {:<12} {:<6} {:<6} {:<12} DESCRIPTION",
-                "FORMAT", "READ", "WRITE", "LOSSINESS"
-            );
-            println!(
-                "  {:<12} {:<6} {:<6} {:<12} -----------",
-                "------", "----", "-----", "---------"
-            );
-
-            for entry in &entries {
-                println!(
-                    "  {:<12} {:<6} {:<6} {:<12} {}",
-                    entry.name,
-                    if entry.read { "yes" } else { "no" },
-                    if entry.write { "yes" } else { "no" },
-                    entry.lossiness,
-                    entry.description
-                );
-            }
-
-            println!();
-            println!("Lossiness key:");
-            println!("  lossless    - Format preserves all IR information");
-            println!("  conditional - Format may lose info depending on dataset content");
-            println!("  lossy       - Format always loses some IR information");
-            println!();
-            println!("Tip: Use '--from auto' with 'convert' for automatic format detection.");
-            Ok(())
-        }
-        ReportFormat::Json => write_json_stdout(&entries, output),
-    }
 }

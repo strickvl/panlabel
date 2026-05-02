@@ -9,6 +9,9 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use super::io_writer_dataset_view::{
+    AnnotationValidationOrder, MissingDatasetReference, WriterDatasetView,
+};
 use super::model::{Annotation, Category, Dataset, DatasetInfo, Image};
 use super::{AnnotationId, BBoxXYXY, CategoryId, ImageId, Pixel};
 use crate::error::PanlabelError;
@@ -183,46 +186,12 @@ pub fn write_kitti_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelErr
     fs::create_dir_all(&images_dir).map_err(PanlabelError::Io)?;
     fs::write(images_dir.join("README.txt"), IMAGE_DIR_README).map_err(PanlabelError::Io)?;
 
-    let image_by_id: BTreeMap<ImageId, &Image> =
-        dataset.images.iter().map(|img| (img.id, img)).collect();
-    let category_name_by_id: BTreeMap<CategoryId, String> = dataset
-        .categories
-        .iter()
-        .map(|c| (c.id, c.name.clone()))
-        .collect();
+    let view = WriterDatasetView::new(dataset);
+    view.validate_references(AnnotationValidationOrder::DatasetOrder)
+        .map_err(|err| kitti_missing_ref_error(path, err))?;
 
-    let mut annotations_by_image: BTreeMap<ImageId, Vec<&Annotation>> = BTreeMap::new();
-    for ann in &dataset.annotations {
-        if !image_by_id.contains_key(&ann.image_id) {
-            return Err(PanlabelError::KittiWriteError {
-                path: path.to_path_buf(),
-                message: format!(
-                    "annotation {} references missing image {}",
-                    ann.id.as_u64(),
-                    ann.image_id.as_u64()
-                ),
-            });
-        }
-        if !category_name_by_id.contains_key(&ann.category_id) {
-            return Err(PanlabelError::KittiWriteError {
-                path: path.to_path_buf(),
-                message: format!(
-                    "annotation {} references missing category {}",
-                    ann.id.as_u64(),
-                    ann.category_id.as_u64()
-                ),
-            });
-        }
-        annotations_by_image
-            .entry(ann.image_id)
-            .or_default()
-            .push(ann);
-    }
-
-    let mut images_sorted: Vec<&Image> = dataset.images.iter().collect();
-    images_sorted.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-
-    for image in images_sorted {
+    let mut seen_image_ids = BTreeSet::new();
+    for image in view.images_sorted_by_file_name() {
         if image.file_name.contains('/') || image.file_name.contains('\\') {
             return Err(PanlabelError::KittiWriteError {
                 path: path.to_path_buf(),
@@ -236,13 +205,22 @@ pub fn write_kitti_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelErr
         let label_name = Path::new(&image.file_name).with_extension(LABEL_EXTENSION);
         let label_path = labels_dir.join(&label_name);
 
-        let mut anns = annotations_by_image.remove(&image.id).unwrap_or_default();
-        anns.sort_by_key(|ann| ann.id);
-
         let mut file = fs::File::create(&label_path).map_err(PanlabelError::Io)?;
 
-        for ann in anns {
-            let class_name = &category_name_by_id[&ann.category_id];
+        if !seen_image_ids.insert(image.id) {
+            continue;
+        }
+
+        for ann in view.annotations_for_image_sorted_by_id(image.id) {
+            let class_name = view.category_name(ann.category_id).ok_or_else(|| {
+                kitti_missing_ref_error(
+                    path,
+                    MissingDatasetReference::Category {
+                        annotation_id: ann.id,
+                        category_id: ann.category_id,
+                    },
+                )
+            })?;
             let row = annotation_to_row(ann, class_name);
             let line = format_kitti_row(&row);
             writeln!(file, "{}", line).map_err(PanlabelError::Io)?;
@@ -250,6 +228,33 @@ pub fn write_kitti_dir(path: &Path, dataset: &Dataset) -> Result<(), PanlabelErr
     }
 
     Ok(())
+}
+
+fn kitti_missing_ref_error(path: &Path, err: MissingDatasetReference) -> PanlabelError {
+    match err {
+        MissingDatasetReference::Image {
+            annotation_id,
+            image_id,
+        } => PanlabelError::KittiWriteError {
+            path: path.to_path_buf(),
+            message: format!(
+                "annotation {} references missing image {}",
+                annotation_id.as_u64(),
+                image_id.as_u64()
+            ),
+        },
+        MissingDatasetReference::Category {
+            annotation_id,
+            category_id,
+        } => PanlabelError::KittiWriteError {
+            path: path.to_path_buf(),
+            message: format!(
+                "annotation {} references missing category {}",
+                annotation_id.as_u64(),
+                category_id.as_u64()
+            ),
+        },
+    }
 }
 
 pub fn from_kitti_str(txt: &str) -> Result<(), PanlabelError> {

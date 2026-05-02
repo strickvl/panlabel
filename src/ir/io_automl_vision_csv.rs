@@ -27,6 +27,9 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
+use super::io_writer_dataset_view::{
+    AnnotationValidationOrder, MissingDatasetReference, WriterDatasetView,
+};
 use super::model::{Annotation, Category, Dataset, DatasetInfo, Image};
 use super::{AnnotationId, BBoxXYXY, CategoryId, ImageId, Normalized};
 use crate::error::PanlabelError;
@@ -100,41 +103,32 @@ pub fn parse_automl_vision_csv_slice(bytes: &[u8]) -> Result<(), csv::Error> {
 /// Writes a dataset to an AutoML Vision CSV string (headerless, 11-column).
 pub fn to_automl_vision_csv_string(dataset: &Dataset) -> Result<String, PanlabelError> {
     let dummy_path = Path::new("<string>");
-
-    let image_lookup: BTreeMap<ImageId, &Image> =
-        dataset.images.iter().map(|img| (img.id, img)).collect();
-    let category_lookup: BTreeMap<CategoryId, &Category> =
-        dataset.categories.iter().map(|cat| (cat.id, cat)).collect();
+    let view = WriterDatasetView::new(dataset);
+    view.validate_references(AnnotationValidationOrder::AnnotationIdOrder)
+        .map_err(|err| automl_missing_ref_error(dummy_path, err))?;
 
     let mut csv_writer = csv::WriterBuilder::new()
         .has_headers(false)
         .from_writer(Vec::new());
 
-    let mut tagged: Vec<(AnnotationId, &Annotation)> =
-        dataset.annotations.iter().map(|a| (a.id, a)).collect();
-    tagged.sort_by_key(|(id, _)| *id);
-
-    for (_, ann) in tagged {
-        let image = image_lookup.get(&ann.image_id).ok_or_else(|| {
-            PanlabelError::AutoMlVisionCsvInvalid {
-                path: dummy_path.to_path_buf(),
-                message: format!(
-                    "Annotation {} references non-existent image {}",
-                    ann.id.as_u64(),
-                    ann.image_id.as_u64()
-                ),
-            }
+    for ann in view.annotations_sorted_by_id() {
+        let image = view.image(ann.image_id).ok_or_else(|| {
+            automl_missing_ref_error(
+                dummy_path,
+                MissingDatasetReference::Image {
+                    annotation_id: ann.id,
+                    image_id: ann.image_id,
+                },
+            )
         })?;
-
-        let category = category_lookup.get(&ann.category_id).ok_or_else(|| {
-            PanlabelError::AutoMlVisionCsvInvalid {
-                path: dummy_path.to_path_buf(),
-                message: format!(
-                    "Annotation {} references non-existent category {}",
-                    ann.id.as_u64(),
-                    ann.category_id.as_u64()
-                ),
-            }
+        let category_name = view.category_name(ann.category_id).ok_or_else(|| {
+            automl_missing_ref_error(
+                dummy_path,
+                MissingDatasetReference::Category {
+                    annotation_id: ann.id,
+                    category_id: ann.category_id,
+                },
+            )
         })?;
 
         let bbox_norm = ann
@@ -158,7 +152,7 @@ pub fn to_automl_vision_csv_string(dataset: &Dataset) -> Result<String, Panlabel
             .write_record([
                 ml_use,
                 image_uri,
-                &category.name,
+                category_name,
                 &bbox_norm.xmin().to_string(),
                 &bbox_norm.ymin().to_string(),
                 "",
@@ -182,6 +176,33 @@ pub fn to_automl_vision_csv_string(dataset: &Dataset) -> Result<String, Panlabel
         path: dummy_path.to_path_buf(),
         message: format!("Invalid UTF-8 in output: {e}"),
     })
+}
+
+fn automl_missing_ref_error(path: &Path, err: MissingDatasetReference) -> PanlabelError {
+    match err {
+        MissingDatasetReference::Image {
+            annotation_id,
+            image_id,
+        } => PanlabelError::AutoMlVisionCsvInvalid {
+            path: path.to_path_buf(),
+            message: format!(
+                "Annotation {} references non-existent image {}",
+                annotation_id.as_u64(),
+                image_id.as_u64()
+            ),
+        },
+        MissingDatasetReference::Category {
+            annotation_id,
+            category_id,
+        } => PanlabelError::AutoMlVisionCsvInvalid {
+            path: path.to_path_buf(),
+            message: format!(
+                "Annotation {} references non-existent category {}",
+                annotation_id.as_u64(),
+                category_id.as_u64()
+            ),
+        },
+    }
 }
 
 // ============================================================================
@@ -531,5 +552,51 @@ mod tests {
 
         assert_eq!(lines.len(), 1); // headerless
         assert!(lines[0].starts_with("TRAIN,photo.jpg,Cat,"));
+    }
+
+    #[test]
+    fn test_missing_image_error_preserves_message() {
+        let dataset = Dataset {
+            images: vec![],
+            categories: vec![Category::new(1u64, "Cat")],
+            annotations: vec![Annotation::new(
+                1u64,
+                999u64,
+                1u64,
+                BBoxXYXY::<Pixel>::from_xyxy(0.0, 0.0, 10.0, 10.0),
+            )],
+            ..Default::default()
+        };
+
+        let result = to_automl_vision_csv_string(&dataset);
+        match result.expect_err("expected missing image error") {
+            PanlabelError::AutoMlVisionCsvInvalid { message, .. } => {
+                assert_eq!(message, "Annotation 1 references non-existent image 999")
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_missing_category_error_preserves_message() {
+        let dataset = Dataset {
+            images: vec![Image::new(1u64, "photo.jpg", 640, 480)],
+            categories: vec![],
+            annotations: vec![Annotation::new(
+                1u64,
+                1u64,
+                999u64,
+                BBoxXYXY::<Pixel>::from_xyxy(0.0, 0.0, 10.0, 10.0),
+            )],
+            ..Default::default()
+        };
+
+        let result = to_automl_vision_csv_string(&dataset);
+        match result.expect_err("expected missing category error") {
+            PanlabelError::AutoMlVisionCsvInvalid { message, .. } => {
+                assert_eq!(message, "Annotation 1 references non-existent category 999")
+            }
+            other => panic!("unexpected error: {other}"),
+        }
     }
 }

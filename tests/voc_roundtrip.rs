@@ -237,6 +237,36 @@ fn write_voc_normalizes_boolean_attributes() {
 }
 
 #[test]
+fn duplicate_image_ids_write_annotations_only_for_first_filename_sorted_image() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+
+    let dataset = Dataset {
+        images: vec![
+            Image::new(1u64, "b_duplicate.jpg", 100, 100),
+            Image::new(1u64, "a_duplicate.jpg", 100, 100),
+        ],
+        categories: vec![Category::new(1u64, "cat")],
+        annotations: vec![Annotation::new(
+            1u64,
+            1u64,
+            1u64,
+            BBoxXYXY::from_xyxy(1.0, 2.0, 3.0, 4.0),
+        )],
+        ..Default::default()
+    };
+
+    write_voc_dir(temp.path(), &dataset).expect("write voc");
+
+    let first_xml = fs::read_to_string(temp.path().join("Annotations/a_duplicate.xml"))
+        .expect("read first duplicate xml");
+    let second_xml = fs::read_to_string(temp.path().join("Annotations/b_duplicate.xml"))
+        .expect("read second duplicate xml");
+
+    assert!(first_xml.contains("<object>"));
+    assert!(!second_xml.contains("<object>"));
+}
+
+#[test]
 fn read_voc_from_annotations_dir_succeeds() {
     let temp = tempfile::tempdir().expect("create temp dir");
     create_sample_voc_dataset(temp.path());

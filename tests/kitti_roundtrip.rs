@@ -276,6 +276,36 @@ fn unannotated_images_produce_empty_txt() {
 }
 
 #[test]
+fn duplicate_image_ids_write_annotations_only_for_first_filename_sorted_image() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+
+    let dataset = Dataset {
+        images: vec![
+            Image::new(1u64, "b_duplicate.bmp", 100, 100),
+            Image::new(1u64, "a_duplicate.bmp", 100, 100),
+        ],
+        categories: vec![Category::new(1u64, "Car")],
+        annotations: vec![Annotation::new(
+            1u64,
+            1u64,
+            1u64,
+            BBoxXYXY::<Pixel>::from_xyxy(1.0, 2.0, 3.0, 4.0),
+        )],
+        ..Default::default()
+    };
+
+    write_kitti_dir(temp.path(), &dataset).expect("write kitti");
+
+    let first_label = fs::read_to_string(temp.path().join("label_2/a_duplicate.txt"))
+        .expect("read first duplicate label");
+    let second_label = fs::read_to_string(temp.path().join("label_2/b_duplicate.txt"))
+        .expect("read second duplicate label");
+
+    assert!(!first_label.is_empty());
+    assert!(second_label.is_empty());
+}
+
+#[test]
 fn deterministic_ids() {
     let temp = tempfile::tempdir().expect("create temp dir");
 

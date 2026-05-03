@@ -68,24 +68,15 @@ cargo bench -- --test    # Smoke test benchmarks (no timing)
 
 ### Fuzzing (requires nightly)
 ```bash
-cargo +nightly fuzz run coco_json_parse          # Fuzz COCO JSON parser
-cargo +nightly fuzz run voc_xml_parse            # Fuzz VOC XML parser
-cargo +nightly fuzz run tfod_csv_parse           # Fuzz TFOD CSV parser
-cargo +nightly fuzz run label_studio_json_parse  # Fuzz Label Studio parser
-cargo +nightly fuzz run ir_json_parse            # Fuzz IR JSON parser
-cargo +nightly fuzz run yolo_label_line_parse    # Fuzz YOLO line parser
-cargo +nightly fuzz run labelme_json_parse       # Fuzz LabelMe JSON parser
-cargo +nightly fuzz run createml_json_parse      # Fuzz CreateML JSON parser
-cargo +nightly fuzz run kitti_txt_parse          # Fuzz KITTI parser
-cargo +nightly fuzz run via_json_parse           # Fuzz VIA JSON parser
-cargo +nightly fuzz run retinanet_csv_parse      # Fuzz RetinaNet CSV parser
-cargo +nightly fuzz run openimages_csv_parse     # Fuzz OpenImages CSV parser
-cargo +nightly fuzz run kaggle_wheat_csv_parse   # Fuzz Kaggle Wheat CSV parser
-cargo +nightly fuzz run automl_vision_csv_parse  # Fuzz AutoML Vision CSV parser
-cargo +nightly fuzz run udacity_csv_parse        # Fuzz Udacity CSV parser
+cargo +nightly fuzz list                          # List all configured fuzz targets
+cargo +nightly fuzz build coco_json_parse         # Build one target
+cargo +nightly fuzz run coco_json_parse -- -runs=256  # Short smoke run
+cargo check --manifest-path fuzz/Cargo.toml       # Check fuzz crate wiring
 ```
 
-`fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so the fuzz-only YOLO parser wrapper is available from the fuzz crate.
+Use `docs/fuzzing.md` as the durable source for install steps, corpus hygiene, intentional seed additions, and deferred directory-layout/companion-file fuzzing cases.
+
+`fuzz/Cargo.toml` enables panlabel's `fuzzing` feature so fuzz-only parser wrappers are available from the fuzz crate.
 
 ### Releasing
 ```bash

@@ -1,0 +1,1 @@
+{"categories":{"label":{"labels":[{"name":"cat"}]}},"items":[{"id":"image.jpg","image":{"path":"image.jpg","size":[80,100]},"annotations":[{"type":"bbox","bbox":[1,2,20,30],"label_id":0}]}]}

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 use serde_json::{json, Value};
@@ -26,9 +26,22 @@ const HEADER: [&str; 7] = [
 
 pub fn read_via_csv(path: &Path) -> Result<Dataset, PanlabelError> {
     let file = File::open(path).map_err(PanlabelError::Io)?;
+    read_via_csv_from_reader(BufReader::new(file), path, true)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn from_via_csv_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    read_via_csv_from_reader(bytes, Path::new("<fuzz>"), false)
+}
+
+fn read_via_csv_from_reader<R: Read>(
+    reader: R,
+    path: &Path,
+    probe_image_dimensions: bool,
+) -> Result<Dataset, PanlabelError> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false)
-        .from_reader(BufReader::new(file));
+        .from_reader(reader);
     let base = path.parent().unwrap_or_else(|| Path::new("."));
     let mut images_by_name: BTreeMap<String, RawImage> = BTreeMap::new();
     let mut anns = Vec::new();
@@ -66,7 +79,12 @@ pub fn read_via_csv(path: &Path) -> Result<Dataset, PanlabelError> {
             }
         }
         images_by_name.entry(filename.clone()).or_insert_with(|| {
-            let dims = image_dimensions_if_found(base, &filename).unwrap_or((1, 1));
+            let dims = if probe_image_dimensions {
+                image_dimensions_if_found(base, &filename)
+            } else {
+                None
+            }
+            .unwrap_or((1, 1));
             RawImage {
                 file_name: filename.clone(),
                 width: dims.0,

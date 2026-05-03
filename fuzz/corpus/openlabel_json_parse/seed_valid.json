@@ -1,0 +1,1 @@
+{"openlabel":{"metadata":{"schema_version":"1.0.0"},"objects":{"1":{"type":"car"}},"frames":{"0":{"frame_properties":{"file_name":"image.jpg","width":100,"height":80},"objects":{"1":{"object_data":{"bbox":[{"name":"car","val":[10,15,20,30]}]}}}}}}}

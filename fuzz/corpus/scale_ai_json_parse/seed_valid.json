@@ -1,0 +1,1 @@
+[{"task_id":"task-1","params":{"attachment":"https://example.com/img1.jpg","metadata":{"width":100,"height":80}},"response":{"annotations":[{"type":"box","label":"car","left":10,"top":20,"width":30,"height":40,"uuid":"box-1"}]}}]

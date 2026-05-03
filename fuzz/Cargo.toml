@@ -122,3 +122,157 @@ name = "udacity_csv_parse"
 path = "fuzz_targets/udacity_csv_parse.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "tfrecord_parse"
+path = "fuzz_targets/tfrecord_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cityscapes_json_parse"
+path = "fuzz_targets/cityscapes_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "superannotate_json_parse"
+path = "fuzz_targets/superannotate_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "supervisely_json_parse"
+path = "fuzz_targets/supervisely_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "vott_json_parse"
+path = "fuzz_targets/vott_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "vott_csv_parse"
+path = "fuzz_targets/vott_csv_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cloud_annotations_json_parse"
+path = "fuzz_targets/cloud_annotations_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "labelbox_json_parse"
+path = "fuzz_targets/labelbox_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "labelbox_ndjson_parse"
+path = "fuzz_targets/labelbox_ndjson_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sagemaker_manifest_parse"
+path = "fuzz_targets/sagemaker_manifest_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "scale_ai_json_parse"
+path = "fuzz_targets/scale_ai_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "unity_perception_json_parse"
+path = "fuzz_targets/unity_perception_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bdd100k_json_parse"
+path = "fuzz_targets/bdd100k_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "datumaro_json_parse"
+path = "fuzz_targets/datumaro_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "openlabel_json_parse"
+path = "fuzz_targets/openlabel_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "v7_darwin_json_parse"
+path = "fuzz_targets/v7_darwin_json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "via_csv_parse"
+path = "fuzz_targets/via_csv_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wider_face_txt_parse"
+path = "fuzz_targets/wider_face_txt_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "edge_impulse_labels_parse"
+path = "fuzz_targets/edge_impulse_labels_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "oidv4_txt_parse"
+path = "fuzz_targets/oidv4_txt_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "yolo_keras_txt_parse"
+path = "fuzz_targets/yolo_keras_txt_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "marmot_xml_parse"
+path = "fuzz_targets/marmot_xml_parse.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,1 @@
+{"version":1,"type":"bounding-box-labels","files":[{"path":"image.jpg","category":"training","boundingBoxes":[{"label":"cat","x":1,"y":2,"width":20,"height":30}]}]}

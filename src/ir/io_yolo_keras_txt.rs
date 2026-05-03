@@ -155,6 +155,12 @@ pub fn looks_like_yolo_keras_txt_content(
     Ok(saw_row)
 }
 
+#[cfg(feature = "fuzzing")]
+pub fn parse_yolo_keras_txt_str(input: &str) -> Result<(), PanlabelError> {
+    let _rows = parse_annotation_txt(input, Path::new("<fuzz>"))?;
+    Ok(())
+}
+
 /// Serialize to the shared TXT content string. Used by tests and both writers.
 pub fn to_yolo_keras_txt_string(dataset: &Dataset) -> Result<String, PanlabelError> {
     format_annotation_lines(dataset, Path::new("<string>"))

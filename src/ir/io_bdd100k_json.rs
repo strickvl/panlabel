@@ -22,7 +22,18 @@ pub fn read_bdd100k_json(path: &Path) -> Result<Dataset, PanlabelError> {
             path: path.to_path_buf(),
             source,
         })?;
-    bdd100k_value_to_ir(&value, path)
+    bdd100k_value_to_ir(&value, path, true)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn from_bdd100k_json_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    let path = Path::new("<fuzz>");
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|source| PanlabelError::Bdd100kJsonParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    bdd100k_value_to_ir(&value, path, false)
 }
 
 pub fn write_bdd100k_json(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError> {
@@ -49,7 +60,11 @@ pub(crate) fn is_likely_bdd100k_file(value: &Value) -> bool {
             .is_some_and(|a| a.first().is_some_and(frame_like))
 }
 
-fn bdd100k_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError> {
+fn bdd100k_value_to_ir(
+    value: &Value,
+    path: &Path,
+    probe_image_dimensions: bool,
+) -> Result<Dataset, PanlabelError> {
     let empty = Vec::new();
     let frames: Vec<&Value> = if let Some(arr) = value.as_array() {
         arr.iter().collect()
@@ -116,7 +131,13 @@ fn bdd100k_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelEr
             });
         }
         let dims = explicit_dims(frame)
-            .or_else(|| image_dimensions_if_found(base, &image_name))
+            .or_else(|| {
+                if probe_image_dimensions {
+                    image_dimensions_if_found(base, &image_name)
+                } else {
+                    None
+                }
+            })
             .unwrap_or((max_x.ceil() as u32, max_y.ceil() as u32));
         images.push(RawImage {
             file_name: image_name,

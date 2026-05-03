@@ -1,0 +1,1 @@
+{"data_row":{"id":"dr-1","external_id":"img1.jpg"},"media_attributes":{"width":100,"height":80},"projects":{"proj-1":{"labels":[{"annotations":{"objects":[{"feature_id":"bbox-1","name":"cat","annotation_kind":"ImageBoundingBox","bounding_box":{"top":20,"left":10,"height":30,"width":40}}]}}]}}}

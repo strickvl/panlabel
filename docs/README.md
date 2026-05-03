@@ -63,6 +63,7 @@ See the [roadmap](../ROADMAP.md) for what's planned.
 | Know what tasks/use cases are supported | [Tasks and use cases](./tasks.md) |
 | Understand what gets lost in conversion | [Conversion and lossiness](./conversion.md) |
 | Contribute to panlabel | [Contributing guide](../CONTRIBUTING.md) |
+| Run and maintain fuzzing coverage | [Fuzzing guide](./fuzzing.md) |
 | See what's coming next | [Roadmap](../ROADMAP.md) |
 
 ## For contributors: source of truth map

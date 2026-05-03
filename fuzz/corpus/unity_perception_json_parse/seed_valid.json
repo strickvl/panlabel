@@ -1,0 +1,1 @@
+{"captures":[{"filename":"img.jpg","width":100,"height":80,"annotations":[{"@type":"type.unity.com/unity.solo.BoundingBox2DAnnotation","values":[{"label_name":"cat","x":10,"y":20,"width":30,"height":40}]}]}]}

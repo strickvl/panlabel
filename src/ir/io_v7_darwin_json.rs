@@ -22,7 +22,18 @@ pub fn read_v7_darwin_json(path: &Path) -> Result<Dataset, PanlabelError> {
             path: path.to_path_buf(),
             source,
         })?;
-    v7_value_to_ir(&value, path)
+    v7_value_to_ir(&value, path, true)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn from_v7_darwin_json_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    let path = Path::new("<fuzz>");
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|source| PanlabelError::V7DarwinJsonParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    v7_value_to_ir(&value, path, false)
 }
 
 pub fn write_v7_darwin_json(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError> {
@@ -46,7 +57,11 @@ pub(crate) fn is_likely_v7_darwin_file(value: &Value) -> bool {
         || item_like(value)
 }
 
-fn v7_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError> {
+fn v7_value_to_ir(
+    value: &Value,
+    path: &Path,
+    probe_image_dimensions: bool,
+) -> Result<Dataset, PanlabelError> {
     let owned_items: Vec<Value> = if let Some(arr) = value.as_array() {
         arr.clone()
     } else {
@@ -109,7 +124,13 @@ fn v7_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError> 
             .and_then(Value::as_array)
             .and_then(|slots| slots.first())
             .and_then(|slot| Some((u32_field(slot, "width")?, u32_field(slot, "height")?)))
-            .or_else(|| image_dimensions_if_found(base, &image_name))
+            .or_else(|| {
+                if probe_image_dimensions {
+                    image_dimensions_if_found(base, &image_name)
+                } else {
+                    None
+                }
+            })
             .unwrap_or((max_x.ceil() as u32, max_y.ceil() as u32));
         images.push(RawImage {
             file_name: image_name,

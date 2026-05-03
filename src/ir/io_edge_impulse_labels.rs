@@ -22,7 +22,18 @@ pub fn read_edge_impulse_labels(path: &Path) -> Result<Dataset, PanlabelError> {
             path: label_path.clone(),
             source,
         })?;
-    edge_value_to_ir(&value, &label_path)
+    edge_value_to_ir(&value, &label_path, true)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn from_edge_impulse_labels_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    let path = Path::new("<fuzz>");
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|source| PanlabelError::EdgeImpulseJsonParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    edge_value_to_ir(&value, path, false)
 }
 
 pub fn write_edge_impulse_labels(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError> {
@@ -55,7 +66,11 @@ fn labels_path(path: &Path) -> PathBuf {
     }
 }
 
-fn edge_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError> {
+fn edge_value_to_ir(
+    value: &Value,
+    path: &Path,
+    probe_image_dimensions: bool,
+) -> Result<Dataset, PanlabelError> {
     let base = path.parent().unwrap_or_else(|| Path::new("."));
     let mut images = Vec::new();
     let mut anns = Vec::new();
@@ -67,8 +82,12 @@ fn edge_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default();
-            let dims =
-                image_dimensions_if_found(base, &image).unwrap_or_else(|| infer_dims(&boxes));
+            let dims = if probe_image_dimensions {
+                image_dimensions_if_found(base, &image)
+            } else {
+                None
+            }
+            .unwrap_or_else(|| infer_dims(&boxes));
             images.push(RawImage {
                 file_name: image.clone(),
                 width: dims.0,
@@ -82,7 +101,12 @@ fn edge_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError
     } else if let Some(map) = value.get("boundingBoxes").and_then(Value::as_object) {
         for (image, boxes_v) in map {
             let boxes = boxes_v.as_array().cloned().unwrap_or_default();
-            let dims = image_dimensions_if_found(base, image).unwrap_or_else(|| infer_dims(&boxes));
+            let dims = if probe_image_dimensions {
+                image_dimensions_if_found(base, image)
+            } else {
+                None
+            }
+            .unwrap_or_else(|| infer_dims(&boxes));
             images.push(RawImage {
                 file_name: image.clone(),
                 width: dims.0,

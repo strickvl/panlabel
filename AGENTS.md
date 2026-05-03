@@ -42,17 +42,11 @@ PROPTEST_CASES=1000 cargo test --test proptest_ir_json  # deeper local run
 cargo doc --open         # Build and view docs
 cargo bench              # Run Criterion benchmarks
 cargo bench -- --test    # Smoke test benchmarks
-cargo +nightly fuzz run coco_json_parse          # Fuzz COCO parser (requires nightly)
-cargo +nightly fuzz run voc_xml_parse            # Fuzz Pascal VOC XML parser (requires nightly)
-cargo +nightly fuzz run tfod_csv_parse           # Fuzz TFOD CSV parser (requires nightly)
-cargo +nightly fuzz run label_studio_json_parse  # Fuzz Label Studio parser (requires nightly)
-cargo +nightly fuzz run ir_json_parse            # Fuzz IR JSON parser (requires nightly)
-cargo +nightly fuzz run yolo_label_line_parse    # Fuzz YOLO line parser (requires nightly)
-cargo +nightly fuzz run labelme_json_parse       # Fuzz LabelMe JSON parser (requires nightly)
-cargo +nightly fuzz run createml_json_parse      # Fuzz CreateML JSON parser (requires nightly)
-cargo +nightly fuzz run kitti_txt_parse          # Fuzz KITTI parser (requires nightly)
-cargo +nightly fuzz run via_json_parse           # Fuzz VIA JSON parser (requires nightly)
-cargo +nightly fuzz run retinanet_csv_parse      # Fuzz RetinaNet CSV parser (requires nightly)
+cargo +nightly fuzz list                          # List all fuzz targets (requires cargo-fuzz + nightly)
+cargo +nightly fuzz build coco_json_parse         # Build a target without running
+cargo +nightly fuzz run coco_json_parse -- -runs=256  # Short smoke run
+cargo check --manifest-path fuzz/Cargo.toml       # Check fuzz crate wiring
+# See docs/fuzzing.md for durable fuzz workflow, corpus hygiene, and deferred cases
 
 python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10 --output_dir ./assets
 ```

@@ -22,6 +22,17 @@ pub fn read_datumaro_json(path: &Path) -> Result<Dataset, PanlabelError> {
     datumaro_value_to_ir(&value, path)
 }
 
+#[cfg(feature = "fuzzing")]
+pub fn from_datumaro_json_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    let path = Path::new("<fuzz>");
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|source| PanlabelError::DatumaroJsonParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    datumaro_value_to_ir(&value, path)
+}
+
 pub fn write_datumaro_json(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError> {
     let value = to_datumaro_value(dataset);
     let file = File::create(path).map_err(PanlabelError::Io)?;

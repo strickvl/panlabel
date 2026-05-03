@@ -21,7 +21,18 @@ pub fn read_openlabel_json(path: &Path) -> Result<Dataset, PanlabelError> {
             path: path.to_path_buf(),
             source,
         })?;
-    openlabel_value_to_ir(&value, path)
+    openlabel_value_to_ir(&value, path, true)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn from_openlabel_json_slice(bytes: &[u8]) -> Result<Dataset, PanlabelError> {
+    let path = Path::new("<fuzz>");
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|source| PanlabelError::OpenLabelJsonParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    openlabel_value_to_ir(&value, path, false)
 }
 
 pub fn write_openlabel_json(path: &Path, dataset: &Dataset) -> Result<(), PanlabelError> {
@@ -41,7 +52,11 @@ pub(crate) fn is_likely_openlabel_file(value: &Value) -> bool {
         .is_some_and(Value::is_object)
 }
 
-fn openlabel_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, PanlabelError> {
+fn openlabel_value_to_ir(
+    value: &Value,
+    path: &Path,
+    probe_image_dimensions: bool,
+) -> Result<Dataset, PanlabelError> {
     let openlabel = value
         .get("openlabel")
         .ok_or_else(|| PanlabelError::OpenLabelJsonInvalid {
@@ -132,10 +147,16 @@ fn openlabel_value_to_ir(value: &Value, path: &Path) -> Result<Dataset, Panlabel
                 });
             }
         }
+        let probed_dims = || {
+            if probe_image_dimensions {
+                image_dimensions_if_found(base, &image_name)
+            } else {
+                None
+            }
+        };
         let dims = match (u32_field(props, "width"), u32_field(props, "height")) {
             (Some(width), Some(height)) => (width, height),
-            _ => image_dimensions_if_found(base, &image_name)
-                .unwrap_or((max_x.ceil() as u32, max_y.ceil() as u32)),
+            _ => probed_dims().unwrap_or((max_x.ceil() as u32, max_y.ceil() as u32)),
         };
         images.push(RawImage {
             file_name: image_name,

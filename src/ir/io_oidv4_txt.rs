@@ -10,7 +10,7 @@ use super::io_bbox_adapters_common::{
     dataset_from_raw, image_dimensions_or_error, RawAnn, RawImage,
 };
 use super::model::{Dataset, DatasetInfo};
-use super::BBoxXYXY;
+use super::{BBoxXYXY, Pixel};
 use crate::error::PanlabelError;
 
 pub fn read_oidv4_txt(path: &Path) -> Result<Dataset, PanlabelError> {
@@ -40,6 +40,20 @@ pub(crate) fn looks_like_oidv4_txt_file(path: &Path) -> Result<bool, PanlabelErr
         return Ok(parts.len() == 5 && parts[1..].iter().all(|p| p.parse::<f64>().is_ok()));
     }
     Ok(true)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn parse_oidv4_txt_slice(bytes: &[u8]) -> Result<(), PanlabelError> {
+    let path = Path::new("<fuzz>");
+    let text = std::str::from_utf8(bytes).map_err(|source| PanlabelError::Oidv4TxtParse {
+        path: path.to_path_buf(),
+        line: 1,
+        message: source.to_string(),
+    })?;
+    for (idx, line) in text.lines().enumerate() {
+        let _ = parse_oidv4_label_line(path, idx + 1, line)?;
+    }
+    Ok(())
 }
 
 pub(crate) fn dir_has_oidv4_label_files(path: &Path) -> Result<bool, PanlabelError> {
@@ -133,33 +147,15 @@ fn oidv4_files_to_ir(root: &Path, files: Vec<PathBuf>) -> Result<Dataset, Panlab
         let file = File::open(&label_path).map_err(PanlabelError::Io)?;
         for (idx, line) in BufReader::new(file).lines().enumerate() {
             let line = line.map_err(PanlabelError::Io)?;
-            if line.trim().is_empty() {
-                continue;
-            }
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() != 5 {
-                return Err(PanlabelError::Oidv4TxtParse {
-                    path: label_path.clone(),
-                    line: idx + 1,
-                    message: "expected class xmin ymin xmax ymax".into(),
+            if let Some((category, bbox)) = parse_oidv4_label_line(&label_path, idx + 1, &line)? {
+                anns.push(RawAnn {
+                    image: image_name.clone(),
+                    category,
+                    bbox,
+                    confidence: None,
+                    attributes: BTreeMap::new(),
                 });
             }
-            let parse = |i: usize| {
-                parts[i]
-                    .parse::<f64>()
-                    .map_err(|_| PanlabelError::Oidv4TxtParse {
-                        path: label_path.clone(),
-                        line: idx + 1,
-                        message: format!("invalid numeric field {}", i + 1),
-                    })
-            };
-            anns.push(RawAnn {
-                image: image_name.clone(),
-                category: parts[0].to_string(),
-                bbox: BBoxXYXY::from_xyxy(parse(1)?, parse(2)?, parse(3)?, parse(4)?),
-                confidence: None,
-                attributes: BTreeMap::new(),
-            });
         }
     }
     Ok(dataset_from_raw(
@@ -168,6 +164,37 @@ fn oidv4_files_to_ir(root: &Path, files: Vec<PathBuf>) -> Result<Dataset, Panlab
         vec![],
         DatasetInfo::default(),
     ))
+}
+
+fn parse_oidv4_label_line(
+    path: &Path,
+    line_no: usize,
+    line: &str,
+) -> Result<Option<(String, BBoxXYXY<Pixel>)>, PanlabelError> {
+    if line.trim().is_empty() {
+        return Ok(None);
+    }
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    if parts.len() != 5 {
+        return Err(PanlabelError::Oidv4TxtParse {
+            path: path.to_path_buf(),
+            line: line_no,
+            message: "expected class xmin ymin xmax ymax".into(),
+        });
+    }
+    let parse = |i: usize| {
+        parts[i]
+            .parse::<f64>()
+            .map_err(|_| PanlabelError::Oidv4TxtParse {
+                path: path.to_path_buf(),
+                line: line_no,
+                message: format!("invalid numeric field {}", i + 1),
+            })
+    };
+    Ok(Some((
+        parts[0].to_string(),
+        BBoxXYXY::from_xyxy(parse(1)?, parse(2)?, parse(3)?, parse(4)?),
+    )))
 }
 
 fn resolve_image_name(root: &Path, label_path: &Path, stem: &str) -> String {

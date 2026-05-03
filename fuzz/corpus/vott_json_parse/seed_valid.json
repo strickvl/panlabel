@@ -1,0 +1,1 @@
+{"name":"project","tags":[{"name":"cat"}],"assets":{"asset-1":{"asset":{"name":"img.jpg","size":{"width":100,"height":80}},"regions":[{"tags":["cat"],"boundingBox":{"left":10,"top":20,"width":30,"height":40}}]}}}

@@ -42,7 +42,7 @@ jobs:
       #   v0.4.0-rc.1  →  0.4.0-rc.1  (no "latest")
       - name: Extract metadata (tags, labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |

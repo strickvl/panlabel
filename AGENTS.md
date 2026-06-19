@@ -4,11 +4,17 @@
 - `src/lib.rs` is the library entry point with CLI command dispatch.
 - `src/main.rs` is a thin CLI wrapper that calls into the library.
 - `src/ir/` contains the Intermediate Representation module (model, bbox, converters), including `src/ir/io_yolo.rs` for YOLO TXT directory format (flat Darknet-style and split-aware layouts, with optional confidence token), `src/ir/io_yolo_keras_txt.rs` for shared YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, `src/ir/io_voc_xml.rs` for Pascal VOC XML, `src/ir/io_label_studio_json.rs` for Label Studio JSON, `src/ir/io_labelbox_json.rs` for Labelbox JSON/NDJSON, `src/ir/io_scale_ai_json.rs` for Scale AI JSON, `src/ir/io_unity_perception_json.rs` for Unity Perception/SOLO JSON, `src/ir/io_labelme_json.rs` for LabelMe JSON (per-image, file + directory), `src/ir/io_createml_json.rs` for Apple CreateML JSON, `src/ir/io_cloud_annotations_json.rs` for IBM Cloud Annotations JSON, `src/ir/io_vott_csv.rs` for VoTT CSV, `src/ir/io_vott_json.rs` for VoTT JSON, `src/ir/io_kitti.rs` for KITTI object detection labels, `src/ir/io_via_json.rs` for VGG Image Annotator (VIA) JSON, `src/ir/io_via_csv.rs` for VGG Image Annotator (VIA) CSV, `src/ir/io_retinanet_csv.rs` for RetinaNet Keras CSV, `src/ir/io_tfrecord.rs` for TFRecord (single-file uncompressed TFOD-style Example records), `src/ir/io_sagemaker_manifest.rs` for AWS SageMaker Ground Truth manifests, `src/ir/io_superannotate_json.rs` for SuperAnnotate JSON, `src/ir/io_supervisely_json.rs` for Supervisely JSON, `src/ir/io_cityscapes_json.rs` for Cityscapes polygon JSON, `src/ir/io_marmot_xml.rs` for Marmot XML, `src/ir/io_datumaro_json.rs` for Datumaro JSON, `src/ir/io_wider_face_txt.rs` for WIDER Face TXT, `src/ir/io_oidv4_txt.rs` for OIDv4 TXT (`Label/` layout), `src/ir/io_bdd100k_json.rs` for BDD100K/Scalabel JSON, `src/ir/io_v7_darwin_json.rs` for V7 Darwin JSON, `src/ir/io_edge_impulse_labels.rs` for Edge Impulse `bounding_boxes.labels`, `src/ir/io_openlabel_json.rs` for OpenLABEL JSON bbox subset, and `src/ir/io_super_json_common.rs` shared helpers for the SuperAnnotate/Supervisely adapters.
-- `src/conversion/` contains conversion lossiness analysis and stable report issue codes.
+- `src/conversion/` contains object-detection conversion lossiness analysis and stable report issue codes.
+- `src/ir_text/` contains the first-batch text/task IR, artifact preservation helpers, and adapters for `text-ir-jsonl`, `rlvr-hf`, `verifiers-taskset`, `harbor`, and read-only `swe-bench`.
+- `src/conversion_text/` contains text/task conversion reports and stable `TASK-*` issue codes.
+- `src/validation_text/` contains text/task dataset validation logic.
+- `src/text_format_catalog.rs` and `src/text_format_detection.rs` contain text/task format metadata and auto-detection.
+- `src/commands/text.rs` contains `panlabel text convert`, `panlabel text validate`, and `panlabel text list-formats` command logic.
 - `src/stats/` contains dataset statistics logic and HTML/text/JSON reporting.
-- `src/validation/` contains dataset validation logic.
+- `src/validation/` contains object-detection dataset validation logic.
 - `tests/cli.rs` contains CLI integration tests using `assert_cmd`.
 - `tests/tfod_csv_roundtrip.rs`, `tests/tfrecord_roundtrip.rs`, `tests/yolo_roundtrip.rs`, `tests/yolo_keras_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelbox_roundtrip.rs`, `tests/scale_ai_roundtrip.rs`, `tests/unity_perception_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/cloud_annotations_roundtrip.rs`, `tests/vott_csv_roundtrip.rs`, `tests/vott_json_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/via_csv_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`, `tests/sagemaker_manifest_roundtrip.rs`, `tests/superannotate_roundtrip.rs`, `tests/supervisely_roundtrip.rs`, `tests/cityscapes_roundtrip.rs`, `tests/marmot_roundtrip.rs`, `tests/datumaro_roundtrip.rs`, `tests/wider_face_roundtrip.rs`, `tests/oidv4_roundtrip.rs`, `tests/bdd100k_roundtrip.rs`, `tests/v7_darwin_roundtrip.rs`, `tests/edge_impulse_roundtrip.rs`, and `tests/openlabel_roundtrip.rs` cover format-specific integration behavior.
+- `tests/text_task_cli.rs` covers text/task CLI behavior, artifact preservation, non-execution guardrails, and first-batch task-format detection; fixtures live under `tests/fixtures/text_task_formats/`.
 - `tests/proptest_*.rs` add property-based roundtrip/idempotency/subset checks; shared helpers live in `tests/proptest_helpers/mod.rs` and `tests/common/mod.rs`.
 - `docs/` is the durable documentation home for users and contributors.
 - `benches/` contains Criterion benchmarks.
@@ -26,7 +32,8 @@ cargo check              # Fast type checking
 cargo fmt                # Format code
 cargo clippy             # Lint
 cargo test               # All tests (unit + integration + proptests)
-cargo test --test cli    # CLI integration tests only
+cargo test --test cli    # Object-detection CLI integration tests only
+cargo test --test text_task_cli  # Text/task CLI integration tests only
 cargo test --test proptest_ir_json
 cargo test --test proptest_coco
 cargo test --test proptest_tfod
@@ -70,7 +77,8 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 - Prefer `--from auto` unless the source format is already known.
 - Review the conversion/sample report before adding `--allow-lossy`; the stable issue codes explain exactly what will be dropped or normalized.
 - JSON/report payloads are written to stdout. Fatal errors go to stderr.
-- If you change CLI behavior, update `tests/cli.rs`, `docs/cli.md`, and relevant README examples in the same change.
+- If you change object-detection CLI behavior, update `tests/cli.rs`, `docs/cli.md`, and relevant README examples in the same change.
+- If you change text/task CLI behavior, update `tests/text_task_cli.rs`, `docs/cli.md`, `docs/formats.md`, `docs/tasks.md`, `docs/conversion.md`, and relevant README examples in the same change.
 
 ## Commit & Pull Request Guidelines
 - Commit messages in this repo are short and imperative (e.g., “Add basic CLI test”, “Update README”). Avoid prefixes unless needed.
@@ -78,18 +86,22 @@ python scripts/dataset_generator.py --num_images 1000 --annotations_per_image 10
 
 ## Docs Workflow
 - If you change CLI behavior, update `docs/cli.md` and relevant README examples in the same change.
-- If you change format behavior (COCO/Label Studio/TFOD/TFRecord/YOLO/VOC/IR), update `docs/formats.md`.
+- If you change object-detection format behavior (COCO/Label Studio/TFOD/TFRecord/YOLO/VOC/IR), update `docs/formats.md`.
+- If you change text/task format behavior (`text-ir-jsonl`/RLVR-HF/Verifiers/Harbor/SWE-bench), update `docs/formats.md`, `docs/tasks.md`, and `docs/conversion.md`.
 - If you change task/use-case support (detection vs segmentation/classification/etc.), update `docs/tasks.md`.
 - If you change conversion/lossiness/report codes, update `docs/conversion.md`.
-- Keep docs aligned with tests (`tests/cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`, and `tests/proptest_*.rs`), since user-visible behavior is asserted there.
+- Keep docs aligned with tests (`tests/cli.rs`, `tests/text_task_cli.rs`, `tests/yolo_roundtrip.rs`, `tests/voc_roundtrip.rs`, `tests/label_studio_roundtrip.rs`, `tests/labelme_roundtrip.rs`, `tests/createml_roundtrip.rs`, `tests/kitti_roundtrip.rs`, `tests/via_roundtrip.rs`, `tests/retinanet_csv_roundtrip.rs`, and `tests/proptest_*.rs`), since user-visible behavior is asserted there.
 - If you change auto-detection heuristics, update `docs/cli.md` and keep examples aligned with `tests/cli.rs`.
-- **When adding a new format adapter** (any new `src/ir/io_*.rs`), update **all** of: `README.md` (Supported formats table; add a Quick-start example only if it's a name-recognizable platform with a meaningfully different invocation), `CLAUDE.md` (project-status `Supports …` line plus the `src/ir/` and `tests/` tree comments), `AGENTS.md` (the `src/ir/` description line and the test list line), `docs/README.md` (both the **What does panlabel support today?** list and the **source of truth map**), and the relevant per-topic `docs/*.md` files (`formats.md`, `cli.md`, `tasks.md`, `conversion.md`). The repo-root README is the storefront and goes stale fastest, so it must always be in the change.
+- **When adding a new object-detection format adapter** (any new `src/ir/io_*.rs`), update **all** of: `README.md` (Supported formats table; add a Quick-start example only if it's a name-recognizable platform with a meaningfully different invocation), `CLAUDE.md` (project-status `Supports …` line plus the `src/ir/` and `tests/` tree comments), `AGENTS.md` (the `src/ir/` description line and the test list line), `docs/README.md` (both the **What does panlabel support today?** list and the **source of truth map**), and the relevant per-topic `docs/*.md` files (`formats.md`, `cli.md`, `tasks.md`, `conversion.md`). The repo-root README is the storefront and goes stale fastest, so it must always be in the change.
+- **When adding a new text/task format adapter** (any new `src/ir_text/io_*.rs`), update **all** of: `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/README.md`, `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md`, and `tests/text_task_cli.rs` or another focused task test. Keep executable reward/harness/runtime behavior as copied/referenced artifacts unless a separate design explicitly changes that rule.
 - Keep forward-looking priorities in `ROADMAP.md` (separate from current-behavior docs).
+- Do not update or commit orchestration plan artifacts under `docs/plans/` unless the task explicitly asks for a durable plan document. Plans created while coordinating agents are working notes, not product documentation.
 
 ## Configuration & Data Tips
 - For the dataset generator, use a fresh Python virtual environment and install `numpy`.
 - Keep generated assets out of git; only commit code and fixtures that are meant to be versioned.
 - Do not edit or commit files under `design/` unless a task explicitly asks for a specific design-file update.
-- If local design notes exist, treat them as historical background; implemented behavior belongs in `docs/` and tests.
+- Do not edit or commit files under `docs/plans/` unless the task explicitly asks for a durable plan document.
+- If local design notes or orchestration plans exist, treat them as historical/background working notes; implemented behavior belongs in user docs and tests.
 - `fuzz/Cargo.toml` enables the crate `fuzzing` feature so fuzz-only parser entrypoints are available to fuzz targets.
 - Keep `proptest-regressions/` in git to retain minimized repro cases from previous failures.

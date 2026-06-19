@@ -3,11 +3,14 @@
 This page describes how each annotation format works inside panlabel — what gets
 read, what gets written, and what you should expect.
 
-Panlabel converts through a canonical intermediate representation (IR). All
+Panlabel's top-level object-detection commands convert through a canonical intermediate representation (IR). All
 bounding boxes are represented as **pixel-space XYXY** in the IR, and each
 format adapter handles the mapping to/from its own coordinate system.
 
-Current scope: **mainstream/static-image 2D axis-aligned object detection** bounding boxes only.
+Text/task formats use a separate task IR and live under `panlabel text ...`.
+They are documented in their own section below and are not accepted by top-level `panlabel convert`.
+
+Current top-level scope: **mainstream/static-image 2D axis-aligned object detection** bounding boxes only.
 Not first-class in current scope: segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels.
 In broad schemas that include richer structures, panlabel skips/reports unsupported structures or treats conversion as lossy.
 
@@ -54,6 +57,68 @@ In broad schemas that include richer structures, panlabel skips/reports unsuppor
 | `edge-impulse` | file (`bounding_boxes.labels`) or directory containing it | yes | yes | lossy |
 | `openlabel` | file (`.json`) | yes | yes | lossy |
 | `via-csv` | file (`.csv`) | yes | yes | lossy |
+
+## Text/task format matrix (`panlabel text ...`)
+
+| Format | Path kind | Read | Write | Lossiness vs Text IR |
+|---|---|---|---|---|
+| `text-ir-jsonl` | JSONL file or directory-style output with sidecar metadata | yes | yes | lossless |
+| `rlvr-hf` | JSONL/JSON file or split JSONL directory | yes | yes | conditional |
+| `verifiers-taskset` (`verifiers`) | JSONL file or taskset directory | yes | yes | conditional |
+| `harbor` | task directory (`instruction.md` + `task.toml`) or root with task directories | yes | yes | conditional |
+| `swe-bench` (`swebench`) | JSONL/JSON file or split directory | yes | no | conditional |
+
+### Text/task IR JSONL (`text-ir-jsonl`)
+
+- Canonical Panlabel text/task representation for first-batch task examples.
+- File output writes JSONL rows plus a same-stem metadata sidecar, for example `tasks.jsonl` and `tasks.meta.json`.
+- Artifact copies for file outputs use `<output-stem>.artifacts/<safe-example-id>/...`.
+- Directory-style Text IR output uses `tasks.jsonl`, `tasks.meta.json`, and `tasks.artifacts/`.
+- First-batch examples use `kind = "task"`.
+
+### RLVR-HF (`rlvr-hf` / `rlvr` / `hf-rlvr`)
+
+- Generic Hugging Face-style task rows, not one fixed upstream schema.
+- Reads JSONL files, JSON arrays, and directories containing split JSONL files.
+- Prompt-like columns include `prompt`, `question`, `problem`, `problem_statement`, `instruction`, and `input`.
+- Answer-like columns include `answer`, `ground_truth`, `gold_answer`, `solution`, `expected_answer`, `final_answer`, and `reference_answer`.
+- ID-like columns include `id`, `instance_id`, `task_id`, and `trajectory_id`.
+- Use `--prompt-column`, `--answer-column`, `--id-column`, and `--split-column` when a row has multiple plausible columns.
+- Unused row fields are preserved as task metadata where the target can carry them.
+- Writer emits deterministic JSONL with `id`, prompt/messages, optional answer, optional split, and preserved metadata where policy allows it.
+
+### Verifiers taskset (`verifiers-taskset` / `verifiers`)
+
+- Reads materialized task rows from JSONL files or directories containing `dataset.jsonl`, `train.jsonl`, or `eval.jsonl`.
+- Maps `prompt` or `question` to task input and maps answer-like fields to optional gold answers.
+- Preserves nearby Python artifacts such as `rubric.py`, `env.py`, and `environment.py` as artifact references/copies.
+- Does not import Python modules, call `load_environment()`, instantiate Verifiers classes, or generate runnable Python reward code.
+- Writer emits materialized task rows, not a complete Verifiers Python environment package.
+
+### Harbor (`harbor`)
+
+- Reads a single Harbor task directory or a root containing multiple Harbor task directories.
+- A task directory is detected by `instruction.md` plus `task.toml`.
+- Reader maps `instruction.md` to task input and preserves known `task.toml` runtime/verifier/environment fields plus unknown metadata.
+- Native artifacts under `tests/`, `solution/`, and `environment/` are preserved when possible.
+- Writer emits deterministic task directories with `instruction.md`, `task.toml`, and copied artifacts.
+- When the source has no executable verifier artifact, writer refuses Harbor output unless `--scaffold` is passed.
+- With `--scaffold`, writer creates a fail-fast placeholder verifier and reports `TASK-REWARD-STUB`; replace it before running the Harbor task.
+
+### SWE-bench (`swe-bench` / `swebench`)
+
+- Read-only benchmark import.
+- Required fields: `instance_id`, `repo`, `base_commit`, `problem_statement`, and `test_patch`.
+- Optional fields include `patch`, `hints_text`, `created_at`, `version`, `FAIL_TO_PASS`, `PASS_TO_PASS`, and `environment_setup_commit`.
+- `problem_statement` plus optional hints become task input.
+- `test_patch` and `patch` are preserved as patch artifacts. They are not concatenated into prompt text.
+- `--to swe-bench` is not supported in this implementation pass.
+
+### Planned or parked text/task formats
+
+- `terminal-bench`: not supported yet. Current legacy `task.yaml` / `docker-compose.yaml` layouts are not auto-detected as Harbor.
+- `openenv`: parked because it is primarily a runtime protocol/server framework rather than a static task-row format.
+- `nemo-gym`: parked for now; future support should focus on static HF/config-like data rather than the runtime framework itself.
 
 ## IR JSON (`ir-json`)
 

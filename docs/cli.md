@@ -84,6 +84,95 @@ Notes:
 
 ---
 
+### `text list-formats`
+
+Show text/task format capabilities and lossiness class.
+
+Usage:
+`panlabel text list-formats [OPTIONS]`
+
+- `--output-format <text|json>` (default: `text`)
+- `--output <text|json>` (backward-compatible alias)
+
+`panlabel text list-formats --output-format json` emits a JSON array. Each entry has:
+
+- `name`
+- `aliases`
+- `domain` (`text-task`)
+- `read`
+- `write`
+- `lossiness` (`lossless`, `conditional`, or `lossy`)
+- `description`
+- `file_based`
+- `directory_based`
+
+Supported text/task formats in this command group:
+
+- `text-ir-jsonl`
+- `rlvr-hf` (`rlvr`, `hf-rlvr`)
+- `verifiers-taskset` (`verifiers`)
+- `harbor`
+- `swe-bench` (`swebench`, read-only target)
+
+---
+
+### `text validate`
+
+Validate a text/task dataset path and print a validation report.
+
+Usage:
+`panlabel text validate [OPTIONS] <INPUT>`
+
+- Positional: `input` (path; file or directory depending on format)
+- `--format <format>` (default: `auto`)
+  - supported values: `auto`, `text-ir-jsonl`, `rlvr-hf`, `rlvr`, `hf-rlvr`, `verifiers-taskset`, `verifiers`, `harbor`, `swe-bench`, `swebench`
+- `--strict` (treat warnings as errors)
+- `--output-format <text|json>` (default: `text`)
+- `--output <text|json>` (backward-compatible alias)
+
+Validation checks task IDs, task input, artifact references, source layout requirements, and target-independent task consistency. `--strict` turns validation warnings into a non-zero exit.
+
+---
+
+### `text convert`
+
+Convert text/task datasets using Panlabel's task IR as the internal hub.
+
+Usage:
+`panlabel text convert [OPTIONS] --to <FORMAT> -i <INPUT> -o <OUTPUT>`
+
+- `--from`: `auto`, `text-ir-jsonl`, `rlvr-hf`, `rlvr`, `hf-rlvr`, `verifiers-taskset`, `verifiers`, `harbor`, `swe-bench`, `swebench` (default: `auto`)
+- `--to`: `text-ir-jsonl`, `rlvr-hf`, `rlvr`, `hf-rlvr`, `verifiers-taskset`, `verifiers`, `harbor`
+  - `swe-bench` is intentionally read-only in this implementation pass and is not accepted as a target.
+- `--input`, `-i`: input path
+- `--output`, `-o`: output path
+- `--split <name>`: optional split name for row-based imports
+- `--prompt-column <name>`: override the prompt/input column for RLVR-HF imports
+- `--answer-column <name>`: override the answer/gold-answer column for RLVR-HF imports
+- `--id-column <name>`: override the ID column for RLVR-HF imports
+- `--split-column <name>`: override the split column for row-based imports
+- `--artifact-policy <copy|reference|drop>` (default: `copy`)
+- `--scaffold`: allow placeholder Harbor verifier output where needed
+- `--strict`
+- `--no-validate`
+- `--allow-lossy`
+- `--dry-run`
+- `--output-format <text|json>` (default: `text`)
+- `--report <text|json>` (backward-compatible alias for `--output-format`)
+
+Task conversion does not execute or import reward, verifier, harness, runtime, environment, or solution code. If a task row has a prompt and answer, panlabel can move those fields. If a task directory has `tests/test.sh`, panlabel can copy that file or record a reference. If a source has behavior that cannot be represented in the target, the report uses `TASK-*` codes and blocks unless `--allow-lossy` is set.
+
+Artifact policy:
+- `copy`: copy/materialize artifacts when the target cannot place them natively. File outputs use `<output-stem>.artifacts/<safe-example-id>/...`. Directory outputs use the target-native location when supported, otherwise `.panlabel/artifacts/<safe-example-id>/...`.
+- `reference`: leave artifact references as references.
+- `drop`: remove artifact references. This is reported as lossy when artifacts were present.
+
+Harbor writing has one extra guardrail. Without an executable verifier artifact, `panlabel text convert --to harbor` fails unless `--scaffold` is passed. With `--scaffold`, panlabel writes a clearly nonfunctional placeholder verifier and reports `TASK-REWARD-STUB`; you must replace that file before treating the Harbor task as runnable.
+
+With `--dry-run`, panlabel runs detection, validation, target compatibility checks, conversion analysis, and artifact destination planning, but writes no output files and copies no artifacts.
+
+---
+
 ### `stats`
 
 Show rich dataset statistics.
@@ -176,7 +265,7 @@ Show format capabilities and lossiness class.
 - `file_based`
 - `directory_based`
 
-## Auto-detection rules (`convert --from auto`, `diff --format-* auto`, `sample --from auto`, `stats` without `--format`)
+## Object-detection auto-detection rules (`convert --from auto`, `diff --format-* auto`, `sample --from auto`, `stats` without `--format`)
 
 1. If input path is a directory:
    - YOLO marker: `labels/` with `.txt` labels AND sibling `images/` directory (or path itself is `labels/` with sibling `images/`), or `data.yaml` with `train`/`val`/`test` split keys. Split keys may point to image directories or image-list `.txt` files. If `labels/` with `.txt` files exist but `images/` is missing, this is reported as an incomplete layout.
@@ -226,6 +315,22 @@ Show format capabilities and lossiness class.
      - object-root with bbox object (`min/max` or `xmin/ymin/xmax/ymax`) -> `ir-json`
 3. `stats` fallback: when detection fails for a `.json` file, stats tries `ir-json` as a fallback — but only if the JSON is parseable. Malformed JSON is reported directly as a parse error.
 
+## Text/task auto-detection rules (`panlabel text convert --from auto`, `panlabel text validate --format auto`)
+
+Text/task detection is separate from the object-detection detector.
+
+1. If input path is a directory:
+   - Harbor marker: a task directory with `instruction.md` and `task.toml`, or a root containing multiple such task directories.
+   - Verifiers marker: `dataset.jsonl`, `train.jsonl`, or `eval.jsonl`, optionally with nearby `rubric.py`, `env.py`, or `environment.py` artifacts.
+   - RLVR-HF marker: split JSONL/JSON task rows with prompt-like or question-like columns.
+   - SWE-bench marker: split JSONL/JSON rows with required SWE-bench fields. SWE-bench detection wins over generic RLVR-HF detection when both shapes are present.
+   - Legacy Terminal-Bench directories (`task.yaml`, `docker-compose.yaml`, etc.) are not treated as Harbor.
+2. If input path is a JSONL/JSON file:
+   - SWE-bench required fields are checked first: `instance_id`, `repo`, `base_commit`, `problem_statement`, and `test_patch`.
+   - Verifiers-specific row fields are checked before generic RLVR-HF rows.
+   - Generic prompt/question/answer/id-like rows are detected as `rlvr-hf`.
+3. Ambiguous matches outside that precedence fail with evidence and ask you to pass an explicit `--from` / `--format` value.
+
 ## Examples
 
 ```bash
@@ -256,8 +361,20 @@ panlabel sample -i in.coco.json -o out.ir.json --from coco --to ir-json --catego
 # Preview a deterministic sample without writing output files
 panlabel sample -i in.coco.json -o out.ir.json --from coco --to ir-json -n 100 --seed 42 --dry-run
 
-# Machine-readable format discovery
+# Machine-readable object-detection format discovery
 panlabel list-formats --output-format json
+
+# Machine-readable text/task format discovery
+panlabel text list-formats --output-format json
+
+# Convert RLVR-HF task rows to Panlabel text/task IR
+panlabel text convert --from auto --to text-ir-jsonl -i ./tasks.jsonl -o ./tasks.text.jsonl
+
+# Validate a Harbor task directory
+panlabel text validate --format harbor ./harbor_task
+
+# Preview Harbor-to-RLVR conversion without writing artifacts
+panlabel text convert --from harbor --to rlvr-hf -i ./harbor_task -o ./tasks.rlvr.jsonl --allow-lossy --dry-run
 
 # Convert a local HF ImageFolder directory to COCO
 panlabel convert --from hf --to coco -i ./hf_dataset -o out.coco.json

@@ -11,13 +11,13 @@ For current, implemented behavior, use:
 
 - ✅ Detection task support (static-image, 2D axis-aligned bboxes)
 - ✅ Formats: broad object-detection coverage across JSON, XML, CSV, TXT, TFRecord, and directory layouts; see `docs/formats.md` for the exhaustive implemented list
-- ✅ Conversion lossiness analysis and report JSON output
-- ✅ CLI: convert, validate, stats, diff, sample, list-formats
+- ✅ First-batch text/task dataset support under `panlabel text ...`: `text-ir-jsonl`, `rlvr-hf`, `verifiers-taskset` (`verifiers`), `harbor`, and read-only `swe-bench`
+- ✅ Conversion lossiness analysis and report JSON output for object-detection and text/task conversions
+- ✅ CLI: convert, validate, stats, diff, sample, list-formats, plus text convert/validate/list-formats
 
 ## Near-term priorities
 
-Strategy: complete detection format coverage and add dataset utility commands
-before expanding to new annotation tasks (segmentation, classification).
+Strategy: keep detection format coverage stable, harden the first-batch text/task support, and then expand deliberately into new annotation tasks (segmentation, classification) or additional task-dataset formats.
 
 ### Format support (detection)
 
@@ -125,10 +125,17 @@ format that panlabel already supports. Differences are in directory layout and
 
 ## Later priorities
 
-These are deferred until detection format coverage is solid:
+These are future directions beyond the current detection baseline and first-batch text/task support:
 
 ### Task support
 
+- ✅ First-batch RL/evaluation task datasets — `panlabel text ...` with canonical task IR JSONL, RLVR-HF rows, Verifiers tasksets, Harbor directories, and read-only SWE-bench import
+- ⏳ Terminal-Bench compatibility — validate current Terminal-Bench task layouts against Harbor fixtures first; add a separate adapter only where layout or semantics differ
+- ⏳ Remote Hugging Face task import — possible future extension for RLVR/SWE-bench-style datasets, separate from current local file/directory support
+- ⏳ Broader text dataset milestones — prompt/completion, chat, preference, and plain-text examples beyond the first-batch `task` kind
+- ⏳ Possible SWE-bench writing — only if panlabel can preserve enough required benchmark semantics without pretending generated rows are runnable upstream benchmark instances
+- ⏳ OpenEnv static extraction — parked; focus only on static config/data if a future use case needs it, not runtime server protocol conversion
+- ⏳ NeMo Gym static extraction — parked; focus only on static HF/config-like artifacts if a future use case needs it, not runtime framework conversion
 - ⏳ Evaluate IR design options for segmentation support
 - ⏳ Evaluate IR design options for classification-only support
 

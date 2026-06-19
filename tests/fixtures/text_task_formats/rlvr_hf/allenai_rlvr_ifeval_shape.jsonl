@@ -1,0 +1,1 @@
+{"messages":[{"role":"user","content":"Describe IPv6 in lowercase."}],"ground_truth":"{\"func_name\":\"validate_lowercase\",\"N\":null,\"keyword_list\":null}","dataset":"ifeval","constraint_type":"All Lowercase","constraint":"Your entire response should be in English, and in all lowercase letters."}

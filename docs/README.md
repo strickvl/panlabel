@@ -6,8 +6,12 @@ what you need here.
 
 ## What does panlabel support today?
 
-Panlabel currently supports **mainstream/static-image 2D axis-aligned object detection bounding boxes**. It can read and
-write these formats:
+Panlabel currently supports two separate command families:
+
+1. **Mainstream/static-image 2D axis-aligned object detection bounding boxes** through the top-level commands (`panlabel convert`, `panlabel validate`, etc.).
+2. **First-batch text/task datasets for agentic RL and evaluation tasks** through `panlabel text ...`.
+
+The top-level object-detection commands can read and write these formats:
 
 - **IR JSON** (`ir-json`) — panlabel's own lossless intermediate representation
 - **COCO JSON** (`coco` / `coco-json`) — the widely-used COCO format
@@ -49,9 +53,19 @@ write these formats:
 - **Edge Impulse labels JSON** (`edge-impulse` / `edge-impulse-labels`) — `bounding_boxes.labels`
 - **ASAM OpenLABEL JSON** (`openlabel` / `asam-openlabel` / `openlabel-json`) — static-image 2D bbox subset
 
+The separate `panlabel text ...` commands support these text/task formats:
+
+- **Text/task IR JSONL** (`text-ir-jsonl`) — canonical task examples plus metadata sidecar and optional artifact directory
+- **RLVR-HF** (`rlvr-hf` / `rlvr` / `hf-rlvr`) — generic Hugging Face-style JSONL/JSON task rows
+- **Verifiers taskset** (`verifiers-taskset` / `verifiers`) — materialized task rows with environment/rubric files preserved as artifacts
+- **Harbor** (`harbor`) — task directories with `instruction.md`, `task.toml`, verifier tests, solutions, and environment files
+- **SWE-bench** (`swe-bench` / `swebench`) — read-only benchmark import; patches are preserved as artifacts
+
+Task-format guardrail: panlabel copies or references reward, verifier, harness, runtime, and solution artifacts when possible. It does not execute, import, translate, or synthesize their behavior.
+
 Not yet supported as first-class tasks: segmentation, keypoints/pose, oriented bounding boxes (OBB),
-video tracking IDs, 3D/multisensor labels, or classification-only label formats.
-When these richer structures appear inside broad schemas, panlabel skips/reports them or treats the conversion as lossy.
+video tracking IDs, 3D/multisensor labels, classification-only label formats, Terminal-Bench legacy task directories, OpenEnv runtimes, or NeMo Gym runtimes.
+When richer structures appear inside broad schemas, panlabel skips/reports them or treats the conversion as lossy.
 See the [roadmap](../ROADMAP.md) for what's planned.
 
 ## Which page do I need?
@@ -74,6 +88,13 @@ behavior lives:
 | Topic | Primary source |
 |---|---|
 | CLI commands, flags, auto-detection | `src/lib.rs` |
+| Text/task command implementation | `src/commands/text.rs` |
+| Text/task format catalog | `src/text_format_catalog.rs` |
+| Text/task auto-detection | `src/text_format_detection.rs` |
+| Text/task IR model and artifact handling | `src/ir_text/model.rs`, `src/ir_text/artifact.rs` |
+| Text/task adapters | `src/ir_text/io_text_ir_jsonl.rs`, `src/ir_text/io_rlvr_hf.rs`, `src/ir_text/io_verifiers_taskset.rs`, `src/ir_text/io_harbor.rs`, `src/ir_text/io_swe_bench.rs` |
+| Text/task conversion reports and `TASK-*` codes | `src/conversion_text/` |
+| Text/task validation | `src/validation_text/` |
 | COCO format behavior | `src/ir/io_coco_json.rs` |
 | IBM Cloud Annotations behavior | `src/ir/io_cloud_annotations_json.rs` |
 | CVAT XML format behavior | `src/ir/io_cvat_xml.rs` |
@@ -115,6 +136,7 @@ behavior lives:
 | Lossiness logic | `src/conversion/mod.rs` |
 | Stable conversion issue codes | `src/conversion/report.rs` |
 | User-visible CLI behavior tests | `tests/cli.rs` |
+| Text/task CLI behavior tests and fixtures | `tests/text_task_cli.rs`, `tests/fixtures/text_task_formats/` |
 | Format roundtrip behavior tests | `tests/*_roundtrip.rs` |
 | Property-based adapter invariants | `tests/proptest_*.rs` + `tests/proptest_helpers/mod.rs` |
 | Fuzz parser coverage | `fuzz/fuzz_targets/*.rs` + `fuzz/corpus/*` |

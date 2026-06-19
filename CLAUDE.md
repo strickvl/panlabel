@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Panlabel is a Rust library and CLI tool for converting between different object detection annotation formats (COCO, TensorFlow Object Detection, etc.). The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
+Panlabel is a Rust library and CLI tool for converting between object detection annotation formats (COCO, TensorFlow Object Detection, etc.) and first-batch text/task datasets for agentic RL/evaluation workflows. The project is structured as both a library (`src/lib.rs`) and a binary (`src/main.rs`), allowing use as a dependency or standalone CLI.
 
-Scope guardrail: panlabel currently covers mainstream/static-image 2D axis-aligned object-detection bbox conversion. It does not provide first-class segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels; richer source structures are skipped/reported or treated as lossy.
+Scope guardrail: panlabel's top-level commands cover mainstream/static-image 2D axis-aligned object-detection bbox conversion. It does not provide first-class segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels; richer source structures are skipped/reported or treated as lossy. Text/task formats live under `panlabel text ...`; reward, verifier, harness, runtime, environment, and solution artifacts are copied or referenced when possible, but panlabel does not execute, import, translate, or synthesize their behavior.
 
-**Status:** Active development (v0.6.0) - Full CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, VIA CSV, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records), YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, Datumaro JSON, WIDER Face TXT, OIDv4 TXT, BDD100K/Scalabel JSON, V7 Darwin JSON, Edge Impulse `bounding_boxes.labels`, ASAM OpenLABEL JSON (2D bbox subset), and IR JSON with lossiness tracking.
+**Status:** Active development (v0.6.0) - Full object-detection CLI with convert, validate, stats, diff, sample, and list-formats commands. Supports COCO JSON, CVAT XML, Label Studio JSON, Labelbox JSON/NDJSON, Scale AI JSON, Unity Perception JSON, LabelMe JSON, CreateML JSON, IBM Cloud Annotations JSON, VoTT CSV, VoTT JSON, KITTI, VIA JSON, VIA CSV, RetinaNet Keras CSV, OpenImages CSV, Kaggle Wheat CSV, Google Cloud AutoML Vision CSV, Udacity Self-Driving Car CSV, TFOD CSV, TFRecord (single-file uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records), YOLO directory format (flat Darknet-style and split-aware layouts, with optional confidence token), YOLO Keras / YOLOv4 PyTorch absolute-coordinate TXT, Pascal VOC XML directory format, HF ImageFolder, AWS SageMaker Ground Truth manifest, SuperAnnotate JSON, Supervisely JSON, Cityscapes JSON, Marmot XML, Datumaro JSON, WIDER Face TXT, OIDv4 TXT, BDD100K/Scalabel JSON, V7 Darwin JSON, Edge Impulse `bounding_boxes.labels`, ASAM OpenLABEL JSON (2D bbox subset), and IR JSON with lossiness tracking. Also supports `panlabel text convert/validate/list-formats` for `text-ir-jsonl`, `rlvr-hf`, `verifiers-taskset` (`verifiers`), `harbor`, and read-only `swe-bench` task datasets.
 
 ## Agent skills
 
@@ -37,7 +37,8 @@ cargo run -- -V          # Run with arguments (e.g., version flag)
 ### Testing
 ```bash
 cargo test               # Run all tests (unit + integration + proptests)
-cargo test --test cli    # Run only CLI integration tests
+cargo test --test cli    # Run object-detection CLI integration tests
+cargo test --test text_task_cli  # Run text/task CLI integration tests
 cargo test --test proptest_ir_json
 cargo test --test proptest_coco
 cargo test --test proptest_tfod
@@ -166,16 +167,27 @@ src/
 ├── validation/         # Dataset validation
 │   ├── mod.rs          # validate_dataset() function
 │   └── report.rs       # ValidationReport formatting
-├── conversion/         # Format conversion reporting
+├── conversion/         # Object-detection format conversion reporting
 │   ├── mod.rs          # build_conversion_report(), Format enum, IrLossiness
 │   └── report.rs       # ConversionReport with lossiness warnings
+├── ir_text/            # Text/task IR, artifact handling, and task-format adapters
+│   ├── model.rs        # TextDataset, task examples, reward/runtime/harness descriptors
+│   ├── artifact.rs     # Artifact path validation, manifests, write plans, copying
+│   ├── io_text_ir_jsonl.rs # Canonical text/task IR JSONL reader/writer
+│   ├── io_rlvr_hf.rs   # Generic HF-style RLVR task rows
+│   ├── io_verifiers_taskset.rs # Materialized Verifiers task rows + artifact refs
+│   ├── io_harbor.rs    # Harbor task directory reader/writer
+│   └── io_swe_bench.rs # SWE-bench read-only import
+├── conversion_text/    # Text/task conversion reports and TASK-* issue codes
+├── validation_text/    # Text/task validation reports
 └── stats/              # Dataset statistics + HTML/text/JSON reporting
     ├── mod.rs          # stats_dataset() function
     ├── report.rs       # StatsReport with terminal formatting
     └── html.rs         # Self-contained HTML report renderer
 
 tests/
-├── cli.rs              # CLI integration tests using assert_cmd
+├── cli.rs              # Object-detection CLI integration tests using assert_cmd
+├── text_task_cli.rs    # Text/task CLI tests for conversion, validation, detection, artifacts, and non-execution
 ├── common/mod.rs       # Shared BMP helpers for YOLO-related tests
 ├── proptest_helpers/mod.rs # Shared proptest strategies + semantic assertions
 ├── proptest_*.rs       # Property tests per adapter + cross-format subset checks
@@ -238,23 +250,29 @@ docs/
 - User-facing reference docs live in `docs/`.
 - Forward-looking priorities live in `ROADMAP.md`.
 - `design/` documents are historical context only and may be stale after implementation.
+- `docs/plans/` contains orchestration/working plans. Do not update or commit files there unless the task explicitly asks for a durable plan document; implemented behavior belongs in user docs and tests.
 - Source of truth for docs accuracy:
-  - CLI and auto-detection: `src/lib.rs`
-  - Format adapters: `src/ir/io_*.rs`
-  - Lossiness/report codes: `src/conversion/*`
-  - User-visible behavior checks: `tests/cli.rs`, `tests/*_roundtrip.rs`, and `tests/proptest_*.rs`
+  - Object-detection CLI and auto-detection: `src/lib.rs`, `src/format_detection.rs`
+  - Object-detection format adapters: `src/ir/io_*.rs`
+  - Object-detection lossiness/report codes: `src/conversion/*`
+  - Text/task CLI and auto-detection: `src/commands/text.rs`, `src/text_format_detection.rs`
+  - Text/task adapters and artifact handling: `src/ir_text/`
+  - Text/task lossiness/report codes: `src/conversion_text/*`
+  - User-visible behavior checks: `tests/cli.rs`, `tests/text_task_cli.rs`, `tests/*_roundtrip.rs`, and `tests/proptest_*.rs`
 
 If command behavior, format semantics, or conversion issue codes change, update `docs/` in the same change.
 
 ### Adding a new format adapter
 
-When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), update **all** of the following in the same change so the docs do not drift:
+When adding a new object-detection format adapter (any new `src/ir/io_*.rs` reader/writer), update **all** of the following in the same change so the docs do not drift:
 
 - `README.md` — add a row to the **Supported formats** table. Only add a Quick-start example if the format is a name-recognizable platform (e.g. SuperAnnotate, Supervisely, SageMaker) or has a meaningfully different invocation. Don't add a Quick-start line for every format.
 - `CLAUDE.md` — append the format to the project-status `Supports …` line, the `src/ir/` tree comment, the `tests/` tree comment (new roundtrip test), and the auto-detection rules under "Convert with Auto-Detection" if applicable.
 - `AGENTS.md` — append the new `io_*.rs` to the `src/ir/` description line, and any new `tests/*_roundtrip.rs` to the test list line.
 - `docs/README.md` — both the **What does panlabel support today?** list and the **source of truth map** must include the new format.
 - `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md` — these are the source-of-truth docs. The repo-root README is the storefront and goes stale fastest, which is why it's listed first.
+
+When adding a new text/task format adapter (any new `src/ir_text/io_*.rs` reader/writer), update `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/README.md`, `docs/formats.md`, `docs/cli.md`, `docs/tasks.md`, `docs/conversion.md`, and focused tests such as `tests/text_task_cli.rs`. Preserve the first-batch guardrail unless a design change explicitly says otherwise: panlabel may copy/reference executable artifacts, but it should not execute, import, translate, or synthesize reward/harness/runtime behavior.
 
 ## CLI Commands
 
@@ -265,7 +283,10 @@ When adding a new format adapter (any new `src/ir/io_*.rs` reader/writer), updat
 | `stats` | Display statistics (counts, label histogram, bbox quality metrics) |
 | `diff` | Compare two datasets semantically |
 | `sample` | Create subset datasets (random or stratified), with JSON report output available |
-| `list-formats` | Show supported formats with read/write and lossiness info, including JSON discovery output |
+| `list-formats` | Show supported object-detection formats with read/write and lossiness info, including JSON discovery output |
+| `text convert` | Convert text/task datasets under the separate `panlabel text ...` namespace |
+| `text validate` | Validate text/task datasets and artifact references |
+| `text list-formats` | Show supported text/task formats with read/write and lossiness info |
 
 ### Machine-readable output
 

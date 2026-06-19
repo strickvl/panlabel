@@ -17,8 +17,12 @@ formats — with built-in validation, clear lossiness warnings, and no Python
 dependencies to manage.
 
 Panlabel’s current core scope is **mainstream/static-image 2D axis-aligned object-detection bbox conversion**.
-It does **not** provide first-class segmentation, keypoints/pose, oriented boxes, video tracking IDs, or 3D/multisensor labels.
+It also has a separate first-batch **text/task dataset** command group for agentic RL and evaluation-task rows.
+Those task formats live under `panlabel text ...`; the top-level `convert`, `validate`, `stats`, `diff`, and `sample` commands remain object-detection commands.
+
+Panlabel does **not** provide first-class segmentation, keypoints/pose, oriented boxes, video tracking IDs, 3D/multisensor labels, or executable RL environment translation.
 When broad schemas include richer structures, panlabel either skips/reports those structures or treats the conversion as lossy.
+For task datasets, reward, verifier, harness, runtime, and solution files are copied or referenced when possible; panlabel does not import, execute, or synthesize their behavior.
 
 Panlabel is also available as a Rust library if you want to integrate format
 conversion into your own tools.
@@ -103,8 +107,14 @@ panlabel diff --format-a auto --format-b auto old.json new.json
 # Sample a smaller subset for quick experiments
 panlabel sample -i annotations.json -o sample.ir.json --from auto --to ir-json -n 100 --seed 42
 
-# See every supported format and its capabilities
+# See every supported object-detection format and its capabilities
 panlabel list-formats
+
+# Convert Hugging Face-style RLVR task rows to Panlabel's text/task IR
+panlabel text convert --from rlvr-hf --to text-ir-jsonl -i tasks.jsonl -o tasks.text.jsonl
+
+# See supported text/task formats
+panlabel text list-formats
 ```
 
 The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` — pick any source/destination from the [Supported formats](#supported-formats) table. See [More convert examples](#more-convert-examples) below for lossless vs. lossy conversions, machine-readable JSON reports, dry runs, and remote Hugging Face datasets.
@@ -118,7 +128,10 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `stats` | Show rich dataset statistics in text, JSON, or HTML |
 | `diff` | Compare two datasets semantically (summary or detailed output) |
 | `sample` | Create subset datasets (random or stratified), with optional category filtering and JSON reports |
-| `list-formats` | Show which formats are supported and their read/write/lossiness capabilities, including JSON discovery output |
+| `list-formats` | Show which object-detection formats are supported and their read/write/lossiness capabilities, including JSON discovery output |
+| `text convert` | Convert text/task datasets under the separate `panlabel text ...` namespace |
+| `text validate` | Validate text/task datasets and artifact references |
+| `text list-formats` | Show supported text/task formats and their read/write/lossiness capabilities |
 
 ## Supported formats
 
@@ -164,7 +177,23 @@ The `convert` shape is always `-f <source> -t <dest> -i <input> -o <output>` —
 | `openlabel` | `.json` | ASAM OpenLABEL JSON static-image 2D bbox subset | Lossy |
 | `via-csv` | `.csv` | VGG Image Annotator CSV (separate format from VIA JSON) | Lossy |
 
-Run `panlabel list-formats` for the full details, or `panlabel list-formats --output json` for machine-readable format discovery.
+Run `panlabel list-formats` for the full object-detection details, or `panlabel list-formats --output json` for machine-readable format discovery.
+
+## Supported text/task formats
+
+These formats are intentionally separate from the object-detection table above. Use `panlabel text ...`, not top-level `panlabel convert`, for them.
+
+| Format | Extension / Layout | Read | Write | Notes |
+|--------|--------------------|------|-------|-------|
+| `text-ir-jsonl` | `tasks.jsonl` plus optional `tasks.meta.json` and artifact directory | yes | yes | Panlabel's canonical text/task IR for task examples |
+| `rlvr-hf` | JSONL/JSON rows or split JSONL directory | yes | yes | Generic Hugging Face-style RLVR rows; detects prompt/question, answer/gold answer, ID, and split columns |
+| `verifiers-taskset` (`verifiers`) | JSONL rows or directory with `dataset.jsonl`, `train.jsonl`, or `eval.jsonl` | yes | yes | Materialized Verifiers task rows; Python environment/rubric files are preserved by reference/copy, not executed |
+| `harbor` | Harbor task directory with `instruction.md` and `task.toml` | yes | yes | Copies native `tests/`, `solution/`, and `environment/` artifacts when available; placeholder verifier output requires `--scaffold` |
+| `swe-bench` (`swebench`) | JSONL/JSON rows or split directory | yes | no | Read-only import; patch fields are preserved as artifacts, not appended to task prompt text |
+
+Deferred or parked task formats: Terminal-Bench legacy layouts, OpenEnv runtimes, and NeMo Gym runtimes are not supported as task converters in this first batch.
+
+Run `panlabel text list-formats` for text output, or `panlabel text list-formats --output-format json` for machine-readable task-format discovery.
 
 TFRecord support in v1 is intentionally narrow: panlabel currently supports only single-file, uncompressed TensorFlow Object Detection API-style `tf.train.Example` bbox records (not arbitrary TFRecord payloads).
 
@@ -191,6 +220,12 @@ panlabel convert --from auto -t coco -i input.csv -o output.json --dry-run
 # Convert a remote Hugging Face dataset repo to COCO JSON
 # (requires --features hf when building from source)
 panlabel convert -f hf -t coco --hf-repo rishitdagli/cppe-5 --split train -o coco_output.json
+
+# Convert task rows under the separate text/task command group
+panlabel text convert --from auto --to text-ir-jsonl -i rlvr_tasks.jsonl -o tasks.text.jsonl
+
+# Convert a Harbor task to RLVR-HF rows, accepting reported loss of executable behavior
+panlabel text convert --from harbor --to rlvr-hf -i ./harbor_task -o tasks.rlvr.jsonl --allow-lossy
 
 # Convert a zip-style HF dataset repo split to IR JSON (auto-detects extracted payload)
 panlabel convert -f hf -t ir-json --hf-repo keremberke/football-object-detection --split train -o football.ir.json

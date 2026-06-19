@@ -3061,6 +3061,54 @@ fn list_formats_json_output_has_expected_schema() {
 }
 
 #[test]
+fn text_list_formats_json_output_has_expected_schema() {
+    let mut cmd = cargo_bin_cmd!("panlabel");
+    cmd.args(["text", "list-formats", "--output", "json"]);
+
+    let output = cmd.output().expect("run command");
+    assert!(output.status.success());
+
+    let (stdout, parsed) = stdout_json(&output);
+    assert_compact_json(&stdout);
+    let formats = parsed.as_array().expect("top-level array");
+    assert_eq!(
+        formats.len(),
+        5,
+        "foundation pass exposes five task formats"
+    );
+
+    let text_ir = formats
+        .iter()
+        .find(|entry| entry["name"] == "text-ir-jsonl")
+        .expect("text-ir-jsonl entry");
+    assert_eq!(text_ir["domain"], "text");
+    assert_eq!(text_ir["read"], true);
+    assert_eq!(text_ir["write"], true);
+    assert_eq!(text_ir["lossiness"], "lossless");
+    assert_eq!(text_ir["file_based"], true);
+    assert_eq!(text_ir["directory_based"], true);
+
+    let verifiers = formats
+        .iter()
+        .find(|entry| entry["name"] == "verifiers-taskset")
+        .expect("verifiers-taskset entry");
+    let aliases = verifiers["aliases"]
+        .as_array()
+        .expect("aliases array")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(aliases.contains(&"verifiers"));
+
+    let swe_bench = formats
+        .iter()
+        .find(|entry| entry["name"] == "swe-bench")
+        .expect("swe-bench entry");
+    assert_eq!(swe_bench["read"], true);
+    assert_eq!(swe_bench["write"], false);
+}
+
+#[test]
 fn list_formats_output_format_alias_works() {
     let mut cmd = cargo_bin_cmd!("panlabel");
     cmd.args(["list-formats", "--output-format", "json"]);

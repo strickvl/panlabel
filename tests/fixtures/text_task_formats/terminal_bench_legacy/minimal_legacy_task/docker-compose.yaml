@@ -1,0 +1,4 @@
+services:
+  client:
+    build: .
+    command: sleep infinity

@@ -2,7 +2,9 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::conversion::ConversionReport;
+use crate::conversion_text::TextConversionReport;
 use crate::validation::ValidationReport;
+use crate::validation_text::TextValidationReport;
 
 /// The main error type for panlabel operations.
 #[derive(Debug, Error)]
@@ -701,6 +703,39 @@ pub enum PanlabelError {
     #[error("Failed to write HF metadata.jsonl at {path}: {message}")]
     HfWriteError { path: PathBuf, message: String },
 
+    #[error("Failed to parse Text IR JSONL at {path}, line {line}: {message}")]
+    TextIrJsonlParse {
+        path: PathBuf,
+        line: usize,
+        message: String,
+    },
+
+    #[error("Failed to parse Text IR JSON from {path}: {source}")]
+    TextIrJsonParse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to write Text IR JSON to {path}: {source}")]
+    TextIrJsonWrite {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Failed to read Text IR at {path}: {message}")]
+    TextIrReadError { path: PathBuf, message: String },
+
+    #[error("Failed to write Text IR at {path}: {message}")]
+    TextIrWriteError { path: PathBuf, message: String },
+
+    #[error("Invalid text artifact path {path}: {message}")]
+    TextArtifactInvalid { path: PathBuf, message: String },
+
+    #[error("Text artifact not found: {path}")]
+    TextArtifactMissing { path: PathBuf },
+
     #[error("Failed to parse SageMaker Ground Truth manifest at {path}, line {line}: {message}")]
     SageMakerManifestParse {
         path: PathBuf,
@@ -739,6 +774,20 @@ pub enum PanlabelError {
         error_count: usize,
         warning_count: usize,
         report: ValidationReport,
+    },
+
+    #[error("Text validation failed with {error_count} error(s) and {warning_count} warning(s)")]
+    TextValidationFailed {
+        error_count: usize,
+        warning_count: usize,
+        report: TextValidationReport,
+    },
+
+    #[error("Lossy text conversion from {from} to {to} is blocked — {warning_count} warning(s) found (use --allow-lossy to proceed; see report above)", warning_count = report.warning_count())]
+    TextLossyConversionBlocked {
+        from: String,
+        to: String,
+        report: Box<TextConversionReport>,
     },
 
     #[error("Unsupported format: {0}")]

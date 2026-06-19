@@ -8,7 +8,7 @@ tells you exactly what would be lost and asks you to opt in with `--allow-lossy`
 Scope reminder: panlabel focuses on mainstream/static-image 2D axis-aligned object-detection bbox conversion.
 Segmentation, keypoints/pose, oriented boxes, video tracking IDs, and 3D/multisensor labels are out of first-class scope; richer structures are skipped/reported or handled as lossy.
 
-Every `convert` command generates a report explaining what happened.
+Every `convert` command generates a report explaining what happened. The text/task command group (`panlabel text convert`) has a parallel report shape with task/example counts and `TASK-*` issue codes.
 
 ## Lossiness model
 
@@ -261,6 +261,57 @@ These codes are designed to be stable for programmatic use.
 | `udacity_reader_id_assignment` | Udacity reader deterministic ID assignment policy |
 | `udacity_writer_row_order` | Udacity writer deterministic row ordering |
 
+## Text/task conversion reports
+
+`panlabel text convert --output-format json` emits this shape:
+
+```json
+{
+  "from": "harbor",
+  "to": "rlvr-hf",
+  "input": {"examples": 1, "artifacts": 3},
+  "output": {"examples": 1, "artifacts": 3},
+  "issues": [
+    {"severity": "warning", "stage": "analysis", "code": "TASK-HARNESS-NONPORTABLE", "message": "..."},
+    {"severity": "info", "stage": "target_writer", "code": "TASK-ARTIFACT-PRESERVED", "message": "..."}
+  ]
+}
+```
+
+Task report severities have the same blocking rule as object-detection reports:
+
+- `warning`: real information or behavior loss risk; conversion is blocked unless `--allow-lossy` is set
+- `info`: preservation or mapping note; never blocks conversion
+
+Task artifact behavior is deliberately conservative:
+
+- Panlabel can copy a verifier script, Dockerfile, patch, solution file, or Python rubric file.
+- Panlabel can rewrite task rows so artifact references point at the copied destination.
+- Panlabel does not execute, import, translate, or synthesize reward, verifier, harness, runtime, environment, or solution behavior.
+- `--artifact-policy drop` removes artifact references and reports a lossy task warning when artifacts existed.
+- Harbor output without an executable verifier fails unless `--scaffold` is set. `--scaffold` writes a fail-fast placeholder verifier and reports `TASK-REWARD-STUB`.
+
+### Task warning codes
+
+| Code | Meaning |
+|---|---|
+| `TASK-REWARD-NONPORTABLE` | Reward behavior exists but cannot be represented as equivalent executable behavior in the target format |
+| `TASK-REWARD-DROPPED` | Reward or artifact references were dropped |
+| `TASK-REWARD-STUB` | Target output contains a placeholder/fail-fast reward or verifier that must be replaced before use |
+| `TASK-RUNTIME-DROPPED` | Runtime/environment requirements cannot be represented in the target format |
+| `TASK-HARNESS-NONPORTABLE` | Harness behavior cannot be translated into equivalent target behavior |
+| `TASK-SOLUTION-DROPPED` | Solution artifacts or references are not represented in the target output |
+| `TASK-METADATA-DROPPED` | Task metadata cannot be represented in the target format |
+
+### Task info codes
+
+| Code | Meaning |
+|---|---|
+| `TASK-ARTIFACT-PRESERVED` | Artifacts were copied, materialized, or otherwise preserved with reported destinations |
+| `TASK-RLVR-COLUMN-MAPPING` | RLVR-HF reader/writer mapped prompt, answer, ID, or split columns into task fields |
+| `TASK-HARBOR-LAYOUT-POLICY` | Harbor reader/writer applied its task directory layout policy |
+| `TASK-SWEBENCH-PATCH-PRESERVED` | SWE-bench `patch` / `test_patch` fields were preserved as artifacts rather than prompt text |
+
 ## Blocked conversions
 
 When a conversion is blocked (lossy without `--allow-lossy`), panlabel still
@@ -268,7 +319,7 @@ emits the full conversion report to **stdout** before printing the blocking
 error to **stderr** and exiting non-zero. This means:
 
 - **Text mode** (default): the report appears on stdout with stable codes in
-  brackets (e.g. `[drop_dataset_info]`), then the error on stderr.
+  brackets (e.g. `[drop_dataset_info]` or `[TASK-REWARD-STUB]`), then the error on stderr.
 - **`--report json`**: stdout contains the full JSON report (parseable by
   downstream tools), stderr contains the concise blocking error.
 

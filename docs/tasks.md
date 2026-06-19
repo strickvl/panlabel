@@ -8,8 +8,9 @@ within those boundaries.
 
 | Task / use case | Status | Notes |
 |---|---|---|
-| Object detection (static-image, 2D axis-aligned bbox) | ✅ supported | Canonical IR task today |
-| Instance segmentation | ❌ not supported | Polygon/mask structures are not represented in IR |
+| Object detection (static-image, 2D axis-aligned bbox) | ✅ supported | Top-level `panlabel convert` / `validate` / `stats` / `diff` / `sample` commands |
+| RL/evaluation task datasets | ✅ first batch supported | Separate `panlabel text ...` commands for task rows/directories; executable behavior is copied or referenced, not translated |
+| Instance segmentation | ❌ not supported | Polygon/mask structures are not represented in detection IR |
 | Classification-only labels | ❌ not supported | No classification-only schema/adapter yet |
 | Keypoints / pose | ❌ not supported | Keypoint fields are not modeled in IR |
 | Oriented bounding boxes (OBB) | ❌ not supported | Rotated-box schema not implemented |
@@ -69,6 +70,36 @@ within those boundaries.
 
 For per-format details, see [formats.md](./formats.md).
 
+## RL/evaluation task datasets (first batch)
+
+These formats use `panlabel text ...`, not the top-level object-detection commands.
+
+The practical rule is simple:
+
+1. If a row has task data like `prompt`, `question`, `answer`, or `gold_answer`, panlabel can move that data between row formats.
+2. If a directory has files like `tests/test.sh`, `solution/solve.sh`, `environment/Dockerfile`, `rubric.py`, or `env.py`, panlabel can copy those files or record references to them.
+3. Panlabel does not run those files, import Python packages, translate reward code, call a runtime server, or prove that a converted task is executable in another framework.
+
+Supported first-batch task formats:
+
+| Format | Read | Write | Important behavior |
+|---|---|---|---|
+| `text-ir-jsonl` | yes | yes | canonical task IR JSONL plus metadata sidecar and optional artifact directory |
+| `rlvr-hf` | yes | yes | generic HF-style JSONL/JSON task rows; prompt/answer/ID/split columns are detected or overridden with flags |
+| `verifiers-taskset` (`verifiers`) | yes | yes | materialized task rows; Python rubric/environment files are preserved as artifacts, not executed or regenerated |
+| `harbor` | yes | yes | task directories with `instruction.md`, `task.toml`, and native artifact directories; placeholder verifier output requires `--scaffold` |
+| `swe-bench` (`swebench`) | yes | no | read-only import; `patch` and `test_patch` are preserved as artifacts outside prompt text |
+
+Task conversions use `TASK-*` issue codes. Warnings mean real behavior may be dropped or replaced by a placeholder, so conversion is blocked unless `--allow-lossy` is set.
+
+Task formats deliberately not supported in this first batch:
+
+| Format / system | Status | Why |
+|---|---|---|
+| Terminal-Bench legacy directories | planned investigation | Current legacy `task.yaml` / `docker-compose.yaml` layouts are close to Harbor but not identical, so they are not auto-detected as Harbor. |
+| OpenEnv | parked | Primarily a runtime protocol/server framework, not a static interchange format. |
+| NeMo Gym | parked | Primarily a runtime/environment/RL framework; future work should target static HF/config-like artifacts if needed. |
+
 ## Why panlabel rejects unsupported data instead of silently dropping it
 
 You might wonder why panlabel errors out on YOLO rows with 7+ tokens or ignores
@@ -125,14 +156,23 @@ format accepts and rejects:
 
 ## Adding a new task in the future
 
-When implementing a new task type, update these places together:
+When implementing a new detection task type, update these places together:
 
-1. IR schema in `src/ir/` (task data model)
+1. IR schema in `src/ir/` when the task belongs to image annotation data
 2. Relevant adapter behavior in `src/ir/io_*.rs`
 3. Validation and/or conversion lossiness rules as needed
 4. `docs/tasks.md` (this page)
 5. `docs/formats.md` (task notes per format)
 6. Tests that assert user-visible behavior
+
+When implementing a new text/task format, keep it under the text/task modules unless there is a deliberate design change:
+
+1. Task IR or artifact model in `src/ir_text/`
+2. Text catalog/detection in `src/text_format_catalog.rs` and `src/text_format_detection.rs`
+3. Adapter behavior in `src/ir_text/io_*.rs`
+4. Validation and conversion reports in `src/validation_text/` and `src/conversion_text/`
+5. `docs/cli.md`, `docs/formats.md`, `docs/tasks.md`, and `docs/conversion.md`
+6. Focused CLI/adapter tests, especially for non-execution and artifact preservation
 
 ## Planned docs expansion
 

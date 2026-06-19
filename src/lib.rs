@@ -15,6 +15,7 @@
 mod commands;
 
 pub mod conversion;
+pub mod conversion_text;
 pub mod diff;
 pub mod error;
 pub mod format_catalog;
@@ -22,9 +23,13 @@ pub(crate) mod format_detection;
 #[cfg(feature = "hf-remote")]
 pub mod hf;
 pub mod ir;
+pub mod ir_text;
 pub mod sample;
 pub mod stats;
+pub mod text_format_catalog;
+pub mod text_format_detection;
 pub mod validation;
+pub mod validation_text;
 
 use std::fs::File;
 use std::io::{BufReader, IsTerminal, Write};
@@ -59,6 +64,11 @@ enum Commands {
     Sample(SampleArgs),
     /// List supported formats and their capabilities.
     ListFormats(ListFormatsArgs),
+    /// Work with text/task datasets.
+    Text {
+        #[command(subcommand)]
+        command: TextCommands,
+    },
 }
 
 /// Supported formats for conversion.
@@ -895,10 +905,199 @@ pub(crate) struct ListFormatsArgs {
     output_format: ReportFormat,
 }
 
+#[derive(Subcommand)]
+pub(crate) enum TextCommands {
+    /// Convert a text/task dataset between formats.
+    Convert(TextConvertArgs),
+    /// Validate a text/task dataset.
+    Validate(TextValidateArgs),
+    /// List supported text/task formats and their capabilities.
+    ListFormats(TextListFormatsArgs),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum TextConvertFromFormat {
+    #[value(name = "auto")]
+    Auto,
+    #[value(name = "text-ir-jsonl")]
+    TextIrJsonl,
+    #[value(name = "rlvr-hf", alias = "rlvr", alias = "hf-rlvr")]
+    RlvrHf,
+    #[value(name = "verifiers-taskset", alias = "verifiers")]
+    VerifiersTaskset,
+    #[value(name = "harbor")]
+    Harbor,
+    #[value(name = "swe-bench", alias = "swebench")]
+    SweBench,
+}
+
+impl TextConvertFromFormat {
+    pub(crate) fn as_concrete(self) -> Option<text_format_catalog::TextFormat> {
+        match self {
+            Self::Auto => None,
+            Self::TextIrJsonl => Some(text_format_catalog::TextFormat::TextIrJsonl),
+            Self::RlvrHf => Some(text_format_catalog::TextFormat::RlvrHf),
+            Self::VerifiersTaskset => Some(text_format_catalog::TextFormat::VerifiersTaskset),
+            Self::Harbor => Some(text_format_catalog::TextFormat::Harbor),
+            Self::SweBench => Some(text_format_catalog::TextFormat::SweBench),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum TextConvertFormat {
+    #[value(name = "text-ir-jsonl")]
+    TextIrJsonl,
+    #[value(name = "rlvr-hf", alias = "rlvr", alias = "hf-rlvr")]
+    RlvrHf,
+    #[value(name = "verifiers-taskset", alias = "verifiers")]
+    VerifiersTaskset,
+    #[value(name = "harbor")]
+    Harbor,
+}
+
+impl TextConvertFormat {
+    pub(crate) fn to_text_format(self) -> text_format_catalog::TextFormat {
+        match self {
+            Self::TextIrJsonl => text_format_catalog::TextFormat::TextIrJsonl,
+            Self::RlvrHf => text_format_catalog::TextFormat::RlvrHf,
+            Self::VerifiersTaskset => text_format_catalog::TextFormat::VerifiersTaskset,
+            Self::Harbor => text_format_catalog::TextFormat::Harbor,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum TextArtifactPolicyArg {
+    Copy,
+    Reference,
+    Drop,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct TextConvertArgs {
+    /// Source format (use 'auto' for automatic detection).
+    #[arg(long = "from", value_enum, default_value = "auto")]
+    from: TextConvertFromFormat,
+
+    /// Target format.
+    #[arg(long = "to", value_enum)]
+    to: TextConvertFormat,
+
+    /// Input path.
+    #[arg(short = 'i', long = "input")]
+    input: PathBuf,
+
+    /// Output path.
+    #[arg(short = 'o', long = "output")]
+    output: PathBuf,
+
+    /// Optional split name for row-based imports.
+    #[arg(long = "split")]
+    split: Option<String>,
+
+    /// Override the prompt/input column for RLVR-HF imports.
+    #[arg(long = "prompt-column")]
+    prompt_column: Option<String>,
+
+    /// Override the answer/gold-answer column for RLVR-HF imports.
+    #[arg(long = "answer-column")]
+    answer_column: Option<String>,
+
+    /// Override the ID column for RLVR-HF imports.
+    #[arg(long = "id-column")]
+    id_column: Option<String>,
+
+    /// Override the split column for row-based imports.
+    #[arg(long = "split-column")]
+    split_column: Option<String>,
+
+    /// How to handle artifact files when the target cannot place them natively.
+    #[arg(long = "artifact-policy", value_enum, default_value = "copy")]
+    artifact_policy: TextArtifactPolicyArg,
+
+    /// Allow placeholder Harbor verifier output where needed.
+    #[arg(long = "scaffold")]
+    scaffold: bool,
+
+    /// Treat validation warnings as errors.
+    #[arg(long)]
+    strict: bool,
+
+    /// Skip input validation entirely.
+    #[arg(long = "no-validate")]
+    no_validate: bool,
+
+    /// Allow conversions that drop or cannot represent task behavior.
+    #[arg(long = "allow-lossy")]
+    allow_lossy: bool,
+
+    /// Run detection/validation/reporting without writing output files.
+    #[arg(long = "dry-run")]
+    dry_run: bool,
+
+    /// Output format for the conversion report.
+    #[arg(
+        long = "output-format",
+        visible_alias = "report",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct TextValidateArgs {
+    /// Input path.
+    input: PathBuf,
+
+    /// Source format (or auto-detect).
+    #[arg(long = "format", value_enum, default_value = "auto")]
+    format: TextConvertFromFormat,
+
+    /// Treat validation warnings as errors.
+    #[arg(long)]
+    strict: bool,
+
+    /// Output format for the validation report.
+    #[arg(
+        long = "output-format",
+        visible_alias = "output",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct TextListFormatsArgs {
+    /// Output format for the text/task format catalog.
+    #[arg(
+        long = "output-format",
+        visible_alias = "output",
+        value_enum,
+        default_value_t = ReportFormat::Text
+    )]
+    output_format: ReportFormat,
+}
+
 #[derive(serde::Serialize)]
 struct ListFormatEntry {
     name: &'static str,
     aliases: &'static [&'static str],
+    read: bool,
+    write: bool,
+    lossiness: &'static str,
+    description: &'static str,
+    file_based: bool,
+    directory_based: bool,
+}
+
+#[derive(serde::Serialize)]
+pub(crate) struct TextListFormatEntry {
+    name: &'static str,
+    aliases: &'static [&'static str],
+    domain: &'static str,
     read: bool,
     write: bool,
     lossiness: &'static str,
@@ -921,6 +1120,7 @@ pub fn run() -> Result<(), PanlabelError> {
         Some(Commands::Diff(args)) => commands::diff::run(args, output),
         Some(Commands::Sample(args)) => commands::sample::run(args, output),
         Some(Commands::ListFormats(args)) => commands::list_formats::run(args, output),
+        Some(Commands::Text { command }) => commands::text::run(command, output),
         None => {
             // No subcommand: just print help hint and exit successfully
             // This keeps backward compatibility with the existing test
@@ -1460,6 +1660,25 @@ fn list_format_entries() -> Vec<ListFormatEntry> {
             read: true,
             write: true,
             lossiness: format_catalog::lossiness_name(entry.format.lossiness_relative_to_ir()),
+            description: entry.description,
+            file_based: entry.file_based,
+            directory_based: entry.directory_based,
+        })
+        .collect()
+}
+
+pub(crate) fn list_text_format_entries() -> Vec<TextListFormatEntry> {
+    text_format_catalog::TEXT_FORMAT_CATALOG
+        .iter()
+        .map(|entry| TextListFormatEntry {
+            name: entry.format.name(),
+            aliases: entry.aliases,
+            domain: "text",
+            read: entry.read,
+            write: entry.write,
+            lossiness: text_format_catalog::text_lossiness_name(
+                entry.format.lossiness_relative_to_text_ir(),
+            ),
             description: entry.description,
             file_based: entry.file_based,
             directory_based: entry.directory_based,

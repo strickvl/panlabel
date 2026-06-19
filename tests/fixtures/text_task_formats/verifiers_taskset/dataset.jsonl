@@ -1,0 +1,2 @@
+{"prompt":[{"role":"user","content":"What is 2+2?"}],"answer":"4","info":"{\"source\":\"synthetic\",\"difficulty\":1}","max_turns":1}
+{"question":"Reverse abc.","answer":"cba","info":{"source":"synthetic","difficulty":1},"max_turns":1}

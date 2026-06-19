@@ -313,6 +313,10 @@ fn rewrite_artifact_refs(artifacts: &mut [ArtifactRef], rewrites: &HashMap<&str,
     }
 }
 
+fn portable_path_string(path: impl AsRef<Path>) -> String {
+    path.as_ref().to_string_lossy().replace('\\', "/")
+}
+
 fn sidecar_target_refs(
     output_path: &Path,
     layout: ArtifactOutputLayout,
@@ -341,8 +345,8 @@ fn sidecar_target_refs(
     };
     let suffix = Path::new(safe_id).join(artifact_path);
     (
-        target_root.join(&suffix).to_string_lossy().to_string(),
-        record_root.join(suffix).to_string_lossy().to_string(),
+        portable_path_string(target_root.join(&suffix)),
+        portable_path_string(record_root.join(suffix)),
     )
 }
 
